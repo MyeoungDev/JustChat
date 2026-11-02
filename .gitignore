@@ -1,0 +1,7 @@
+node_modules/
+.omx/
+out/
+dist/
+release/
+coverage/
+.DS_Store

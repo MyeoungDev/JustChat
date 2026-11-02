@@ -1,0 +1,65 @@
+* { box-sizing: border-box; }
+html, body, #root { width: 100%; height: 100%; margin: 0; overflow: hidden; }
+body { color: #262521; background: #f6f6f4; font: 13px/1.45 Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; }
+button, input { color: inherit; font: inherit; }
+button { cursor: pointer; }
+button:focus-visible, input:focus-visible { outline: 2px solid #5878d6; outline-offset: 2px; }
+.shell-header { position: relative; z-index: 3; height: 48px; padding: 6px 14px 0; background: #f6f6f4; border-bottom: 1px solid #e5e4df; user-select: none; -webkit-app-region: drag; }
+.brand-row { height: 35px; display: flex; align-items: center; justify-content: space-between; }
+.brand { font-weight: 650; letter-spacing: -.02em; }
+.window-actions { display: flex; gap: 5px; -webkit-app-region: no-drag; }
+.back-to-composer { height: 26px; padding: 0 9px; color: #5e5c56; background: #e9e8e3; border: 0; border-radius: 7px; font-size: 11px; -webkit-app-region: no-drag; }
+.icon-button { width: 26px; height: 25px; border: 0; border-radius: 7px; background: transparent; font-size: 16px; line-height: 1; }
+.icon-button:hover, .icon-button.selected { background: #e9e8e3; }
+.hide-button { font-size: 19px; }
+.provider-tabs { display: flex; gap: 4px; height: 36px; align-items: center; -webkit-app-region: no-drag; }
+.provider-tab { height: 26px; border: 0; border-radius: 7px; padding: 0 9px; color: #77756f; background: transparent; font-size: 12px; }
+.provider-tab.active { color: #292823; background: #e9e8e3; font-weight: 600; }
+.provider-tab:disabled { opacity: .38; cursor: default; }
+.provider-mark { padding-left: 4px; color: #8a887f; font-size: 9px; font-weight: 500; }
+.settings-panel { height: calc(100% - 48px); overflow-y: auto; background: #f6f6f4; padding: 19px 20px 14px; }
+.settings-heading { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 19px; }
+.settings-heading h1, .provider-state h1 { margin: 0; font-size: 18px; letter-spacing: -.025em; font-weight: 650; }
+.settings-heading p, .provider-state p { margin: 4px 0 0; color: #74726d; font-size: 12px; }
+.settings-content { max-width: 650px; }
+.settings-group { padding: 14px 0 10px; border-top: 1px solid #e5e4df; }
+.settings-group h2 { margin: 0 0 5px; color: #75736e; font-size: 11px; font-weight: 650; letter-spacing: .07em; text-transform: uppercase; }
+.setting-row { min-height: 54px; display: flex; align-items: center; justify-content: space-between; gap: 16px; border-bottom: 1px solid #ecebe7; }
+.setting-row:last-child { border-bottom: 0; }
+.setting-row strong, .setting-row small { display: block; }
+.setting-row strong { font-size: 12px; font-weight: 560; }
+.setting-row small { margin-top: 2px; color: #7b7973; font-size: 11px; }
+.shortcut-input { width: 142px; min-width: 0; height: 30px; padding: 0 8px; text-align: center; color: #56544f; background: #eeede9; border: 1px solid transparent; border-radius: 7px; cursor: pointer; }
+.shortcut-input.capturing { color: #3154b6; border-color: #91a5e3; background: #f0f3ff; }
+.toggle-row { cursor: pointer; }
+.toggle-row input { width: 16px; height: 16px; accent-color: #4c6cc9; }
+.setting-row select { max-width: 160px; min-height: 30px; padding: 0 8px; border: 1px solid #deddd7; border-radius: 7px; background: #f6f6f4; }
+.settings-note { margin: 8px 0 0; font-size: 11px; }
+.warning { color: #875b16; }
+.settings-footer { min-height: 20px; padding-top: 6px; color: #77756f; font-size: 11px; }
+.composer-shell { position: relative; height: calc(100% - 48px); padding: 10px 14px 8px; display: flex; flex-direction: column; justify-content: center; gap: 4px; background: #f6f6f4; }
+.composer { min-height: 136px; display: flex; flex-direction: column; justify-content: space-between; padding: 12px 13px 9px; background: #fff; border: 1px solid #e4e3df; border-radius: 17px; box-shadow: 0 3px 14px #28271e0b; }
+.composer textarea { width: 100%; min-height: 64px; max-height: 220px; resize: none; padding: 0; color: #262521; background: transparent; border: 0; outline: 0; font: inherit; font-size: 14px; line-height: 1.45; }
+.composer textarea::placeholder { color: #96948d; }
+.composer textarea:focus-visible { outline: 0; }
+.composer-footer { display: flex; align-items: center; justify-content: space-between; }
+.composer-provider { display: flex; align-items: center; gap: 7px; font-weight: 600; font-size: 11px; }
+.composer-provider span:last-child { color: #8b8982; font-weight: 400; }
+.provider-dot { width: 7px; height: 7px; display: inline-block; border-radius: 50%; background: #6d7c68; }
+.send-button { width: 32px; height: 32px; display: grid; place-items: center; color: #fff; background: #292823; border: 0; border-radius: 50%; font-size: 20px; line-height: 1; }
+.send-button:disabled { color: #8e8d88; background: #e8e7e2; cursor: default; }
+.send-button .loading-dot { width: 15px; height: 15px; border-color: #ffffff7a; border-top-color: #fff; }
+.composer-hint { color: #99978f; text-align: center; font-size: 9px; }
+.composer-feedback, .provider-error { display: flex; align-items: center; justify-content: space-between; gap: 8px; color: #785b35; font-size: 10px; }
+.provider-error { color: #8a4b3e; }
+.text-button { padding: 2px 0; color: #36342f; background: transparent; border: 0; text-decoration: underline; white-space: nowrap; font-size: 10px; }
+.shell-notice { position: absolute; z-index: 5; top: 54px; left: 14px; padding: 7px 10px; color: #45433d; background: #fff; border: 1px solid #e5e4df; border-radius: 8px; box-shadow: 0 3px 12px #25231d18; font-size: 11px; }
+.provider-state { position: absolute; z-index: 2; inset: 56px 12px auto; display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 9px 11px; color: #514331; text-align: left; background: #fff9e9; border: 1px solid #ead8aa; border-radius: 9px; box-shadow: 0 3px 12px #25231d18; font-size: 11px; }
+.provider-state h1 { font-size: 15px; }
+.provider-state p { margin: 5px 0 13px; }
+.provider-state small { margin-top: 12px; color: #83817b; font-size: 10px; }
+.primary-button { min-height: 30px; padding: 0 13px; color: #fff; background: #34332f; border: 0; border-radius: 7px; font-size: 12px; }
+.primary-button:hover { background: #4c4a45; }
+.loading-dot { width: 16px; height: 16px; border: 2px solid #d7d6d0; border-top-color: #74726d; border-radius: 50%; animation: spin .8s linear infinite; }
+@keyframes spin { to { transform: rotate(360deg); } }
+@media (prefers-reduced-motion: reduce) { .loading-dot { animation-duration: 2s; } }

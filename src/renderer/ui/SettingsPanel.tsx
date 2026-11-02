@@ -1,0 +1,93 @@
+import { useState } from 'react'
+import { acceleratorFromKeyChord, type AppSettings, type ShortcutName } from '../../shared/settings'
+
+interface SettingsPanelProps {
+  settings: AppSettings
+  shortcutFailures: string[]
+  platform: string
+  onUpdate: (patch: Partial<Pick<AppSettings, 'shortcuts' | 'alwaysOnTop' | 'autoHidePopover' | 'escapeHidesPopover' | 'resetAfterMinutes'>>) => Promise<{ ok: boolean; failures?: string[] }>
+  onClose: () => void
+}
+
+export function SettingsPanel({ settings, shortcutFailures, platform, onUpdate, onClose }: SettingsPanelProps) {
+  const [capturing, setCapturing] = useState<ShortcutName | null>(null)
+  const [message, setMessage] = useState('')
+  const [saving, setSaving] = useState(false)
+
+  async function update(patch: Parameters<typeof onUpdate>[0]) {
+    setSaving(true)
+    setMessage('')
+    try {
+      const result = await onUpdate(patch)
+      setMessage(result.ok ? 'Saved' : 'That shortcut is unavailable. The previous shortcuts are still active.')
+    } catch {
+      setMessage('Could not save this setting.')
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  function capture(name: ShortcutName, event: React.KeyboardEvent<HTMLInputElement>) {
+    event.preventDefault()
+    if (event.key === 'Escape') {
+      setCapturing(null)
+      return
+    }
+    const accelerator = acceleratorFromKeyChord(event.nativeEvent, platform)
+    if (!accelerator) return
+    setCapturing(null)
+    if (name === 'toggle') void update({ shortcuts: { ...settings.shortcuts, toggle: accelerator } })
+    else if (name === 'temporary-chat') void update({ shortcuts: { ...settings.shortcuts, temporaryChat: accelerator } })
+    else if (name === 'chat-history') void update({ shortcuts: { ...settings.shortcuts, chatHistory: accelerator } })
+    else {
+      const provider = name.slice('provider:'.length) as 'chatgpt' | 'claude'
+      void update({ shortcuts: { ...settings.shortcuts, providers: { ...settings.shortcuts.providers, [provider]: accelerator } } })
+    }
+  }
+
+  function shortcutField(name: ShortcutName, value: string) {
+    return (
+      <input
+        className={`shortcut-input ${capturing === name ? 'capturing' : ''}`}
+        aria-label={`${name} shortcut`}
+        value={capturing === name ? 'Press a shortcut…' : value}
+        readOnly
+        onFocus={() => setCapturing(name)}
+        onBlur={() => { if (capturing === name) setCapturing(null) }}
+        onKeyDown={(event) => { if (capturing === name) capture(name, event) }}
+        onClick={() => setCapturing(name)}
+      />
+    )
+  }
+
+  return (
+    <section className="settings-panel" aria-label="Settings">
+      <div className="settings-heading">
+        <div>
+          <h1>Settings</h1>
+          <p>Keep the shell close to the way you work.</p>
+        </div>
+        <button className="icon-button" aria-label="Close settings" onClick={onClose}>×</button>
+      </div>
+
+      <div className="settings-content">
+        <section className="settings-group" aria-labelledby="shortcut-heading">
+          <h2 id="shortcut-heading">Keyboard</h2>
+          <div className="setting-row"><div><strong>Show or hide Just Chat</strong><small>Click the shortcut field, then press a key combination.</small></div>{shortcutField('toggle', settings.shortcuts.toggle)}</div>
+          <div className="setting-row"><div><strong>New temporary chat</strong><small>Send the temporary chat shortcut to ChatGPT.</small></div>{shortcutField('temporary-chat', settings.shortcuts.temporaryChat)}</div>
+          <div className="setting-row"><div><strong>Search ChatGPT conversations</strong><small>Open ChatGPT’s saved conversation search.</small></div>{shortcutField('chat-history', settings.shortcuts.chatHistory)}</div>
+          {shortcutFailures.length > 0 && <p className="settings-note warning">Some default shortcuts could not be registered. Choose a different combination here.</p>}
+        </section>
+
+        <section className="settings-group" aria-labelledby="window-heading">
+          <h2 id="window-heading">Window</h2>
+          <label className="setting-row toggle-row"><span><strong>Always on top</strong><small>Keep the Just Chat window above other windows.</small></span><input type="checkbox" checked={settings.alwaysOnTop} disabled={saving} onChange={(event) => void update({ alwaysOnTop: event.target.checked })} /></label>
+          <label className="setting-row toggle-row"><span><strong>Hide when focus moves away</strong><small>Useful for a quick Pop Over. Disable if it disappears while you work.</small></span><input type="checkbox" checked={settings.autoHidePopover} disabled={saving} onChange={(event) => void update({ autoHidePopover: event.target.checked })} /></label>
+          <label className="setting-row toggle-row"><span><strong>Escape hides Just Chat</strong><small>When enabled, Escape hides the window in any size mode.</small></span><input type="checkbox" checked={settings.escapeHidesPopover} disabled={saving} onChange={(event) => void update({ escapeHidesPopover: event.target.checked })} /></label>
+          <label className="setting-row"><span><strong>Reset conversation after hiding</strong><small>Return to a fresh ChatGPT page after the window has been hidden.</small></span><select aria-label="Reset conversation after hiding" value={settings.resetAfterMinutes} disabled={saving} onChange={(event) => void update({ resetAfterMinutes: Number(event.target.value) })}><option value={0}>Never</option><option value={15}>15 minutes</option><option value={30}>30 minutes</option><option value={60}>1 hour</option></select></label>
+        </section>
+        <div className="settings-footer" role="status">{message || (saving ? 'Saving…' : '')}</div>
+      </div>
+    </section>
+  )
+}
