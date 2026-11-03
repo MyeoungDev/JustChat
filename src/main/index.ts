@@ -2,7 +2,8 @@ import { app, BrowserWindow, clipboard, globalShortcut, ipcMain, nativeTheme, sc
 import { dirname, join } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 import { classifyProviderPopup, isAllowedProviderNavigation, providers, resolveProviderSelection, type ProviderAdapter, type ProviderId } from '../shared/providers'
-import { acceleratorFromKeyChord, defaultSettings, normalizeSettings, type AppSettings, type ShortcutName } from '../shared/settings'
+import { defaultSettings, normalizeSettings, type AppSettings, type ShortcutName } from '../shared/settings'
+import { routeTemporaryChatShortcut } from '../shared/shortcut-dispatch'
 import { registerShortcutBindings, replaceShortcutBindings, type ShortcutBindingsByName } from '../shared/shortcut-registry'
 import { isTrustedShellSender } from '../shared/security'
 import { RetainedViewRegistry } from '../shared/provider-view-registry'
@@ -147,22 +148,34 @@ function handleEscape(event: Electron.Event, input: Electron.Input): void {
   hideWindow()
 }
 
-function handleShellInput(event: Electron.Event, input: Electron.Input): void {
+function dispatchTemporaryChatShortcut(event: Electron.Event, input: Electron.Input, providerHasFocus: boolean): void {
   handleEscape(event, input)
-  if (input.type !== 'keyDown' || settingsVisible || !window?.isVisible() || !window.isFocused()) return
-
-  const accelerator = acceleratorFromKeyChord({
+  const chord = {
     key: input.key,
     code: input.code,
     altKey: input.alt,
     ctrlKey: input.control,
     metaKey: input.meta,
     shiftKey: input.shift
-  }, process.platform)
-  if (accelerator !== settings.shortcuts.temporaryChat) return
+  }
+  const route = routeTemporaryChatShortcut(chord, process.platform, settings.shortcuts.temporaryChat, {
+    eventType: input.type,
+    settingsVisible,
+    windowVisible: Boolean(window?.isVisible()),
+    windowFocused: Boolean(window?.isFocused())
+  }, providerHasFocus)
+  if (route === 'ignore' || route === 'chatgpt') return
 
   event.preventDefault()
   startTemporaryChat()
+}
+
+function handleShellInput(event: Electron.Event, input: Electron.Input): void {
+  dispatchTemporaryChatShortcut(event, input, false)
+}
+
+function handleProviderInput(event: Electron.Event, input: Electron.Input): void {
+  dispatchTemporaryChatShortcut(event, input, true)
 }
 
 function setProviderState(id: ProviderId, state: ProviderLoadState) {
@@ -279,7 +292,7 @@ function getProviderView(id: ProviderId) {
       }
     })
     contents.on('render-process-gone', () => setProviderState(id, 'error'))
-    contents.on('before-input-event', handleEscape)
+    contents.on('before-input-event', handleProviderInput)
 
     providerStates.set(id, 'loading')
     providerLoadStarts.set(id, performance.now())

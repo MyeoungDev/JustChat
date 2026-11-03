@@ -10,7 +10,7 @@ pnpm test
 pnpm build
 ```
 
-Current unit coverage includes settings normalization and persistence, shortcut registration/conflict rollback, retained Provider-view reuse, sender/origin checks, HTTPS-only external links and Provider navigation, and window geometry transitions/clamping.
+Current unit coverage includes settings normalization and persistence, shortcut registration/conflict rollback, focused temporary-chat shortcut routing (including Settings/visibility/focus guards and ChatGPT-native pass-through), retained Provider-view reuse, sender/origin checks, HTTPS-only external links and Provider navigation, and window geometry transitions/clamping.
 
 ## Manual checks by platform
 
@@ -35,11 +35,12 @@ Use a clean app data directory per OS, then record OS version, Electron version,
 ## Current evidence
 
 - TypeScript checks: passed.
-- Vitest: 8 files, 25 tests passed, including website-data clearing order and failure propagation.
+- Latest Orca validation: Vitest 9 files, 33 tests passed, including website-data clearing order/failure propagation and the focused temporary-chat shortcut routing tests.
 - Production build: passed.
 - Orca GUI: shell label removal plus composer and Settings captured in light and dark mode; changing system appearance updated the app without a restart. Screenshots are stored locally under `.omx/artifacts/ui-theme-verification/`.
 - Composer design decision: retain a neutral shell-native draft surface, share shell theme/spacing/status language, and avoid copying or forcing the remote ChatGPT appearance. Code clears the local draft on successful handoff and preserves it with manual recovery feedback on failure. Actual signed-in transition comparison remains pending because the profile is logged out.
 - ChatGPT sign-out: an earlier Orca run observed the confirmation cancel behavior, successful clear message, and sign-in screen. Re-login and download preservation were not checked. The current profile is logged out, so signed-in ChatGPT screen and composer handoff checks are pending.
 - ChatGPT load retry: Orca reproduced a 30-second timeout/error UI on three cold launches. Each Retry immediately returned to the composer, then timed out again. No successful ChatGPT page load was observed. An unauthenticated HTTP check returned Cloudflare challenge 403; this does not distinguish an app defect from the logged-out/automation environment. Retry and authenticated handoff checks remain pending until a normal UI sign-in.
+- Temporary-chat shortcut routing: automated tests cover macOS and Windows chord mapping, hidden/unfocused/settings-open rejection, custom-chord translation, and pass-through of ChatGPT's native chord from its WebView. The new provider-WebContents listener has not been exercised in a restarted Orca app because the open shell contains an unsent draft; live WebView and remote response remain unverified.
 - Opt-in short performance sample (`pnpm dev:perf`): shell-ready 487.7 ms; unauthenticated ChatGPT page load 531.2 ms; sampled aggregate process working set was about 650 MiB. This is a brief development observation, not a release benchmark or idle-memory claim. See [PERFORMANCE.md](PERFORMANCE.md).
 - Re-login after clearing, download preservation, file upload, shortcut behavior, cross-platform window behavior and sustained memory remain unverified. The user previously confirmed that ChatGPT login survived a `pnpm dev` restart; the dedicated clear-then-login-again flow in step 10 has not been manually exercised.

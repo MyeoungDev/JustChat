@@ -35,7 +35,7 @@ Audit date: 2026-11-03
 | Multiple monitors | Implemented but unverified | Mode changes now discard saved geometry from another display; helper behavior is unit-tested, physical multi-display run remains pending |
 | Always on Top | Implemented but unverified | User setting is persisted and applied to both modes; native effect not manually checked |
 | Auto-hide / Escape | Implemented but unverified | Auto-hide configurable, default off; Escape configurable, default on; native focus and Provider Escape conflicts need manual checks |
-| ChatGPT temporary-chat shortcut | Implemented but unverified | macOS/Windows defaults are handled only while Just Chat is focused; it is not registered with the OS global shortcut service. ChatGPT's response still requires manual verification. |
+| ChatGPT temporary-chat shortcut | Routing and focus rules unit-tested; live WebView input unverified | The configured chord is handled while Just Chat is visible/focused and Settings is closed. Provider WebViews now route custom chords through the shell while passing ChatGPT's native temporary-chat chord through to the page. The app shortcut is not registered with the OS global service; Orca live keyboard behavior still needs confirmation. |
 | Hidden-window conversation reset | Implemented but unverified | Defaults to reloading ChatGPT after 30 minutes hidden; configurable to 15/30/60 minutes or never; requires signed-in manual verification |
 | Previously active app focus | Implemented but unverified | Uses native hide/show behavior and WebContents focus request; OS focus restoration needs manual verification |
 | Provider chat input focus | Partially implemented | Focuses the WebContents; does not force focus into a site DOM input and makes no reliability claim |
