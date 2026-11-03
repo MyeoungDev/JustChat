@@ -70,6 +70,12 @@
 - Disabled: Unimplemented Gemini and Grok choices remain visibly unavailable
 - Offline/slow network, if applicable: Do not fake readiness; show loading or retry state
 
+## Composer-to-ChatGPT handoff
+- Decision: Keep the quick-entry composer native-feeling and neutral rather than copying ChatGPT's remote composer. Make it feel like one flow through the same shell header, semantic light/dark tokens, spacing rhythm, and concise status feedback.
+- Submit behavior: Show a connection-in-progress status while preparing ChatGPT. On success, let the ChatGPT page own the submitted conversation and clear the local draft. On failure, preserve the complete draft and offer a manual-open/paste recovery path.
+- Theme ownership: The Just Chat shell follows the system appearance. ChatGPT's remote page keeps its own appearance setting; do not force or imply synchronized remote theming.
+- Evidence: `src/renderer/ui/App.tsx` implements progress, success, retained-draft failure, and manual-open feedback; `src/main/index.ts` transfers text and changes to the retained ChatGPT view. Orca verified the shell in light and dark. A direct visual comparison with the ChatGPT conversation page remains unverified while the profile is logged out.
+
 ## Content voice
 - Tone: Plain, calm, concise
 - Terminology: “Pop Over”, “Expanded”, “Full Screen”, “ChatGPT”, “Experimental”
@@ -84,7 +90,7 @@
 
 ## Open questions
 - [ ] Confirm through Orca UI review that the unwanted app-name label is gone from the surface the user meant; current code removed the in-window `.brand` label. If the user meant an OS menu-bar item, inspect that platform-specific surface separately.
-- [ ] During the composer redesign, should the quick-entry state visually echo ChatGPT's composer closely, or should it be a quieter native-feeling draft surface that transitions into the provider page?
+- [x] Composer direction: use a quieter native-feeling draft surface, with the shell's shared visual language and explicit handoff feedback; do not imitate or theme the remote page. Verify the real transition after normal UI sign-in.
 - [ ] Which macOS and Windows versions should be used to verify system light/dark switching and contrast?
 - [ ] Should Auto-hide be enabled by default after multi-platform user testing?
 - [ ] What is the preferred default macOS shortcut after checking conflicts on supported macOS versions?
