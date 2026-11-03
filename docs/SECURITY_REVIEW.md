@@ -22,7 +22,7 @@ This is a source review of the Electron shell and remote-content boundary, not a
 
 1. **Provider host allowlists are hypotheses.** Test every supported login redirect. Add narrowly scoped HTTPS host entries only after observing a legitimate flow.
 2. **External HTTPS opening is broad.** Allowlisted Provider/auth popups open in a secure child window using the Provider's persistent session; other HTTPS popups are sent to the system browser. Review phishing and redirect behavior before release.
-3. **Session data is persistent.** Provider cookies and local storage remain in app data. Add and document logout/data deletion controls before public release.
+3. **Session data is persistent until the user clears it.** Settings now offers a confirmed action that clears ChatGPT's isolated session data and reloads the provider. This does not delete account conversations or downloaded files. The ChatGPT logout/re-login flow still needs a manual test; Claude's separate partition has no user-facing clear control while that Provider remains in the experimental surface.
 4. **Shortcut conflicts need OS validation.** Conflicts are surfaced in settings and a failed custom replacement retains the prior bindings, but macOS/Windows conflict behavior has not been manually exercised.
 
 ## Release checks not yet completed

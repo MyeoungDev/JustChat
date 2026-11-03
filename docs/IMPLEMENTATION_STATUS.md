@@ -1,6 +1,6 @@
 # Implementation status audit
 
-Audit date: 2026-11-02
+Audit date: 2026-11-03
 
 “Verified” means covered by a passing automated test/build or directly observed in the local macOS smoke run. It does not imply Provider login or Windows compatibility.
 
@@ -9,7 +9,7 @@ Audit date: 2026-11-02
 | Area | Status | Evidence / gap |
 |---|---|---|
 | Electron + TypeScript + React + Vite + pnpm | Implemented and verified | Type check and production build pass; local Electron process starts |
-| Test runner | Implemented and verified | Vitest: 7 files, 20 tests pass |
+| Test runner | Implemented and verified | Vitest: 8 files, 25 tests pass |
 | macOS/Windows packaging | Not implemented | No installer, signing, notarization or release artifacts |
 
 ## Runtime and UI
@@ -17,10 +17,12 @@ Audit date: 2026-11-02
 | Area | Status | Evidence / gap |
 |---|---|---|
 | Main process and settings persistence | Implemented and verified | SettingsStore saves atomically; file persistence has unit coverage; Electron callbacks still live in `src/main/index.ts` |
-| Renderer | Implemented but unverified | Minimal shell composer, prompt transfer fallback, settings and shortcut capture compile; GUI interaction was not exercised |
+| Renderer | Implemented; shell appearance visually verified on macOS | Orca screenshots confirm the app-name label is absent and composer/settings surfaces follow light and dark system appearance without restarting; provider handoff, focus and Windows visuals remain unverified |
+| System appearance | Implemented and visually verified on macOS | `prefers-color-scheme` semantic tokens and Electron `nativeTheme` window background match both system appearances; see local Orca captures under `.omx/artifacts/ui-theme-verification/` |
 | WebView implementation | Implemented but unverified | `WebContentsView` uses sandbox/security settings and is hidden behind the initial composer; live login and prompt transfer were not tested |
 | Provider Adapter | Partially implemented | ChatGPT/Claude descriptors are wired and marked Experimental; Gemini/Grok are unavailable |
 | Session persistence and isolation | Implemented; ChatGPT persistence manually observed | User confirmed ChatGPT login remained after stopping and restarting `pnpm dev`; separate provider partition policy is unit-tested, while isolation has not been manually tested. |
+| ChatGPT sign-out and local data clearing | Implemented; helper tests pass and sign-out result was observed | Settings requires confirmation, clears the ChatGPT partition's cookies/site storage/cache and HTTP auth cache, then reloads ChatGPT. The prior Orca run observed the success message and sign-in screen; it did not inspect storage/download preservation or sign in again. |
 | Provider WebView reuse | Implemented and verified at registry level | Retained registry unit test proves a view factory is called once per Provider; live Electron identity/state continuity is not yet tested |
 | Provider load failures | Implemented but unverified | Provider page remains visible while loading; timeout/error shows a retry banner; live network outcome remains unverified |
 
@@ -33,7 +35,7 @@ Audit date: 2026-11-02
 | Multiple monitors | Implemented but unverified | Mode changes now discard saved geometry from another display; helper behavior is unit-tested, physical multi-display run remains pending |
 | Always on Top | Implemented but unverified | User setting is persisted and applied to both modes; native effect not manually checked |
 | Auto-hide / Escape | Implemented but unverified | Auto-hide configurable, default off; Escape configurable, default on; native focus and Provider Escape conflicts need manual checks |
-| Global ChatGPT shortcuts | Implemented but unverified | macOS/Windows defaults include temporary chat and ChatGPT history search forwarding, capture and conflict rollback; OS registration/conflicts and ChatGPT response are not manually exercised |
+| ChatGPT temporary-chat shortcut | Implemented but unverified | macOS/Windows defaults are handled only while Just Chat is focused; it is not registered with the OS global shortcut service. ChatGPT's response still requires manual verification. |
 | Hidden-window conversation reset | Implemented but unverified | Defaults to reloading ChatGPT after 30 minutes hidden; configurable to 15/30/60 minutes or never; requires signed-in manual verification |
 | Previously active app focus | Implemented but unverified | Uses native hide/show behavior and WebContents focus request; OS focus restoration needs manual verification |
 | Provider chat input focus | Partially implemented | Focuses the WebContents; does not force focus into a site DOM input and makes no reliability claim |

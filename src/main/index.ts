@@ -1,13 +1,14 @@
-import { app, BrowserWindow, clipboard, globalShortcut, ipcMain, screen, shell, WebContentsView } from 'electron'
+import { app, BrowserWindow, clipboard, globalShortcut, ipcMain, nativeTheme, screen, session, shell, WebContentsView } from 'electron'
 import { dirname, join } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 import { classifyProviderPopup, isAllowedProviderNavigation, providers, resolveProviderSelection, type ProviderAdapter, type ProviderId } from '../shared/providers'
-import { defaultSettings, normalizeSettings, type AppSettings, type ShortcutName } from '../shared/settings'
+import { acceleratorFromKeyChord, defaultSettings, normalizeSettings, type AppSettings, type ShortcutName } from '../shared/settings'
 import { registerShortcutBindings, replaceShortcutBindings, type ShortcutBindingsByName } from '../shared/shortcut-registry'
 import { isTrustedShellSender } from '../shared/security'
 import { RetainedViewRegistry } from '../shared/provider-view-registry'
 import { centeredBounds, geometryForCurrentDisplay, transitionWindowGeometry, type WindowMode } from '../shared/window-layout'
 import { SettingsStore } from './settings-store'
+import { clearProviderSessionData } from './provider-session'
 import { performance } from 'node:perf_hooks'
 
 type ProviderLoadState = 'loading' | 'ready' | 'error'
@@ -40,6 +41,12 @@ let performanceSampler: NodeJS.Timeout | undefined
 const providerLoadStarts = new Map<ProviderId, number>()
 const providerSwitchStarts = new Map<ProviderId, number>()
 const providerLoadTimeouts = new Map<ProviderId, NodeJS.Timeout>()
+
+function shellBackgroundColor() {
+  return nativeTheme.shouldUseDarkColors ? '#1c1c1b' : '#f6f6f4'
+}
+
+nativeTheme.on('updated', () => window?.setBackgroundColor(shellBackgroundColor()))
 
 function recordPerformance(metric: string, values: Record<string, number | string | boolean | null>) {
   if (!performanceEnabled) return
@@ -138,6 +145,24 @@ function handleEscape(event: Electron.Event, input: Electron.Input): void {
   if (!settings.escapeHidesPopover || !window?.isVisible()) return
   event.preventDefault()
   hideWindow()
+}
+
+function handleShellInput(event: Electron.Event, input: Electron.Input): void {
+  handleEscape(event, input)
+  if (input.type !== 'keyDown' || settingsVisible || !window?.isVisible() || !window.isFocused()) return
+
+  const accelerator = acceleratorFromKeyChord({
+    key: input.key,
+    code: input.code,
+    altKey: input.alt,
+    ctrlKey: input.control,
+    metaKey: input.meta,
+    shiftKey: input.shift
+  }, process.platform)
+  if (accelerator !== settings.shortcuts.temporaryChat) return
+
+  event.preventDefault()
+  startTemporaryChat()
 }
 
 function setProviderState(id: ProviderId, state: ProviderLoadState) {
@@ -514,7 +539,6 @@ function toggleFullscreen() {
 function desiredBindings(candidate: AppSettings): ShortcutBindingsByName {
   const bindings: ShortcutBindingsByName = {
     toggle: candidate.shortcuts.toggle,
-    'temporary-chat': candidate.shortcuts.temporaryChat,
     'chat-history': candidate.shortcuts.chatHistory
   }
   return bindings
@@ -523,7 +547,6 @@ function desiredBindings(candidate: AppSettings): ShortcutBindingsByName {
 function shortcutCallbacks() {
   return Object.fromEntries([
     ['toggle', toggleWindow],
-    ['temporary-chat', startTemporaryChat],
     ['chat-history', openChatHistory]
   ]) as Record<ShortcutName, () => void>
 }
@@ -571,7 +594,7 @@ function createWindow() {
     frame: false,
     resizable: true,
     alwaysOnTop: settings.alwaysOnTop,
-    backgroundColor: '#f6f6f4',
+    backgroundColor: shellBackgroundColor(),
     webPreferences: {
       preload: join(currentDir, '../preload/index.js'),
       nodeIntegration: false,
@@ -592,7 +615,7 @@ function createWindow() {
     } else if (url === rendererFileUrl) return
     event.preventDefault()
   })
-  window.webContents.on('before-input-event', handleEscape)
+  window.webContents.on('before-input-event', handleShellInput)
   if (isDevelopment) void window.loadURL(process.env.ELECTRON_RENDERER_URL!)
   else void window.loadFile(rendererFile)
 
@@ -680,6 +703,39 @@ ipcMain.handle('settings:update', (event, patch: UserSettingsPatch) => {
   settingsStore.save(settings)
   applyWindowPreferences()
   return { ok: true, settings, failures: shortcutFailures }
+})
+
+ipcMain.handle('provider:clear-chatgpt-session', async (event) => {
+  if (!isTrustedShell(event)) return { ok: false, cleared: false, reason: 'untrusted' as const }
+
+  const adapter = providerFor('chatgpt')
+  const chatgptView = webViews.get('chatgpt') ?? getProviderView('chatgpt')
+  const contents = chatgptView.webContents
+  const providerSession = !contents.isDestroyed() ? contents.session : session.fromPartition(adapter.sessionPartition)
+
+  try {
+    await clearProviderSessionData(providerSession)
+  } catch {
+    return { ok: false, cleared: false, reason: 'clear-failed' as const }
+  }
+
+  if (settings.activeProviderId === 'chatgpt') {
+    chatViewVisible = true
+    applyViewBounds()
+    sendState()
+  }
+
+  if (contents.isDestroyed()) return { ok: true, cleared: true }
+
+  providerLoadStarts.set('chatgpt', performance.now())
+  setProviderState('chatgpt', 'loading')
+  try {
+    await contents.loadURL(adapter.url)
+    return { ok: true, cleared: true }
+  } catch {
+    setProviderState('chatgpt', 'error')
+    return { ok: false, cleared: true, reason: 'reload-failed' as const }
+  }
 })
 
 ipcMain.on('app:expand', (event) => { if (isTrustedShell(event)) setMode('expanded') })

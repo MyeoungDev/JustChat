@@ -84,7 +84,6 @@ export function App() {
     <>
       <header className="shell-header">
         <div className="brand-row">
-          <div className="brand" aria-label="Just Chat">Just Chat</div>
           <div className="window-actions">
             {state?.chatViewVisible && <button className="back-to-composer" onClick={() => { setNotice(''); window.justChat.showComposer() }}>새 대화</button>}
             <button className="icon-button" aria-label={state?.mode === 'expanded' ? 'Collapse window' : state?.mode === 'fullscreen' ? 'Return to expanded window' : 'Expand window'} title={state?.mode === 'expanded' ? 'Collapse' : state?.mode === 'fullscreen' ? 'Expanded' : 'Expand'} onClick={() => state?.mode === 'expanded' ? window.justChat.collapse() : window.justChat.expand()}>
@@ -105,6 +104,7 @@ export function App() {
           shortcutFailures={shortcutFailures}
           platform={window.justChat.platform}
           onUpdate={updateSettings}
+          onClearChatGptSession={() => window.justChat.clearChatGptSession()}
           onClose={() => window.justChat.showSettings(false)}
         />
       ) : state?.chatViewVisible ? (

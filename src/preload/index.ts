@@ -13,6 +13,12 @@ export interface ShellState {
   shortcutFailures: string[]
 }
 
+export interface ClearChatGptSessionResult {
+  ok: boolean
+  cleared: boolean
+  reason?: 'untrusted' | 'clear-failed' | 'reload-failed'
+}
+
 contextBridge.exposeInMainWorld('justChat', {
   expand: () => ipcRenderer.send('app:expand'),
   collapse: () => ipcRenderer.send('app:collapse'),
@@ -27,6 +33,7 @@ contextBridge.exposeInMainWorld('justChat', {
   getState: () => ipcRenderer.invoke('shell:get-state') as Promise<ShellState | null>,
   updateSettings: (patch: Partial<Pick<AppSettings, 'shortcuts' | 'alwaysOnTop' | 'autoHidePopover' | 'escapeHidesPopover' | 'resetAfterMinutes'>>) =>
     ipcRenderer.invoke('settings:update', patch) as Promise<{ ok: boolean; settings?: AppSettings; failures?: string[]; reason?: string }>,
+  clearChatGptSession: () => ipcRenderer.invoke('provider:clear-chatgpt-session') as Promise<ClearChatGptSessionResult>,
   onState: (callback: (state: ShellState) => void) => {
     const listener = (_event: Electron.IpcRendererEvent, state: ShellState) => callback(state)
     ipcRenderer.on('shell:state', listener)

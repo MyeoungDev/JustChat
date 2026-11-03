@@ -2,9 +2,9 @@
 
 ## Source of truth
 - Status: Active for Alpha
-- Last refreshed: 2026-11-02
+- Last refreshed: 2026-11-03
 - Primary product surfaces: compact Pop Over chat, Expanded chat, Full Screen chat, compact settings view
-- Evidence reviewed: PRD/TDD provided in the conversation, Phase 2 brief, existing `README.md`, Electron architecture review, React shell and CSS in `src/renderer/ui/`
+- Evidence reviewed: PRD/TDD provided in the conversation, Phase 2 brief, existing `README.md`, Electron architecture review, React shell and CSS in `src/renderer/ui/`, user feedback on the app label, system appearance, and composer-to-ChatGPT transition
 
 ## Brand
 - Personality: Quiet, direct, lightweight, dependable
@@ -22,12 +22,14 @@
 - Key contexts of use: Floating compact window over another application; larger window for focused conversation
 
 ## Information architecture
-- Primary navigation: ChatGPT is the current Alpha focus; other Providers are later extensions
+- Primary navigation: ChatGPT is the current Alpha focus
 - Core routes/screens: Chat shell and an in-shell settings surface
-- Content hierarchy: Provider conversation first; Just Chat controls second; settings only on explicit request
+- Content hierarchy: Provider conversation first; Just Chat controls second; settings only on explicit request. Avoid repeating the app name in the compact window header when its controls already identify the shell.
 
 ## Design principles
 - Conversation first: Provider content owns the chat surface
+- System fit: Shell surfaces and controls follow the operating system's light/dark appearance; avoid a bright shell around a dark conversation.
+- Cohesive handoff: The initial composer and ChatGPT page should feel like two states of one quick-chat flow, with a clear, calm transition and consistent spacing, color, and control language.
 - Keyboard first: Global shortcuts and visible shortcut guidance; focus should be predictable
 - Minimal interface: Keep native controls to title, Provider, window mode and settings
 - Seamless continuity: Resize/reparent existing web content without reloading
@@ -35,7 +37,7 @@
 - Tradeoffs: Reliability and honest compatibility status take precedence over dense customization
 
 ## Visual language
-- Color: Soft neutral shell around unmodified Provider web pages; strong readable contrast
+- Color: Use semantic shell tokens for light and dark system appearances, with readable contrast. The Provider page may retain its own in-site appearance setting; do not imply the shell can force a remote page's theme unless supported.
 - Typography: Native system sans-serif, compact but readable
 - Spacing/layout rhythm: Tight title row and one Provider row; avoid extra navigation rail
 - Shape/radius/elevation: Subtle rounded buttons, restrained separators, minimal shadow
@@ -43,7 +45,7 @@
 - Imagery/iconography: Simple text labels and familiar small symbols; no decorative hero art
 
 ## Components
-- Existing components to reuse: Shell header, Provider tabs, simple control buttons
+- Existing components to reuse: Shell header, Provider tabs, simple control buttons, light/dark semantic CSS tokens
 - New/changed components: Settings groups, shortcut capture control, Provider connection state
 - Variants and states: active, inactive, unavailable, experimental, loading, failed
 - Token/component ownership: `src/renderer/ui/styles.css`; no additional design-system dependency
@@ -75,12 +77,15 @@
 
 ## Implementation constraints
 - Framework/styling system: Electron, React, TypeScript, plain CSS
-- Design-token constraints: Extend current neutrals; avoid introducing a component library
+- Design-token constraints: Extend current neutrals into light/dark semantic CSS variables; derive the shell appearance from the OS preference; avoid introducing a component library
 - Performance constraints: Keep Provider WebContentsView instances to preserve state; measure before eviction
 - Compatibility constraints: Electron APIs may still differ in window management by OS; verify each platform
 - Test/screenshot expectations: Test state logic and controls; capture OS-specific visuals during manual platform verification
 
 ## Open questions
+- [ ] Confirm through Orca UI review that the unwanted app-name label is gone from the surface the user meant; current code removed the in-window `.brand` label. If the user meant an OS menu-bar item, inspect that platform-specific surface separately.
+- [ ] During the composer redesign, should the quick-entry state visually echo ChatGPT's composer closely, or should it be a quieter native-feeling draft surface that transitions into the provider page?
+- [ ] Which macOS and Windows versions should be used to verify system light/dark switching and contrast?
 - [ ] Should Auto-hide be enabled by default after multi-platform user testing?
 - [ ] What is the preferred default macOS shortcut after checking conflicts on supported macOS versions?
 - [ ] Which additional auth redirect hosts are actually required for supported Provider login flows?
