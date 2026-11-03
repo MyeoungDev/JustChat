@@ -4,7 +4,7 @@
   --surface: #fff;
   --text: #262521;
   --text-secondary: #74726d;
-  --text-muted: #96948d;
+  --text-muted: #72706a;
   --border: #e5e4df;
   --border-soft: #ecebe7;
   --control-bg: #e9e8e3;
@@ -32,7 +32,7 @@
     --surface: #282827;
     --text: #ecebe7;
     --text-secondary: #b2b0a9;
-    --text-muted: #99978f;
+    --text-muted: #aaa8a0;
     --border: #3c3b38;
     --border-soft: #343330;
     --control-bg: #3a3936;
@@ -72,7 +72,7 @@ button:focus-visible, input:focus-visible { outline: 2px solid #5878d6; outline-
 .provider-tab { height: 26px; border: 0; border-radius: 7px; padding: 0 9px; color: var(--text-secondary); background: transparent; font-size: 12px; }
 .provider-tab.active { color: var(--text); background: var(--control-bg); font-weight: 600; }
 .provider-tab:disabled { opacity: .38; cursor: default; }
-.provider-mark { padding-left: 4px; color: #8a887f; font-size: 9px; font-weight: 500; }
+.provider-mark { padding-left: 4px; color: var(--text-muted); font-size: 9px; font-weight: 500; }
 .settings-panel { height: calc(100% - 48px); overflow-y: auto; background: var(--shell-bg); padding: 19px 20px 14px; }
 .settings-heading { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 19px; }
 .settings-heading h1, .provider-state h1 { margin: 0; font-size: 18px; letter-spacing: -.025em; font-weight: 650; }

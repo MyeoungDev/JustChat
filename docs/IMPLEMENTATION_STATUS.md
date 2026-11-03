@@ -18,7 +18,7 @@ Audit date: 2026-11-03
 |---|---|---|
 | Main process and settings persistence | Implemented and verified | SettingsStore saves atomically; file persistence has unit coverage; Electron callbacks still live in `src/main/index.ts` |
 | Renderer | Implemented; shell appearance visually verified on macOS | Orca screenshots confirm the app-name label is absent and composer/settings surfaces follow light and dark system appearance without restarting; provider handoff, focus and Windows visuals remain unverified |
-| System appearance | Implemented and visually verified on macOS | `prefers-color-scheme` semantic tokens and Electron `nativeTheme` window background match both system appearances; see local Orca captures under `.omx/artifacts/ui-theme-verification/` |
+| System appearance | Implemented and visually verified on macOS | `prefers-color-scheme` semantic tokens and Electron `nativeTheme` window background match both system appearances; muted hint text measures 4.58:1 in light shell and 6.20:1 in dark surface. See local Orca captures under `.omx/artifacts/ui-theme-verification/` |
 | WebView implementation | Implemented but unverified | `WebContentsView` uses sandbox/security settings and is hidden behind the initial composer; live login and prompt transfer were not tested |
 | Provider Adapter | Partially implemented | ChatGPT/Claude descriptors are wired and marked Experimental; Gemini/Grok are unavailable |
 | Session persistence and isolation | Implemented; ChatGPT persistence manually observed | User confirmed ChatGPT login remained after stopping and restarting `pnpm dev`; separate provider partition policy is unit-tested, while isolation has not been manually tested. |
