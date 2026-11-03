@@ -24,7 +24,7 @@ Audit date: 2026-11-03
 | Session persistence and isolation | Implemented; ChatGPT persistence manually observed | User confirmed ChatGPT login remained after stopping and restarting `pnpm dev`; separate provider partition policy is unit-tested, while isolation has not been manually tested. |
 | ChatGPT sign-out and local data clearing | Implemented; helper tests pass and sign-out result was observed | Settings requires confirmation, clears the ChatGPT partition's cookies/site storage/cache and HTTP auth cache, then reloads ChatGPT. The prior Orca run observed the success message and sign-in screen; it did not inspect storage/download preservation or sign in again. |
 | Provider WebView reuse | Implemented and verified at registry level | Retained registry unit test proves a view factory is called once per Provider; live Electron identity/state continuity is not yet tested |
-| Provider load failures | Implemented but unverified | Provider page remains visible while loading; timeout/error shows a retry banner; live network outcome remains unverified |
+| Provider load failures | Error and retry UI observed; successful load blocked by current environment | Orca reproduced a 30-second timeout and retry banner on 3 cold launches; all 3 retries returned to the same error. Current ChatGPT profile is logged out, and unauthenticated `curl -I https://chatgpt.com` returned Cloudflare challenge HTTP 403. Recheck after normal UI sign-in before diagnosing as a product defect. |
 
 ## Window and keyboard
 
