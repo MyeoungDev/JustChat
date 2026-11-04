@@ -2,9 +2,9 @@
 
 ## Source of truth
 - Status: Active for Alpha
-- Last refreshed: 2026-11-03
-- Primary product surfaces: compact Pop Over chat, Expanded chat, Full Screen chat, compact settings view
-- Evidence reviewed: PRD/TDD provided in the conversation, Phase 2 brief, existing `README.md`, Electron architecture review, React shell and CSS in `src/renderer/ui/`, user feedback on the app label, system appearance, and composer-to-ChatGPT transition
+- Last refreshed: 2026-11-04
+- Primary product surfaces: ChatGPT-first Quick Chat, Pop Over, Expanded chat, Full Screen chat, responsive settings view
+- Evidence reviewed: existing `README.md`, Electron architecture review, React shell and CSS in `src/renderer/ui/`, user feedback on direct ChatGPT entry, Pop Over size, Settings responsiveness, and system appearance
 
 ## Brand
 - Personality: Quiet, direct, lightweight, dependable
@@ -12,7 +12,7 @@
 - Avoid: AI-workspace visuals, dashboards, agent metaphors, marketing gradients, unnecessary decoration
 
 ## Product goals
-- Goals: Put the ChatGPT conversation one shortcut away; preserve continuity while changing window size; keep the shell understandable at a glance
+- Goals: Open directly into ChatGPT from one shortcut; preserve continuity while changing window size; keep the shell understandable at a glance
 - Non-goals: Replace Provider interfaces, manage projects, automate conversations, or compare models in the default experience
 - Success signals: Fast return to a loaded conversation; keyboard flows work without navigating a dashboard; supported and experimental Providers are clearly distinguished
 
@@ -23,13 +23,13 @@
 
 ## Information architecture
 - Primary navigation: ChatGPT is the current Alpha focus
-- Core routes/screens: Chat shell and an in-shell settings surface
+- Core routes/screens: ChatGPT web interface and an in-shell settings surface
 - Content hierarchy: Provider conversation first; Just Chat controls second; settings only on explicit request. Avoid repeating the app name in the compact window header when its controls already identify the shell.
 
 ## Design principles
 - Conversation first: Provider content owns the chat surface
 - System fit: Shell surfaces and controls follow the operating system's light/dark appearance; avoid a bright shell around a dark conversation.
-- Cohesive handoff: The initial composer and ChatGPT page should feel like two states of one quick-chat flow, with a clear, calm transition and consistent spacing, color, and control language.
+- Direct entry: Show the ChatGPT web interface as soon as the app opens; do not interpose a separate Just Chat composer.
 - Keyboard first: Global shortcuts and visible shortcut guidance; focus should be predictable
 - Minimal interface: Keep native controls to title, Provider, window mode and settings
 - Seamless continuity: Resize/reparent existing web content without reloading
@@ -58,8 +58,8 @@
 - Reduced motion and sensory considerations: Avoid flashing and nonessential motion
 
 ## Responsive behavior
-- Supported breakpoints/devices: Desktop windows on macOS and Windows; 900×220 starting Pop Over, 1200×800 Expanded window and Full Screen on the current display
-- Layout adaptations: Keep shell controls in a fixed-height header; provider site handles its own responsive layout
+- Supported breakpoints/devices: Desktop windows on macOS and Windows; 760×320 Quick Chat (640×280 minimum), 900×600 Pop Over, 1000×700 default Expanded window and Full Screen on the current display
+- Layout adaptations: Keep shell controls in a fixed-height header; keep the ChatGPT composer visible in Quick Chat; settings content expands with the available window width
 - Touch/hover differences: Hover is optional feedback; buttons remain visible and keyboard reachable
 
 ## Interaction states
@@ -70,15 +70,16 @@
 - Disabled: Unimplemented Gemini and Grok choices remain visibly unavailable
 - Offline/slow network, if applicable: Do not fake readiness; show loading or retry state
 
-## Composer-to-ChatGPT handoff
-- Decision: Keep the quick-entry composer native-feeling and neutral rather than copying ChatGPT's remote composer. Make it feel like one flow through the same shell header, semantic light/dark tokens, spacing rhythm, and concise status feedback.
-- Submit behavior: Show a connection-in-progress status while preparing ChatGPT. On success, let the ChatGPT page own the submitted conversation and clear the local draft. On failure, preserve the complete draft and offer a manual-open/paste recovery path.
+## ChatGPT-first experience
+- Decision: Launch directly into the retained ChatGPT web interface. Keep Just Chat chrome limited to window mode, Settings and Hide controls.
+- Window behavior: Open into Quick Chat at 760×320 (640×280 minimum); Expanded remains 1000×700, and Pop Over stays at 900×600 with a 700×600 minimum. Preserve user-saved sizes and Full Screen when switching. Use the existing Expand control to grow the same ChatGPT view. Automatic grow-after-send is deferred because Electron input events do not identify the ChatGPT composer or send-button action without provider-page scripting. Collapse ChatGPT's own sidebar for the most room in Quick Chat.
 - Theme ownership: The Just Chat shell follows the system appearance. ChatGPT's remote page keeps its own appearance setting; do not force or imply synchronized remote theming.
-- Evidence: `src/renderer/ui/App.tsx` implements progress, success, retained-draft failure, and manual-open feedback; `src/main/index.ts` transfers text and changes to the retained ChatGPT view. Orca verified the shell in light and dark. A direct visual comparison with the ChatGPT conversation page remains unverified while the profile is logged out.
+- Window opacity: Settings offers a whole-window opacity slider from 60% to 100%, defaulting to 100%. The remote ChatGPT page, text, and shell controls all fade together, so 100% remains one drag away if reduced opacity hurts readability.
+- Evidence: The renderer now shows the retained ChatGPT view immediately and Settings remains an in-shell surface. Signed-in conversation display and theme transition remain pending normal user-controlled sign-in.
 
 ## Content voice
 - Tone: Plain, calm, concise
-- Terminology: “Pop Over”, “Expanded”, “Full Screen”, “ChatGPT”, “Experimental”
+- Terminology: “Quick Chat”, “Pop Over”, “Expanded”, “Full Screen”, “ChatGPT”, “Experimental”
 - Microcopy rules: Explain what is unavailable without marketing claims or blame
 
 ## Implementation constraints
@@ -90,7 +91,7 @@
 
 ## Open questions
 - [ ] Confirm through Orca UI review that the unwanted app-name label is gone from the surface the user meant; current code removed the in-window `.brand` label. If the user meant an OS menu-bar item, inspect that platform-specific surface separately.
-- [x] Composer direction: use a quieter native-feeling draft surface, with the shell's shared visual language and explicit handoff feedback; do not imitate or theme the remote page. Verify the real transition after normal UI sign-in.
+- [x] Composer direction: remove the separate shell composer and launch directly into ChatGPT; preserve the provider-owned input and conversation interface.
 - [ ] Which macOS and Windows versions should be used to verify system light/dark switching and contrast?
 - [ ] Should Auto-hide be enabled by default after multi-platform user testing?
 - [ ] What is the preferred default macOS shortcut after checking conflicts on supported macOS versions?

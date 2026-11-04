@@ -3,9 +3,8 @@ import { acceleratorFromKeyChord, defaultSettings, isValidAccelerator, normalize
 
 describe('settings', () => {
   it('provides platform-specific default shortcuts', () => {
-    expect(defaultSettings('darwin').shortcuts).toEqual({ toggle: 'Alt+Space', temporaryChat: 'Command+Shift+N', chatHistory: 'Command+K', providers: { chatgpt: 'Alt+1', claude: 'Alt+2' } })
+    expect(defaultSettings('darwin').shortcuts).toEqual({ toggle: 'Alt+Space', chatHistory: 'Command+K', providers: { chatgpt: 'Alt+1', claude: 'Alt+2' } })
     expect(defaultSettings('win32').shortcuts.toggle).toBe('Control+Shift+Space')
-    expect(defaultSettings('win32').shortcuts.temporaryChat).toBe('Control+Shift+N')
     expect(defaultSettings('win32').shortcuts.chatHistory).toBe('Control+K')
     expect(defaultSettings('darwin').resetAfterMinutes).toBe(30)
   })
@@ -27,8 +26,8 @@ describe('settings', () => {
     expect(isValidAccelerator('Alt+Space')).toBe(true)
     expect(isValidAccelerator('Space')).toBe(false)
     expect(isValidAccelerator('Control+Shift+F6')).toBe(true)
-    expect(validateShortcutMap({ toggle: 'Alt+Space', 'temporary-chat': 'Alt+Space', 'provider:claude': 'Alt+2' }))
-      .toEqual(['temporary-chat:duplicate:toggle'])
+    expect(validateShortcutMap({ toggle: 'Alt+Space', 'chat-history': 'Alt+Space', 'provider:claude': 'Alt+2' }))
+      .toEqual(['chat-history:duplicate:toggle'])
   })
 
   it('builds a shortcut from captured keyboard input', () => {

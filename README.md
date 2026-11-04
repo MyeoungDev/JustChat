@@ -1,6 +1,6 @@
 # Just Chat
 
-Just Chat is a minimal, keyboard-first desktop shell for ChatGPT. The compact Pop Over starts with a Just Chat composer; sending opens a fresh ChatGPT web conversation and transfers the prompt into ChatGPT's own page. The app also provides Expanded and Full Screen modes, configurable shortcuts and preferences, and an optional idle reset.
+Just Chat is a minimal, keyboard-first desktop shell for ChatGPT. It opens directly into ChatGPT's own web interface in Quick Chat at 760×320 by default (640×280 minimum). Expand the same window for a larger conversation view. Pop Over starts at 900×600 (700×600 minimum where the display allows), and the app also supports Full Screen, configurable shortcuts and preferences, and an optional idle reset.
 
 ## Requirements
 
@@ -15,7 +15,7 @@ pnpm install
 pnpm dev
 ```
 
-Default shortcuts are **Option+Space** on macOS and **Ctrl+Shift+Space** on Windows to show or hide Just Chat. **Command+Shift+N** on macOS ( **Ctrl+Shift+N** on Windows) opens ChatGPT's Temporary mode only while Just Chat is focused; it is not registered globally and will not intercept keys in other apps. **Command+K** on macOS ( **Ctrl+K** on Windows) opens ChatGPT's conversation search. Settings also lets you sign out of ChatGPT in Just Chat and clear its local website data; this does not delete chats from your ChatGPT account, downloaded files, or settings. You can also choose whether to reload ChatGPT to a fresh page after the window stays hidden for 15, 30 or 60 minutes. This timer defaults to 30 minutes and can be disabled. It starts when Just Chat is hidden; showing the window again cancels it. The app does not save or index chat content locally. Prompt transfer relies on ChatGPT's current web composer controls. If it fails, the draft remains in Just Chat and the user can open ChatGPT with the draft copied to the clipboard for manual paste.
+Default shortcuts are **Option+Space** on macOS and **Ctrl+Shift+Space** on Windows to show or hide Just Chat. This is the only global shortcut. **Command+K** on macOS (**Ctrl+K** on Windows) opens ChatGPT's conversation search. Other in-app shortcuts can be configured in Settings and work only while Just Chat is focused in Pop Over. They are not registered globally and do not intercept keys in other apps. Settings also lets you adjust whole-window opacity from 60% to 100% (default 100%), sign out of ChatGPT in Just Chat, and clear its local website data; this does not delete chats from your ChatGPT account, downloaded files, or settings. You can also choose whether to reload ChatGPT to a fresh page after the window stays hidden for 15, 30 or 60 minutes. This timer defaults to 30 minutes and can be disabled. It starts when Just Chat is hidden; showing the window again cancels it. The app does not save or index chat content locally.
 
 ```sh
 pnpm typecheck

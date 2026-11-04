@@ -64,7 +64,6 @@ button:focus-visible, input:focus-visible { outline: 2px solid #5878d6; outline-
 .shell-header { position: relative; z-index: 3; height: 48px; padding: 6px 14px 0; background: var(--shell-bg); border-bottom: 1px solid var(--border); user-select: none; -webkit-app-region: drag; }
 .brand-row { height: 35px; display: flex; align-items: center; justify-content: flex-end; }
 .window-actions { display: flex; gap: 5px; -webkit-app-region: no-drag; }
-.back-to-composer { height: 26px; padding: 0 9px; color: var(--text-secondary); background: var(--control-bg); border: 0; border-radius: 7px; font-size: 11px; -webkit-app-region: no-drag; }
 .icon-button { width: 26px; height: 25px; border: 0; border-radius: 7px; background: transparent; font-size: 16px; line-height: 1; }
 .icon-button:hover, .icon-button.selected { background: var(--control-bg); }
 .hide-button { font-size: 19px; }
@@ -77,7 +76,7 @@ button:focus-visible, input:focus-visible { outline: 2px solid #5878d6; outline-
 .settings-heading { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 19px; }
 .settings-heading h1, .provider-state h1 { margin: 0; font-size: 18px; letter-spacing: -.025em; font-weight: 650; }
 .settings-heading p, .provider-state p { margin: 4px 0 0; color: var(--text-secondary); font-size: 12px; }
-.settings-content { max-width: 650px; }
+.settings-heading, .settings-content { width: 100%; max-width: 1100px; margin-inline: auto; }
 .settings-group { padding: 14px 0 10px; border-top: 1px solid var(--border); }
 .settings-group h2 { margin: 0 0 5px; color: var(--text-secondary); font-size: 11px; font-weight: 650; letter-spacing: .07em; text-transform: uppercase; }
 .setting-row { min-height: 54px; display: flex; align-items: center; justify-content: space-between; gap: 16px; border-bottom: 1px solid var(--border-soft); }
@@ -90,6 +89,10 @@ button:focus-visible, input:focus-visible { outline: 2px solid #5878d6; outline-
 .toggle-row { cursor: pointer; }
 .toggle-row input { width: 16px; height: 16px; accent-color: #4c6cc9; }
 .setting-row select { max-width: 160px; min-height: 30px; padding: 0 8px; color: var(--text); border: 1px solid var(--border); border-radius: 7px; background: var(--shell-bg); }
+.opacity-row { gap: 24px; }
+.range-control { display: flex; flex: 0 1 220px; align-items: center; gap: 10px; }
+.range-control input { width: 100%; min-width: 90px; accent-color: #5878d6; }
+.range-control output { min-width: 38px; color: var(--text-secondary); text-align: right; font-variant-numeric: tabular-nums; }
 .settings-note { margin: 8px 0 0; font-size: 11px; }
 .warning { color: var(--warning-text); }
 .session-clear-confirm { padding: 10px 12px; background: var(--control-bg-soft); border: 1px solid var(--border); border-radius: 8px; }
@@ -98,24 +101,7 @@ button:focus-visible, input:focus-visible { outline: 2px solid #5878d6; outline-
 .text-button:disabled { opacity: .5; cursor: default; }
 .danger-button { color: var(--danger-text); font-weight: 600; }
 .settings-footer { min-height: 20px; padding-top: 6px; color: var(--text-secondary); font-size: 11px; }
-.composer-shell { position: relative; height: calc(100% - 48px); padding: 10px 14px 8px; display: flex; flex-direction: column; justify-content: center; gap: 4px; background: var(--shell-bg); }
-.composer { min-height: 136px; display: flex; flex-direction: column; justify-content: space-between; padding: 12px 13px 9px; background: var(--surface); border: 1px solid var(--border); border-radius: 17px; box-shadow: 0 3px 14px var(--shadow); }
-.composer textarea { width: 100%; min-height: 64px; max-height: 220px; resize: none; padding: 0; color: var(--text); background: transparent; border: 0; outline: 0; font: inherit; font-size: 14px; line-height: 1.45; }
-.composer textarea::placeholder { color: var(--text-muted); }
-.composer textarea:focus-visible { outline: 0; }
-.composer-footer { display: flex; align-items: center; justify-content: space-between; }
-.composer-provider { display: flex; align-items: center; gap: 7px; font-weight: 600; font-size: 11px; }
-.composer-provider span:last-child { color: var(--text-secondary); font-weight: 400; }
-.provider-dot { width: 7px; height: 7px; display: inline-block; border-radius: 50%; background: #6d7c68; }
-.send-button { width: 32px; height: 32px; display: grid; place-items: center; color: var(--shell-bg); background: var(--accent); border: 0; border-radius: 50%; font-size: 20px; line-height: 1; }
-.send-button:hover:not(:disabled) { background: var(--accent-hover); }
-.send-button:disabled { color: var(--text-secondary); background: var(--control-bg); cursor: default; }
-.send-button .loading-dot { width: 15px; height: 15px; border-color: #ffffff7a; border-top-color: #fff; }
-.composer-hint { color: var(--text-muted); text-align: center; font-size: 9px; }
-.composer-feedback, .provider-error { display: flex; align-items: center; justify-content: space-between; gap: 8px; color: var(--feedback-text); font-size: 10px; }
-.provider-error { color: var(--error-text); }
 .text-button { padding: 2px 0; color: var(--text); background: transparent; border: 0; text-decoration: underline; white-space: nowrap; font-size: 10px; }
-.shell-notice { position: absolute; z-index: 5; top: 54px; left: 14px; padding: 7px 10px; color: var(--notice-text); background: var(--notice-bg); border: 1px solid var(--border); border-radius: 8px; box-shadow: 0 3px 12px var(--shadow); font-size: 11px; }
 .provider-state { position: absolute; z-index: 2; inset: 56px 12px auto; display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 9px 11px; color: var(--warning-text); text-align: left; background: var(--warning-bg); border: 1px solid var(--warning-border); border-radius: 9px; box-shadow: 0 3px 12px var(--shadow); font-size: 11px; }
 .provider-state h1 { font-size: 15px; }
 .provider-state p { margin: 5px 0 13px; }
@@ -124,4 +110,10 @@ button:focus-visible, input:focus-visible { outline: 2px solid #5878d6; outline-
 .primary-button:hover { background: var(--accent-hover); }
 .loading-dot { width: 16px; height: 16px; border: 2px solid var(--spinner-border); border-top-color: var(--spinner-top); border-radius: 50%; animation: spin .8s linear infinite; }
 @keyframes spin { to { transform: rotate(360deg); } }
+@media (max-width: 720px) {
+  .settings-panel { padding: 14px 14px 12px; }
+  .setting-row { align-items: flex-start; padding: 10px 0; }
+  .setting-row small { max-width: 38ch; }
+  .shortcut-input, .setting-row select { flex: 0 0 auto; }
+}
 @media (prefers-reduced-motion: reduce) { .loading-dot { animation-duration: 2s; } }

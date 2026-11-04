@@ -3,7 +3,6 @@ import type { WindowGeometry } from './window-layout'
 
 export interface ShortcutBindings {
   toggle: string
-  temporaryChat: string
   chatHistory: string
   providers: Partial<Record<ProviderId, string>>
 }
@@ -14,6 +13,7 @@ export interface AppSettings {
   alwaysOnTop: boolean
   autoHidePopover: boolean
   escapeHidesPopover: boolean
+  opacity: number
   resetAfterMinutes: number
   geometry: WindowGeometry
 }
@@ -24,7 +24,6 @@ export function defaultSettings(platform: string): AppSettings {
     activeProviderId: 'chatgpt',
     shortcuts: {
       toggle: isMac ? 'Alt+Space' : 'Control+Shift+Space',
-      temporaryChat: isMac ? 'Command+Shift+N' : 'Control+Shift+N',
       chatHistory: isMac ? 'Command+K' : 'Control+K',
       providers: isMac
         ? { chatgpt: 'Alt+1', claude: 'Alt+2' }
@@ -33,6 +32,7 @@ export function defaultSettings(platform: string): AppSettings {
     alwaysOnTop: true,
     autoHidePopover: false,
     escapeHidesPopover: true,
+    opacity: 1,
     resetAfterMinutes: 30,
     geometry: {}
   }
@@ -43,7 +43,7 @@ export function normalizeSettings(value: unknown, platform: string): AppSettings
   if (!value || typeof value !== 'object') return defaults
   const input = value as Partial<AppSettings>
   const geometry: WindowGeometry = {}
-  for (const mode of ['popover', 'expanded', 'fullscreen'] as const) {
+  for (const mode of ['popover', 'compact', 'expanded', 'fullscreen'] as const) {
     const bounds = input.geometry?.[mode]
     if (bounds && [bounds.x, bounds.y, bounds.width, bounds.height].every(Number.isFinite)) {
       geometry[mode] = mode === 'popover' && bounds.width === 460 && bounds.height === 640
@@ -55,7 +55,6 @@ export function normalizeSettings(value: unknown, platform: string): AppSettings
     activeProviderId: input.activeProviderId === 'claude' ? 'claude' : 'chatgpt',
     shortcuts: {
       toggle: typeof input.shortcuts?.toggle === 'string' ? input.shortcuts.toggle : defaults.shortcuts.toggle,
-      temporaryChat: typeof input.shortcuts?.temporaryChat === 'string' ? input.shortcuts.temporaryChat : defaults.shortcuts.temporaryChat,
       chatHistory: typeof input.shortcuts?.chatHistory === 'string' ? input.shortcuts.chatHistory : defaults.shortcuts.chatHistory,
       providers: {
         chatgpt: typeof input.shortcuts?.providers?.chatgpt === 'string' ? input.shortcuts.providers.chatgpt : defaults.shortcuts.providers.chatgpt,
@@ -65,6 +64,7 @@ export function normalizeSettings(value: unknown, platform: string): AppSettings
     alwaysOnTop: typeof input.alwaysOnTop === 'boolean' ? input.alwaysOnTop : defaults.alwaysOnTop,
     autoHidePopover: typeof input.autoHidePopover === 'boolean' ? input.autoHidePopover : defaults.autoHidePopover,
     escapeHidesPopover: typeof input.escapeHidesPopover === 'boolean' ? input.escapeHidesPopover : defaults.escapeHidesPopover,
+    opacity: typeof input.opacity === 'number' && Number.isFinite(input.opacity) ? Math.min(1, Math.max(0.6, input.opacity)) : defaults.opacity,
     resetAfterMinutes: [0, 15, 30, 60].includes(input.resetAfterMinutes ?? -1) ? input.resetAfterMinutes! : defaults.resetAfterMinutes,
     geometry
   }
@@ -85,7 +85,7 @@ export function isValidAccelerator(accelerator: string): boolean {
   return keys.has(key) || /^[A-Z0-9]$/i.test(key) || /^F([1-9]|1\d|2[0-4])$/.test(key)
 }
 
-export type ShortcutName = 'toggle' | 'temporary-chat' | 'chat-history' | `provider:${ProviderId}`
+export type ShortcutName = 'toggle' | 'chat-history' | `provider:${ProviderId}`
 
 export function validateShortcutMap(bindings: Partial<Record<ShortcutName, string>>): string[] {
   const errors: string[] = []

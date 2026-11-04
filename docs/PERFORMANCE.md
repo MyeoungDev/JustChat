@@ -1,6 +1,6 @@
 # Performance — Alpha baseline
 
-Date: 2026-11-02
+Date: 2026-11-03
 
 ## Local development smoke measurement
 
@@ -17,6 +17,17 @@ Measured on macOS 27.0.1 (Apple M3 Pro, 36 GB RAM), Node 24.15.0 and Electron 45
 | Idle CPU | 0.00–0.02% summed process samples in the short observation | `app.getAppMetrics()` samples every 5 seconds; about 25 seconds, not a sustained idle run |
 
 The page load was unauthenticated; login and conversation rendering may change memory and timings. Development-mode results include a different runtime path than packaged builds.
+
+## Development-mode repeated transitions (2026-11-03)
+
+Measured on macOS 27.0.1 (Apple M3 Pro, 36 GB RAM), Node 24.15.0 and Electron 45.2.1, using an isolated `/tmp/just-chat-g006-toggle-profile` profile with ChatGPT signed out. The performance-only IPC invoked the same `toggleWindow()` path as the global shortcut and awaited each native Electron `show` or `hide` event before starting the next transition. There were 30 completed transitions of each type; initial and final shell mode were Pop Over, and no prompt was submitted.
+
+| Transition | n | Median | Nearest-rank p95 | Range |
+|---|---:|---:|---:|---:|
+| Show | 30 | 22.2 ms | 80.9 ms | 17.6–90.0 ms |
+| Hide | 30 | 280.6 ms | 290.1 ms | 273.9–290.7 ms |
+
+These are development-mode native-window transition timings, not packaged-app timings. They include IPC and Electron event delivery and were measured on one Mac; Windows 11 and authenticated ChatGPT behavior remain unmeasured. The earlier rapid-toggle attempt was discarded because it did not await native transitions.
 
 ## Instrumentation and lifecycle policy
 

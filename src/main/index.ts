@@ -1,19 +1,19 @@
-import { app, BrowserWindow, clipboard, globalShortcut, ipcMain, nativeTheme, screen, session, shell, WebContentsView } from 'electron'
+import { app, BrowserWindow, globalShortcut, ipcMain, nativeTheme, screen, session, shell, WebContentsView } from 'electron'
 import { dirname, join } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 import { classifyProviderPopup, isAllowedProviderNavigation, providers, resolveProviderSelection, type ProviderAdapter, type ProviderId } from '../shared/providers'
-import { defaultSettings, normalizeSettings, type AppSettings, type ShortcutName } from '../shared/settings'
-import { routeTemporaryChatShortcut } from '../shared/shortcut-dispatch'
+import { defaultSettings, normalizeSettings, validateShortcutMap, type AppSettings, type ShortcutName } from '../shared/settings'
+import { shouldDispatchFocusedShortcut } from '../shared/shortcut-dispatch'
 import { registerShortcutBindings, replaceShortcutBindings, type ShortcutBindingsByName } from '../shared/shortcut-registry'
 import { isTrustedShellSender } from '../shared/security'
 import { RetainedViewRegistry } from '../shared/provider-view-registry'
-import { centeredBounds, geometryForCurrentDisplay, transitionWindowGeometry, type WindowMode } from '../shared/window-layout'
+import { centeredBounds, geometryForCurrentDisplay, modeForProviderPage, transitionWindowGeometry, type WindowMode } from '../shared/window-layout'
 import { SettingsStore } from './settings-store'
 import { clearProviderSessionData } from './provider-session'
 import { performance } from 'node:perf_hooks'
 
 type ProviderLoadState = 'loading' | 'ready' | 'error'
-type UserSettingsPatch = Partial<Pick<AppSettings, 'shortcuts' | 'alwaysOnTop' | 'autoHidePopover' | 'escapeHidesPopover' | 'resetAfterMinutes'>>
+type UserSettingsPatch = Partial<Pick<AppSettings, 'shortcuts' | 'alwaysOnTop' | 'autoHidePopover' | 'escapeHidesPopover' | 'opacity' | 'resetAfterMinutes'>>
 
 const currentDir = dirname(fileURLToPath(import.meta.url))
 const rendererFile = join(currentDir, '../renderer/index.html')
@@ -30,7 +30,6 @@ let window: BrowserWindow | undefined
 let mode: WindowMode = 'popover'
 let modeBeforeFullscreen: WindowMode = 'expanded'
 let settingsVisible = false
-let chatViewVisible = false
 let shellContentsId: number | undefined
 let shellDevelopmentOrigin: string | undefined
 let registeredShortcuts: ShortcutBindingsByName = {}
@@ -91,7 +90,6 @@ function hideWindow() {
       if (!window || window.isDestroyed() || window.isVisible()) return
       const view = webViews.get('chatgpt')
       if (!view || view.webContents.isDestroyed()) return
-      chatViewVisible = false
       providerLoadStarts.set('chatgpt', performance.now())
       setProviderState('chatgpt', 'loading')
       void view.webContents.loadURL(providerFor('chatgpt').url).catch(() => setProviderState('chatgpt', 'error'))
@@ -112,7 +110,6 @@ function sendState() {
     providerId: settings.activeProviderId,
     providerState: providerStates.get(settings.activeProviderId) ?? 'loading',
     settingsVisible,
-    chatViewVisible,
     settings,
     shortcutFailures
   })
@@ -148,34 +145,36 @@ function handleEscape(event: Electron.Event, input: Electron.Input): void {
   hideWindow()
 }
 
-function dispatchTemporaryChatShortcut(event: Electron.Event, input: Electron.Input, providerHasFocus: boolean): void {
+function handleShellInput(event: Electron.Event, input: Electron.Input): void {
   handleEscape(event, input)
-  const chord = {
+  dispatchChatHistoryShortcut(event, input)
+}
+
+function handleProviderInput(event: Electron.Event, input: Electron.Input): void {
+  handleEscape(event, input)
+  dispatchChatHistoryShortcut(event, input, true)
+}
+
+function dispatchChatHistoryShortcut(event: Electron.Event, input: Electron.Input, providerHasFocus = false): void {
+  const shouldOpenHistory = shouldDispatchFocusedShortcut({
     key: input.key,
     code: input.code,
     altKey: input.alt,
     ctrlKey: input.control,
     metaKey: input.meta,
     shiftKey: input.shift
-  }
-  const route = routeTemporaryChatShortcut(chord, process.platform, settings.shortcuts.temporaryChat, {
+  }, process.platform, settings.shortcuts.chatHistory, {
     eventType: input.type,
     settingsVisible,
     windowVisible: Boolean(window?.isVisible()),
-    windowFocused: Boolean(window?.isFocused())
-  }, providerHasFocus)
-  if (route === 'ignore' || route === 'chatgpt') return
-
+    windowFocused: Boolean(window?.isFocused()),
+    windowMode: mode
+  })
+  if (!shouldOpenHistory) return
+  const nativeSearchShortcut = process.platform === 'darwin' ? 'Command+K' : 'Control+K'
+  if (providerHasFocus && settings.shortcuts.chatHistory === nativeSearchShortcut) return
   event.preventDefault()
-  startTemporaryChat()
-}
-
-function handleShellInput(event: Electron.Event, input: Electron.Input): void {
-  dispatchTemporaryChatShortcut(event, input, false)
-}
-
-function handleProviderInput(event: Electron.Event, input: Electron.Input): void {
-  dispatchTemporaryChatShortcut(event, input, true)
+  openChatHistory()
 }
 
 function setProviderState(id: ProviderId, state: ProviderLoadState) {
@@ -207,7 +206,7 @@ function setProviderState(id: ProviderId, state: ProviderLoadState) {
     }
   }
   const view = webViews.get(id)
-  if (view) view.setVisible(id === settings.activeProviderId && chatViewVisible && !settingsVisible)
+  if (view) view.setVisible(id === settings.activeProviderId && !settingsVisible)
   if (id === settings.activeProviderId) sendState()
 }
 
@@ -284,7 +283,9 @@ function getProviderView(id: ProviderId) {
     contents.session.setPermissionRequestHandler((_webContents, _permission, callback) => callback(false))
     contents.session.setPermissionCheckHandler(() => false)
     contents.on('did-start-loading', () => setProviderState(id, 'loading'))
-    contents.on('did-finish-load', () => setProviderState(id, 'ready'))
+    contents.on('did-finish-load', () => {
+      setProviderState(id, 'ready')
+    })
     contents.on('did-fail-load', (_event, errorCode, _description, _validatedURL, isMainFrame) => {
       if (isMainFrame && errorCode !== -3) {
         console.warn(`[Just Chat] ${id} provider load failed (${errorCode})`)
@@ -307,7 +308,7 @@ function applyViewBounds() {
   const view = webViews.get(settings.activeProviderId)
   if (!view) return
   view.setBounds({ x: 0, y: headerHeight, width, height: Math.max(0, height - headerHeight) })
-  view.setVisible(chatViewVisible && !settingsVisible)
+  view.setVisible(!settingsVisible)
   for (const [id, other] of webViews.entries()) if (id !== settings.activeProviderId) other.setVisible(false)
 }
 
@@ -330,13 +331,22 @@ function setMode(nextMode: WindowMode) {
   const started = performance.now()
   settings.geometry = result.geometry
   mode = result.mode
-  window.setMinimumSize(Math.min(nextMode === 'popover' ? 560 : 800, targetArea.width), Math.min(nextMode === 'popover' ? 160 : 600, targetArea.height))
+  const minimum = nextMode === 'compact' ? { width: 640, height: 280 } : { width: nextMode === 'popover' ? 700 : 800, height: 600 }
+  window.setMinimumSize(Math.min(minimum.width, targetArea.width), Math.min(minimum.height, targetArea.height))
   window.setBounds(result.bounds, true)
   window.setAlwaysOnTop(settings.alwaysOnTop)
   settingsStore.save(settings)
   sendState()
   applyViewBounds()
   recordPerformance(`window-${nextMode}-api-ms`, { duration: timeSince(started) })
+}
+
+function showChatView() {
+  if (!settingsVisible) {
+    const nextMode = modeForProviderPage(mode)
+    if (nextMode !== mode) setMode(nextMode)
+  }
+  applyViewBounds()
 }
 
 function setProvider(id: ProviderId) {
@@ -361,47 +371,14 @@ function setProvider(id: ProviderId) {
   if (window?.isVisible()) focusChatView()
 }
 
-function startTemporaryChat() {
-  if (!window || window.isDestroyed()) return
-  setProvider('chatgpt')
-  chatViewVisible = true
-  applyViewBounds()
-  sendState()
-  const view = webViews.get('chatgpt')
-  if (!view) return
-  settingsVisible = false
-  applyViewBounds()
-  sendState()
-
-  const dispatchShortcut = () => {
-    if (!window || window.isDestroyed() || view.webContents.isDestroyed()) return
-    view.webContents.focus()
-    const modifiers: ('meta' | 'control' | 'shift')[] = process.platform === 'darwin' ? ['meta', 'shift'] : ['control', 'shift']
-    view.webContents.sendInputEvent({ type: 'keyDown', keyCode: 'N', modifiers })
-    view.webContents.sendInputEvent({ type: 'keyUp', keyCode: 'N', modifiers })
-  }
-
-  if (providerStates.get('chatgpt') !== 'ready') {
-    showWindow()
-    window.focus()
-    sendState()
-    return
-  }
-  if (window.isFocused()) dispatchShortcut()
-  else window.once('focus', dispatchShortcut)
-  showWindow()
-  window.focus()
-}
-
 function openChatHistory() {
   if (!window || window.isDestroyed()) return
   setProvider('chatgpt')
-  chatViewVisible = true
   settingsVisible = false
-  applyViewBounds()
+  showChatView()
   sendState()
   const view = webViews.get('chatgpt')
-  if (!view || providerStates.get('chatgpt') !== 'ready') {
+  if (!view) {
     showWindow()
     window.focus()
     return
@@ -426,105 +403,9 @@ function retryProvider() {
   void view.webContents.reload()
 }
 
-async function submitPrompt(promptValue: unknown): Promise<{ ok: boolean; reason?: string }> {
-  if (typeof promptValue !== 'string' || !promptValue.trim()) return { ok: false, reason: 'empty' }
-  const prompt = promptValue.trim()
-  if (prompt.length > 50_000) return { ok: false, reason: 'too-long' }
-  if (!window || window.isDestroyed()) return { ok: false, reason: 'window-unavailable' }
-
-  setProvider('chatgpt')
-  const view = getProviderView('chatgpt')
-  const contents = view.webContents
-  try {
-    await contents.loadURL(providerFor('chatgpt').url)
-    let composerReady = false
-    for (let attempt = 0; attempt < 60; attempt += 1) {
-      if (contents.isDestroyed()) return { ok: false, reason: 'page-unavailable' }
-      composerReady = await contents.executeJavaScript(`Boolean(document.querySelector('#prompt-textarea, [contenteditable="true"][role="textbox"], textarea[placeholder]'))`).catch(() => false)
-      if (composerReady) break
-      await new Promise((resolve) => setTimeout(resolve, 250))
-    }
-    if (!composerReady) return { ok: false, reason: 'composer-not-found' }
-
-    const focused = await contents.executeJavaScript(`(() => {
-      const editor = document.querySelector('#prompt-textarea, [contenteditable="true"][role="textbox"], textarea[placeholder]');
-      if (!editor) return false;
-      editor.focus();
-      return true;
-    })()`).catch(() => false)
-    if (!focused) return { ok: false, reason: 'composer-not-found' }
-    contents.focus()
-    contents.insertText(prompt)
-
-    let textInserted = false
-    for (let attempt = 0; attempt < 16; attempt += 1) {
-      textInserted = await contents.executeJavaScript(`(() => {
-        const editor = document.querySelector('#prompt-textarea, [contenteditable="true"][role="textbox"], textarea[placeholder]');
-        return Boolean(editor && (editor.value || editor.innerText || editor.textContent || '').trim());
-      })()`).catch(() => false)
-      if (textInserted) break
-      await new Promise((resolve) => setTimeout(resolve, 100))
-    }
-    if (!textInserted) return { ok: false, reason: 'text-entry-failed' }
-
-    const clicked = await contents.executeJavaScript(`(() => {
-      const button = document.querySelector('button[data-testid="send-button"], button[aria-label*="Send" i], button[aria-label*="보내기"], form button[type="submit"]');
-      if (!button || button.disabled) return false;
-      button.click();
-      return true;
-    })()`).catch(() => false)
-    if (!clicked) {
-      contents.sendInputEvent({ type: 'keyDown', keyCode: 'Return' })
-      contents.sendInputEvent({ type: 'keyUp', keyCode: 'Return' })
-    }
-
-    chatViewVisible = true
-    applyViewBounds()
-    showWindow()
-    window.focus()
-    contents.focus()
-    sendState()
-    return { ok: true }
-  } catch {
-    return { ok: false, reason: 'provider-interaction-failed' }
-  }
-}
-
-async function openChatManually(promptValue: unknown): Promise<{ ok: boolean; reason?: string }> {
-  if (typeof promptValue !== 'string' || !promptValue.trim()) return { ok: false, reason: 'empty' }
-  if (promptValue.length > 50_000) return { ok: false, reason: 'too-long' }
-  if (!window || window.isDestroyed()) return { ok: false, reason: 'window-unavailable' }
-  clipboard.writeText(promptValue)
-  setProvider('chatgpt')
-  const view = getProviderView('chatgpt')
-  chatViewVisible = true
-  settingsVisible = false
-  applyViewBounds()
-  sendState()
-  showWindow()
-  window.focus()
-  try {
-    await view.webContents.loadURL(providerFor('chatgpt').url)
-  } catch {
-    chatViewVisible = false
-    applyViewBounds()
-    sendState()
-    return { ok: false, reason: 'provider-load-failed' }
-  }
-  view.webContents.focus()
-  return { ok: true }
-}
-
-function showComposer() {
-  chatViewVisible = false
-  applyViewBounds()
-  sendState()
-}
-
 function focusChatView() {
   if (!window || window.isDestroyed() || settingsVisible) return
   window.focus()
-  if (!chatViewVisible) return
   const view = webViews.get(settings.activeProviderId)
   if (view && providerStates.get(settings.activeProviderId) === 'ready') view.webContents.focus()
 }
@@ -535,7 +416,7 @@ function toggleWindow() {
     hideWindow()
     return
   }
-  if (mode !== 'popover') setMode('popover')
+  if (mode !== 'compact') setMode('compact')
   showWindow()
   focusChatView()
 }
@@ -550,11 +431,16 @@ function toggleFullscreen() {
 }
 
 function desiredBindings(candidate: AppSettings): ShortcutBindingsByName {
-  const bindings: ShortcutBindingsByName = {
+  return { toggle: candidate.shortcuts.toggle }
+}
+
+function validateSettingsShortcuts(candidate: AppSettings): string[] {
+  return validateShortcutMap({
     toggle: candidate.shortcuts.toggle,
-    'chat-history': candidate.shortcuts.chatHistory
-  }
-  return bindings
+    'chat-history': candidate.shortcuts.chatHistory,
+    'provider:chatgpt': candidate.shortcuts.providers.chatgpt,
+    'provider:claude': candidate.shortcuts.providers.claude
+  })
 }
 
 function shortcutCallbacks() {
@@ -565,6 +451,8 @@ function shortcutCallbacks() {
 }
 
 function replaceBindings(candidate: AppSettings): string[] {
+  const validationFailures = validateSettingsShortcuts(candidate)
+  if (validationFailures.length) return validationFailures
   const api = { register: (accelerator: string, callback: () => void) => globalShortcut.register(accelerator, callback), unregister: (accelerator: string) => globalShortcut.unregister(accelerator) }
   const result = replaceShortcutBindings(api, registeredShortcuts, desiredBindings(candidate), shortcutCallbacks())
   registeredShortcuts = result.registered
@@ -573,9 +461,10 @@ function replaceBindings(candidate: AppSettings): string[] {
 
 function registerStartupBindings() {
   const api = { register: (accelerator: string, callback: () => void) => globalShortcut.register(accelerator, callback), unregister: (accelerator: string) => globalShortcut.unregister(accelerator) }
+  shortcutFailures = validateSettingsShortcuts(settings)
   const attempt = registerShortcutBindings(api, desiredBindings(settings), shortcutCallbacks())
   registeredShortcuts = attempt.registered
-  shortcutFailures = attempt.failed
+  shortcutFailures = [...shortcutFailures, ...attempt.failed]
 }
 
 function isTrustedShell(event: Electron.IpcMainEvent | Electron.IpcMainInvokeEvent) {
@@ -587,6 +476,7 @@ function isTrustedShell(event: Electron.IpcMainEvent | Electron.IpcMainInvokeEve
 
 function applyWindowPreferences() {
   window?.setAlwaysOnTop(settings.alwaysOnTop)
+  window?.setOpacity(settings.opacity)
   scheduleSave()
   sendState()
 }
@@ -601,12 +491,13 @@ function createWindow() {
 
   window = new BrowserWindow({
     ...bounded,
-    minWidth: Math.min(560, workArea.width),
-    minHeight: Math.min(160, workArea.height),
+    minWidth: Math.min(700, workArea.width),
+    minHeight: Math.min(600, workArea.height),
     show: false,
     frame: false,
     resizable: true,
     alwaysOnTop: settings.alwaysOnTop,
+    opacity: settings.opacity,
     backgroundColor: shellBackgroundColor(),
     webPreferences: {
       preload: join(currentDir, '../preload/index.js'),
@@ -646,6 +537,7 @@ function createWindow() {
   const appWindow = window
   appWindow.once('ready-to-show', () => {
     recordPerformance('cold-start-to-shell-ready-ms', { duration: timeSince(appStartTime), windowId: appWindow.id })
+    showChatView()
     applyViewBounds()
     appWindow.show()
     focusChatView()
@@ -693,7 +585,6 @@ ipcMain.handle('shell:get-state', (event) => {
     providerId: settings.activeProviderId,
     providerState: providerStates.get(settings.activeProviderId) ?? 'loading',
     settingsVisible,
-    chatViewVisible,
     settings,
     shortcutFailures
   }
@@ -706,6 +597,7 @@ ipcMain.handle('settings:update', (event, patch: UserSettingsPatch) => {
     alwaysOnTop: typeof patch.alwaysOnTop === 'boolean' ? patch.alwaysOnTop : settings.alwaysOnTop,
     autoHidePopover: typeof patch.autoHidePopover === 'boolean' ? patch.autoHidePopover : settings.autoHidePopover,
     escapeHidesPopover: typeof patch.escapeHidesPopover === 'boolean' ? patch.escapeHidesPopover : settings.escapeHidesPopover,
+    opacity: typeof patch.opacity === 'number' ? patch.opacity : settings.opacity,
     resetAfterMinutes: typeof patch.resetAfterMinutes === 'number' ? patch.resetAfterMinutes : settings.resetAfterMinutes,
     shortcuts: patch.shortcuts ? { ...settings.shortcuts, ...patch.shortcuts, providers: { ...settings.shortcuts.providers, ...patch.shortcuts.providers } } : settings.shortcuts
   }, process.platform)
@@ -733,8 +625,7 @@ ipcMain.handle('provider:clear-chatgpt-session', async (event) => {
   }
 
   if (settings.activeProviderId === 'chatgpt') {
-    chatViewVisible = true
-    applyViewBounds()
+    showChatView()
     sendState()
   }
 
@@ -753,16 +644,37 @@ ipcMain.handle('provider:clear-chatgpt-session', async (event) => {
 
 ipcMain.on('app:expand', (event) => { if (isTrustedShell(event)) setMode('expanded') })
 ipcMain.on('app:collapse', (event) => { if (isTrustedShell(event)) setMode('popover') })
+ipcMain.on('app:compact', (event) => { if (isTrustedShell(event)) setMode('compact') })
 ipcMain.on('app:fullscreen', (event) => { if (isTrustedShell(event)) toggleFullscreen() })
 ipcMain.on('app:hide', (event) => { if (isTrustedShell(event)) hideWindow() })
+if (performanceEnabled) {
+  ipcMain.handle('performance:toggle-window', (event) => {
+    if (!isTrustedShell(event) || !window || window.isDestroyed()) throw new Error('untrusted or unavailable window')
+    const currentWindow = window
+    const targetEvent = currentWindow.isVisible() ? 'hide' : 'show'
+    const started = performance.now()
+    return new Promise<{ event: 'show' | 'hide'; durationMs: number }>((resolve, reject) => {
+      const timeout = setTimeout(() => {
+        if (targetEvent === 'show') currentWindow.removeListener('show', onTransition)
+        else currentWindow.removeListener('hide', onTransition)
+        reject(new Error(`window did not emit ${targetEvent} within 2 seconds`))
+      }, 2_000)
+      const onTransition = () => {
+        clearTimeout(timeout)
+        resolve({ event: targetEvent, durationMs: timeSince(started) })
+      }
+      if (targetEvent === 'show') currentWindow.once('show', onTransition)
+      else currentWindow.once('hide', onTransition)
+      toggleWindow()
+    })
+  })
+}
 ipcMain.on('app:settings', (event, visible: boolean) => {
   if (!isTrustedShell(event)) return
   settingsVisible = Boolean(visible)
-  applyViewBounds()
+  if (!settingsVisible) showChatView()
+  else applyViewBounds()
   sendState()
 })
 ipcMain.on('app:provider', (event, id: ProviderId) => { if (isTrustedShell(event)) setProvider(id) })
 ipcMain.on('app:retry-provider', (event) => { if (isTrustedShell(event)) retryProvider() })
-ipcMain.handle('chat:submit-prompt', (event, prompt: unknown) => isTrustedShell(event) ? submitPrompt(prompt) : { ok: false, reason: 'untrusted' })
-ipcMain.handle('chat:open-manually', (event, prompt: unknown) => isTrustedShell(event) ? openChatManually(prompt) : { ok: false, reason: 'untrusted' })
-ipcMain.on('chat:show-composer', (event) => { if (isTrustedShell(event)) showComposer() })

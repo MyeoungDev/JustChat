@@ -1,4 +1,4 @@
-export type WindowMode = 'popover' | 'expanded' | 'fullscreen'
+export type WindowMode = 'popover' | 'compact' | 'expanded' | 'fullscreen'
 
 export interface WindowBounds {
   x: number
@@ -15,18 +15,24 @@ export interface DisplayWorkArea {
 }
 
 export const windowSizes: Record<WindowMode, { width: number; height: number }> = {
-  popover: { width: 900, height: 220 },
-  expanded: { width: 1200, height: 800 },
+  popover: { width: 900, height: 600 },
+  compact: { width: 760, height: 320 },
+  expanded: { width: 1000, height: 700 },
   fullscreen: { width: 0, height: 0 }
 }
 
 const minimumSizes: Record<WindowMode, { width: number; height: number }> = {
-  popover: { width: 560, height: 160 },
+  popover: { width: 700, height: 600 },
+  compact: { width: 640, height: 280 },
   expanded: { width: 800, height: 600 },
   fullscreen: { width: 0, height: 0 }
 }
 
 export type WindowGeometry = Partial<Record<WindowMode, WindowBounds>>
+
+export function modeForProviderPage(currentMode: WindowMode): WindowMode {
+  return currentMode === 'popover' ? 'compact' : currentMode
+}
 
 export function geometryForCurrentDisplay(
   geometry: WindowGeometry,
