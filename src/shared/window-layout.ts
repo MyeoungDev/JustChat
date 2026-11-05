@@ -16,19 +16,31 @@ export interface DisplayWorkArea {
 
 export const windowSizes: Record<WindowMode, { width: number; height: number }> = {
   popover: { width: 900, height: 600 },
-  compact: { width: 760, height: 320 },
-  expanded: { width: 1000, height: 700 },
+  compact: { width: 520, height: 200 },
+  expanded: { width: 520, height: 480 },
   fullscreen: { width: 0, height: 0 }
 }
 
-const minimumSizes: Record<WindowMode, { width: number; height: number }> = {
+export const minimumWindowSizes: Record<WindowMode, { width: number; height: number }> = {
   popover: { width: 700, height: 600 },
-  compact: { width: 640, height: 280 },
-  expanded: { width: 800, height: 600 },
+  compact: { width: 480, height: 180 },
+  expanded: { width: 480, height: 400 },
   fullscreen: { width: 0, height: 0 }
+}
+
+export function boundsAnchoredAtBottom(current: WindowBounds, target: WindowBounds, display: DisplayWorkArea): WindowBounds {
+  const width = Math.min(target.width, display.width)
+  const height = Math.min(target.height, display.height)
+  return clampWindowBounds({
+    x: Math.round(current.x + (current.width - width) / 2),
+    y: current.y + current.height - height,
+    width,
+    height
+  }, display, 'expanded')
 }
 
 export type WindowGeometry = Partial<Record<WindowMode, WindowBounds>>
+export type WindowGeometryByDisplay = Partial<Record<WindowMode, Record<string, WindowBounds>>>
 
 export function modeForProviderPage(currentMode: WindowMode): WindowMode {
   return currentMode === 'popover' ? 'compact' : currentMode
@@ -43,7 +55,7 @@ export function geometryForCurrentDisplay(
 }
 
 export function clampWindowBounds(bounds: WindowBounds, display: DisplayWorkArea, mode: WindowMode = 'popover'): WindowBounds {
-  const minimum = minimumSizes[mode]
+  const minimum = minimumWindowSizes[mode]
   const width = Math.min(Math.max(Math.round(bounds.width), Math.min(minimum.width, display.width)), display.width)
   const height = Math.min(Math.max(Math.round(bounds.height), Math.min(minimum.height, display.height)), display.height)
   return {
@@ -62,6 +74,48 @@ export function centeredBounds(mode: WindowMode, display: DisplayWorkArea): Wind
     y: Math.round(display.y + (display.height - size.height) / 2),
     ...size
   }, display, mode)
+}
+
+export function lowerCenteredBounds(
+  mode: WindowMode,
+  display: DisplayWorkArea,
+  savedBounds?: WindowBounds
+): WindowBounds {
+  if (mode === 'fullscreen') return { ...display }
+  const defaultSize = windowSizes[mode]
+  const size = savedBounds
+    ? { width: Math.min(savedBounds.width, defaultSize.width), height: Math.min(savedBounds.height, defaultSize.height) }
+    : defaultSize
+  const width = Math.min(size.width, display.width)
+  const height = Math.min(size.height, display.height)
+  return clampWindowBounds({
+    x: Math.round(display.x + (display.width - width) / 2),
+    y: Math.round(display.y + display.height * 0.82 - height / 2),
+    width,
+    height
+  }, display, mode)
+}
+
+export function boundsForDisplay(
+  mode: WindowMode,
+  savedBounds: WindowBounds | undefined,
+  display: DisplayWorkArea
+): WindowBounds {
+  return mode === 'fullscreen'
+    ? { ...display }
+    : clampWindowBounds(savedBounds ?? centeredBounds(mode, display), display, mode)
+}
+
+export function rememberDisplayBounds(
+  geometry: WindowGeometryByDisplay,
+  mode: WindowMode,
+  displayId: string,
+  bounds: WindowBounds
+): WindowGeometryByDisplay {
+  return {
+    ...geometry,
+    [mode]: { ...geometry[mode], [displayId]: bounds }
+  }
 }
 
 export function transitionWindowGeometry(

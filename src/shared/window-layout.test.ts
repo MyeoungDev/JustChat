@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { clampWindowBounds, centeredBounds, geometryForCurrentDisplay, modeForProviderPage, transitionWindowGeometry, type WindowBounds } from './window-layout'
+import { boundsAnchoredAtBottom, boundsForDisplay, clampWindowBounds, centeredBounds, geometryForCurrentDisplay, modeForProviderPage, rememberDisplayBounds, transitionWindowGeometry, type WindowBounds } from './window-layout'
 
 const display = { x: -1440, y: 0, width: 1440, height: 900 }
 
@@ -35,10 +35,33 @@ describe('window geometry', () => {
     expect(centeredBounds('popover', display)).toEqual({ x: -1170, y: 150, width: 900, height: 600 })
   })
 
-  it('provides a shorter Quick Chat mode while keeping a usable minimum', () => {
-    expect(centeredBounds('compact', display)).toEqual({ x: -1100, y: 290, width: 760, height: 320 })
-    expect(clampWindowBounds({ x: -1000, y: 100, width: 760, height: 240 }, display, 'compact'))
-      .toEqual({ x: -1000, y: 100, width: 760, height: 280 })
+  it('provides a smaller Quick Chat mode and minimum size', () => {
+    expect(centeredBounds('compact', display)).toEqual({ x: -980, y: 350, width: 520, height: 200 })
+    expect(clampWindowBounds({ x: -1000, y: 100, width: 460, height: 160 }, display, 'compact'))
+      .toEqual({ x: -1000, y: 100, width: 480, height: 180 })
+  })
+
+  it('grows the conversation window upward while keeping its lower edge in place', () => {
+    const current = { x: 400, y: 640, width: 520, height: 200 }
+    const target = { x: 220, y: 100, width: 1000, height: 700 }
+    expect(boundsAnchoredAtBottom(current, target, { x: 0, y: 0, width: 1440, height: 900 }))
+      .toEqual({ x: 180, y: 140, width: 1000, height: 700 })
+  })
+
+  it('uses the cursor display fallback when there is no geometry saved for that display', () => {
+    expect(boundsForDisplay('compact', undefined, { x: 0, y: 0, width: 1440, height: 900 }))
+      .toEqual({ x: 460, y: 350, width: 520, height: 200 })
+    expect(boundsForDisplay('compact', { x: -1200, y: 100, width: 760, height: 320 }, display))
+      .toEqual({ x: -1200, y: 100, width: 760, height: 320 })
+  })
+
+  it('keeps saved window bounds independently for each display and mode', () => {
+    const primary = { x: 100, y: 120, width: 560, height: 200 }
+    const secondary = { x: -1300, y: 80, width: 560, height: 200 }
+    const first = rememberDisplayBounds({}, 'compact', 'primary', primary)
+    const both = rememberDisplayBounds(first, 'compact', 'secondary', secondary)
+    expect(both.compact).toEqual({ primary, secondary })
+    expect(rememberDisplayBounds(both, 'expanded', 'primary', { ...primary, height: 700 }).compact).toEqual({ primary, secondary })
   })
 
   it('upgrades old short popover geometry to the readable minimum', () => {

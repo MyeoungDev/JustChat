@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
-import { registerShortcutBindings, replaceShortcutBindings, type ShortcutApi } from './shortcut-registry'
+import { globalShortcutBindings, registerShortcutBindings, replaceShortcutBindings, type ShortcutApi } from './shortcut-registry'
+import { defaultSettings } from './settings'
 
 class FakeShortcutApi implements ShortcutApi {
   readonly active = new Set<string>()
@@ -13,6 +14,11 @@ class FakeShortcutApi implements ShortcutApi {
 }
 
 describe('global shortcut registration', () => {
+  it('registers only the launcher globally, regardless of other configured shortcuts', () => {
+    expect(globalShortcutBindings(defaultSettings('darwin'))).toEqual({ toggle: 'Alt+Space' })
+    expect(globalShortcutBindings(defaultSettings('win32'))).toEqual({ toggle: 'Control+Shift+Space' })
+  })
+
   it('reports registration conflicts without losing successful startup bindings', () => {
     const api = new FakeShortcutApi()
     api.unavailable.add('Alt+2')

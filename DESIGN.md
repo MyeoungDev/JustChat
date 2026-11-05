@@ -2,8 +2,8 @@
 
 ## Source of truth
 - Status: Active for Alpha
-- Last refreshed: 2026-11-04
-- Primary product surfaces: ChatGPT-first Quick Chat, Pop Over, Expanded chat, Full Screen chat, responsive settings view
+- Last refreshed: 2026-11-05
+- Primary product surfaces: ChatGPT-first Quick Chat, Expanded chat, Full Screen chat, responsive settings view
 - Evidence reviewed: existing `README.md`, Electron architecture review, React shell and CSS in `src/renderer/ui/`, user feedback on direct ChatGPT entry, Pop Over size, Settings responsiveness, and system appearance
 
 ## Brand
@@ -58,7 +58,7 @@
 - Reduced motion and sensory considerations: Avoid flashing and nonessential motion
 
 ## Responsive behavior
-- Supported breakpoints/devices: Desktop windows on macOS and Windows; 760×320 Quick Chat (640×280 minimum), 900×600 Pop Over, 1000×700 default Expanded window and Full Screen on the current display
+- Supported breakpoints/devices: Desktop windows on macOS and Windows; 520×200 Quick Chat (480×180 minimum), 520×480 default Expanded window (480×400 minimum) and Full Screen on the current display
 - Layout adaptations: Keep shell controls in a fixed-height header; keep the ChatGPT composer visible in Quick Chat; settings content expands with the available window width
 - Touch/hover differences: Hover is optional feedback; buttons remain visible and keyboard reachable
 
@@ -72,7 +72,7 @@
 
 ## ChatGPT-first experience
 - Decision: Launch directly into the retained ChatGPT web interface. Keep Just Chat chrome limited to window mode, Settings and Hide controls.
-- Window behavior: Open into Quick Chat at 760×320 (640×280 minimum); Expanded remains 1000×700, and Pop Over stays at 900×600 with a 700×600 minimum. Preserve user-saved sizes and Full Screen when switching. Use the existing Expand control to grow the same ChatGPT view. Automatic grow-after-send is deferred because Electron input events do not identify the ChatGPT composer or send-button action without provider-page scripting. Collapse ChatGPT's own sidebar for the most room in Quick Chat.
+- Window behavior: Open into Quick Chat at 520×200 (480×180 minimum), centered horizontally with its center at 82% of the active display work area's height; Expanded defaults to 520×480 (480×400 minimum). Quick Chat grows upward while preserving its width. Open newly shown windows on the mouse pointer's display and preserve geometry per display and mode. A single size control toggles Quick Chat and Expanded; a separate control fills the current display. Dismiss an empty Quick Chat on focus loss while keeping a routed ChatGPT conversation available. Quick Chat grows into Expanded on an unmodified Enter key or when ChatGPT navigates to a conversation, keeping the lower edge in place. Enter detection is a best-effort signal because Electron does not expose which page control received the key. The ChatGPT sidebar is collapsed again after window resizing when possible to keep the conversation centered in the compact window.
 - Theme ownership: The Just Chat shell follows the system appearance. ChatGPT's remote page keeps its own appearance setting; do not force or imply synchronized remote theming.
 - Window opacity: Settings offers a whole-window opacity slider from 60% to 100%, defaulting to 100%. The remote ChatGPT page, text, and shell controls all fade together, so 100% remains one drag away if reduced opacity hurts readability.
 - Evidence: The renderer now shows the retained ChatGPT view immediately and Settings remains an in-shell surface. Signed-in conversation display and theme transition remain pending normal user-controlled sign-in.

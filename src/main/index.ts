@@ -1,13 +1,14 @@
-import { app, BrowserWindow, globalShortcut, ipcMain, nativeTheme, screen, session, shell, WebContentsView } from 'electron'
+import { app, BrowserWindow, globalShortcut, ipcMain, nativeImage, nativeTheme, screen, session, shell, WebContentsView } from 'electron'
 import { dirname, join } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 import { classifyProviderPopup, isAllowedProviderNavigation, providers, resolveProviderSelection, type ProviderAdapter, type ProviderId } from '../shared/providers'
 import { defaultSettings, normalizeSettings, validateShortcutMap, type AppSettings, type ShortcutName } from '../shared/settings'
 import { shouldDispatchFocusedShortcut } from '../shared/shortcut-dispatch'
-import { registerShortcutBindings, replaceShortcutBindings, type ShortcutBindingsByName } from '../shared/shortcut-registry'
+import { globalShortcutBindings, registerShortcutBindings, replaceShortcutBindings, type ShortcutBindingsByName } from '../shared/shortcut-registry'
 import { isTrustedShellSender } from '../shared/security'
 import { RetainedViewRegistry } from '../shared/provider-view-registry'
-import { centeredBounds, geometryForCurrentDisplay, modeForProviderPage, transitionWindowGeometry, type WindowMode } from '../shared/window-layout'
+import { boundsAnchoredAtBottom, boundsForDisplay, centeredBounds, geometryForCurrentDisplay, lowerCenteredBounds, minimumWindowSizes, modeForProviderPage, rememberDisplayBounds, transitionWindowGeometry, type WindowMode } from '../shared/window-layout'
+import { hasChatGPTConversationRoute, isChatGPTSendKey, shouldHideWindowOnBlur } from '../shared/window-behavior'
 import { SettingsStore } from './settings-store'
 import { clearProviderSessionData } from './provider-session'
 import { performance } from 'node:perf_hooks'
@@ -18,6 +19,7 @@ type UserSettingsPatch = Partial<Pick<AppSettings, 'shortcuts' | 'alwaysOnTop' |
 const currentDir = dirname(fileURLToPath(import.meta.url))
 const rendererFile = join(currentDir, '../renderer/index.html')
 const rendererFileUrl = pathToFileURL(rendererFile).href
+const appIconPath = join(app.getAppPath(), 'assets', 'icon.png')
 const isDevelopment = !app.isPackaged
 const headerHeight = 48
 const performanceEnabled = process.env.JUST_CHAT_PERF === '1' || process.argv.includes('--just-chat-perf')
@@ -27,8 +29,10 @@ const webViews = new RetainedViewRegistry<ProviderId, WebContentsView>()
 const providerStates = new Map<ProviderId, ProviderLoadState>()
 let settings = defaultSettings(process.platform)
 let window: BrowserWindow | undefined
-let mode: WindowMode = 'popover'
-let modeBeforeFullscreen: WindowMode = 'expanded'
+let windowHasBeenFocused = false
+let suppressQuickChatBlurUntil = 0
+let mode: WindowMode = 'compact'
+let modeBeforeFullscreen: WindowMode = 'compact'
 let settingsVisible = false
 let shellContentsId: number | undefined
 let shellDevelopmentOrigin: string | undefined
@@ -73,8 +77,10 @@ function startPerformanceSampler() {
 
 function showWindow() {
   if (!window || window.isDestroyed()) return
+  suppressQuickChatBlurUntil = Date.now() + 1000
   if (chatResetTimer) clearTimeout(chatResetTimer)
   chatResetTimer = undefined
+  if (!window.isVisible()) positionWindowOnCursorDisplay()
   const started = performance.now()
   window.once('show', () => recordPerformance('popover-open-ms', { duration: timeSince(started) }))
   window.show()
@@ -118,7 +124,9 @@ function sendState() {
 function saveCurrentBounds() {
   if (!window || window.isDestroyed()) return
   const current = window.getBounds()
+  const display = screen.getDisplayNearestPoint({ x: current.x + current.width / 2, y: current.y + current.height / 2 })
   settings.geometry = { ...settings.geometry, [mode]: current }
+  settings.geometryByDisplay = rememberDisplayBounds(settings.geometryByDisplay, mode, String(display.id), current)
   settingsStore.save(settings)
 }
 
@@ -148,11 +156,41 @@ function handleEscape(event: Electron.Event, input: Electron.Input): void {
 function handleShellInput(event: Electron.Event, input: Electron.Input): void {
   handleEscape(event, input)
   dispatchChatHistoryShortcut(event, input)
+  handlePageZoomShortcut(event, input)
 }
 
 function handleProviderInput(event: Electron.Event, input: Electron.Input): void {
   handleEscape(event, input)
   dispatchChatHistoryShortcut(event, input, true)
+  handlePageZoomShortcut(event, input)
+  if (settings.activeProviderId === 'chatgpt' && mode === 'compact' && isChatGPTSendKey(input)) {
+    setMode('expanded')
+  }
+}
+
+function handlePageZoomShortcut(event: Electron.Event, input: Electron.Input): void {
+  if (input.type !== 'keyDown' || input.alt) return
+  const modifierPressed = process.platform === 'darwin' ? input.meta && !input.control : input.control && !input.meta
+  if (!modifierPressed) return
+
+  const view = webViews.get(settings.activeProviderId)
+  if (!view || view.webContents.isDestroyed()) return
+
+  const key = input.key.toLowerCase()
+  const code = input.code.toLowerCase()
+  if (key === '0' || code === 'digit0' || code === 'numpad0') {
+    event.preventDefault()
+    view.webContents.setZoomLevel(0)
+    return
+  }
+
+  const zoomOut = key === '-' || code === 'minus' || code === 'numpadsubtract'
+  const zoomIn = key === '+' || (code === 'equal' && input.shift) || code === 'numpadadd'
+  if (!zoomIn && !zoomOut) return
+
+  event.preventDefault()
+  const currentLevel = view.webContents.getZoomLevel()
+  view.webContents.setZoomLevel(Math.max(-3, Math.min(3, currentLevel + (zoomIn ? 0.5 : -0.5))))
 }
 
 function dispatchChatHistoryShortcut(event: Electron.Event, input: Electron.Input, providerHasFocus = false): void {
@@ -263,6 +301,7 @@ function getProviderView(id: ProviderId) {
     }
     })
     const contents = view.webContents
+    contents.setZoomMode('isolated')
 
     contents.setWindowOpenHandler(providerPopupHandler(adapter))
     contents.on('did-create-window', (popup) => guardProviderPopup(popup, adapter))
@@ -283,8 +322,17 @@ function getProviderView(id: ProviderId) {
     contents.session.setPermissionRequestHandler((_webContents, _permission, callback) => callback(false))
     contents.session.setPermissionCheckHandler(() => false)
     contents.on('did-start-loading', () => setProviderState(id, 'loading'))
+    contents.on('dom-ready', () => {
+      if (window?.isVisible() && !settingsVisible && settings.activeProviderId === id) setTimeout(focusChatComposer, 200)
+    })
     contents.on('did-finish-load', () => {
       setProviderState(id, 'ready')
+      if (id === 'chatgpt') syncCompactWelcome()
+      if (window?.isVisible() && !settingsVisible && settings.activeProviderId === id) setTimeout(focusChatComposer, 100)
+    })
+    contents.on('did-stop-loading', () => {
+      if (id === 'chatgpt') syncCompactWelcome()
+      if (window?.isVisible() && !settingsVisible && settings.activeProviderId === id) setTimeout(focusChatComposer, 100)
     })
     contents.on('did-fail-load', (_event, errorCode, _description, _validatedURL, isMainFrame) => {
       if (isMainFrame && errorCode !== -3) {
@@ -294,6 +342,12 @@ function getProviderView(id: ProviderId) {
     })
     contents.on('render-process-gone', () => setProviderState(id, 'error'))
     contents.on('before-input-event', handleProviderInput)
+    const expandForConversation = () => {
+      if (id === 'chatgpt' && mode === 'compact' && hasChatGPTConversationRoute(id, contents.getURL())) setMode('expanded')
+      else if (id === 'chatgpt') syncCompactWelcome()
+    }
+    contents.on('did-navigate', expandForConversation)
+    contents.on('did-navigate-in-page', expandForConversation)
 
     providerStates.set(id, 'loading')
     providerLoadStarts.set(id, performance.now())
@@ -312,8 +366,29 @@ function applyViewBounds() {
   for (const [id, other] of webViews.entries()) if (id !== settings.activeProviderId) other.setVisible(false)
 }
 
-function getWorkAreaFor(bounds: { x: number; y: number; width: number; height: number }) {
-  return screen.getDisplayNearestPoint({ x: bounds.x + bounds.width / 2, y: bounds.y + bounds.height / 2 }).workArea
+function savedBoundsForDisplay(targetMode: WindowMode, display: Electron.Display) {
+  const byDisplay = settings.geometryByDisplay[targetMode]?.[String(display.id)]
+  if (byDisplay) return byDisplay
+  const legacy = settings.geometry[targetMode]
+  if (!legacy) return undefined
+  const legacyDisplay = screen.getDisplayNearestPoint({ x: legacy.x + legacy.width / 2, y: legacy.y + legacy.height / 2 })
+  return legacyDisplay.id === display.id ? legacy : undefined
+}
+
+function positionWindowOnCursorDisplay() {
+  if (!window || window.isDestroyed()) return
+  const display = screen.getDisplayNearestPoint(screen.getCursorScreenPoint())
+  const area = mode === 'fullscreen' ? display.bounds : display.workArea
+  const savedBounds = savedBoundsForDisplay(mode, display)
+  const bounds = mode === 'compact'
+    ? lowerCenteredBounds(mode, area, savedBounds)
+    : boundsForDisplay(mode, savedBounds, area)
+  const minimum = minimumWindowSizes[mode]
+  window.setMinimumSize(Math.min(minimum.width, area.width), Math.min(minimum.height, area.height))
+  window.setBounds(bounds)
+  settings.geometry = { ...settings.geometry, [mode]: bounds }
+  settings.geometryByDisplay = rememberDisplayBounds(settings.geometryByDisplay, mode, String(display.id), bounds)
+  settingsStore.save(settings)
 }
 
 function setMode(nextMode: WindowMode) {
@@ -321,24 +396,83 @@ function setMode(nextMode: WindowMode) {
   const oldBounds = window.getBounds()
   const currentCenter = { x: oldBounds.x + oldBounds.width / 2, y: oldBounds.y + oldBounds.height / 2 }
   const currentDisplay = screen.getDisplayNearestPoint(currentCenter)
-  const savedBounds = settings.geometry[nextMode]
-  const savedDisplay = savedBounds
-    ? screen.getDisplayNearestPoint({ x: savedBounds.x + savedBounds.width / 2, y: savedBounds.y + savedBounds.height / 2 })
-    : undefined
-  const displayGeometry = geometryForCurrentDisplay(settings.geometry, nextMode, nextMode !== 'fullscreen' && savedDisplay?.id === currentDisplay.id)
+  const savedBounds = savedBoundsForDisplay(nextMode, currentDisplay)
+  const displayGeometry = geometryForCurrentDisplay(settings.geometry, nextMode, Boolean(savedBounds))
+  displayGeometry[nextMode] = savedBounds
   const targetArea = nextMode === 'fullscreen' ? currentDisplay.bounds : currentDisplay.workArea
-  const result = transitionWindowGeometry(mode, oldBounds, nextMode, displayGeometry, targetArea, centeredBounds(nextMode, targetArea))
+  const transition = transitionWindowGeometry(mode, oldBounds, nextMode, displayGeometry, targetArea, centeredBounds(nextMode, targetArea))
+  const expandsCompact = mode === 'compact' && nextMode === 'expanded'
+  const expandedBounds = { ...centeredBounds('expanded', targetArea), x: oldBounds.x, width: Math.min(oldBounds.width, targetArea.width) }
+  const result = expandsCompact
+    ? { ...transition, bounds: boundsAnchoredAtBottom(oldBounds, expandedBounds, targetArea) }
+    : transition
+  result.geometry[nextMode] = result.bounds
   const started = performance.now()
   settings.geometry = result.geometry
+  settings.geometryByDisplay = rememberDisplayBounds(settings.geometryByDisplay, mode, String(currentDisplay.id), oldBounds)
+  settings.geometryByDisplay = rememberDisplayBounds(settings.geometryByDisplay, nextMode, String(currentDisplay.id), result.bounds)
   mode = result.mode
-  const minimum = nextMode === 'compact' ? { width: 640, height: 280 } : { width: nextMode === 'popover' ? 700 : 800, height: 600 }
+  const minimum = minimumWindowSizes[nextMode]
   window.setMinimumSize(Math.min(minimum.width, targetArea.width), Math.min(minimum.height, targetArea.height))
   window.setBounds(result.bounds, true)
   window.setAlwaysOnTop(settings.alwaysOnTop)
   settingsStore.save(settings)
   sendState()
   applyViewBounds()
+  syncCompactWelcome()
+  if (settings.activeProviderId === 'chatgpt') setTimeout(syncCompactWelcome, 300)
   recordPerformance(`window-${nextMode}-api-ms`, { duration: timeSince(started) })
+}
+
+function syncCompactWelcome() {
+  const view = webViews.get('chatgpt')
+  if (!view || view.webContents.isDestroyed()) return
+  const compact = mode === 'compact' && !hasChatGPTConversationRoute('chatgpt', view.webContents.getURL())
+  void view.webContents.executeJavaScript(`
+    (async () => {
+      const styleId = 'just-chat-compact-welcome-style';
+      let style = document.getElementById(styleId);
+      if (!style) {
+        style = document.createElement('style');
+        style.id = styleId;
+        style.textContent = 'html[data-just-chat-compact="true"] .just-chat-compact-welcome-title, html[data-just-chat-compact="true"] .just-chat-compact-welcome-suggestion { display: none !important; }';
+        document.head.appendChild(style);
+      }
+      document.documentElement.dataset.justChatCompact = '${compact ? 'true' : 'false'}';
+      const welcomeTexts = new Set(['어떤 작업을 하고 계신가요?', 'What are you working on?']);
+      const suggestionTexts = new Set(['무엇을 할 수 있나요?', 'What can I do?']);
+      const normalize = value => (value || '').trim().replace(/\\s+/g, ' ');
+      let foundHeading = false;
+      for (let attempt = 0; attempt < 16; attempt += 1) {
+        const buttons = Array.from(document.querySelectorAll('button, [role="button"]'));
+        const label = button => [button.getAttribute('aria-label'), button.getAttribute('title'), button.getAttribute('data-testid'), button.textContent]
+          .filter(Boolean).join(' ').replace(/\\s+/g, ' ').trim();
+        const closeSidebar = buttons.find(button => /(?:close|collapse|hide).*sidebar|sidebar.*(?:close|collapse|hide)/i.test(label(button))
+          || /(사이드바|탐색\\s*패널|메뉴).*(닫기|접기|숨기기)|(닫기|접기|숨기기).*(사이드바|탐색\\s*패널|메뉴)/.test(label(button))
+          || /sidebar.*close/i.test(button.getAttribute('data-testid') || ''));
+        const sidebarAlreadyClosed = buttons.some(button => /(?:open|expand|show).*sidebar|sidebar.*(?:open|expand|show)/i.test(label(button))
+          || /(사이드바|탐색\\s*패널).*(열기|펼치기|보이기)/.test(label(button)));
+        closeSidebar?.click();
+        const sidebarHandled = Boolean(closeSidebar || sidebarAlreadyClosed);
+        const exactMatches = Array.from(document.querySelectorAll('body *'))
+          .filter(element => welcomeTexts.has(normalize(element.textContent)));
+        const heading = exactMatches.find(element => element.matches('h1, h2, [role="heading"]'))
+          || exactMatches.filter(element => element.children.length === 0).at(-1)
+          || exactMatches.at(-1);
+        if (heading) {
+          (heading.matches('h1, h2, [role="heading"]') ? heading : heading.closest('h1, h2, [role="heading"]') || heading)
+            .classList.add('just-chat-compact-welcome-title');
+          for (const button of document.querySelectorAll('button')) {
+            if (suggestionTexts.has(normalize(button.textContent))) button.classList.add('just-chat-compact-welcome-suggestion');
+          }
+          foundHeading = true;
+        }
+        if (sidebarHandled && foundHeading) return true;
+        await new Promise(resolve => setTimeout(resolve, 150));
+      }
+      return foundHeading;
+    })();
+  `).catch(() => undefined)
 }
 
 function showChatView() {
@@ -406,8 +540,54 @@ function retryProvider() {
 function focusChatView() {
   if (!window || window.isDestroyed() || settingsVisible) return
   window.focus()
+  focusChatComposer()
+}
+
+function focusChatComposer() {
+  if (!window || window.isDestroyed() || settingsVisible) return
   const view = webViews.get(settings.activeProviderId)
-  if (view && providerStates.get(settings.activeProviderId) === 'ready') view.webContents.focus()
+  if (view && !view.webContents.isDestroyed()) {
+    view.webContents.focus()
+    void view.webContents.executeJavaScript(`
+      (async () => {
+        for (let attempt = 0; attempt < 30; attempt += 1) {
+          const candidates = [
+            document.querySelector('#prompt-textarea'),
+            document.querySelector('[data-testid="composer"] [contenteditable="true"]'),
+            document.querySelector('[data-testid="composer"] textarea'),
+            document.querySelector('form [contenteditable="true"]'),
+            document.querySelector('form textarea'),
+            document.querySelector('[contenteditable="true"][role="textbox"]'),
+            document.querySelector('[contenteditable="true"][data-placeholder]'),
+            document.querySelector('textarea')
+          ];
+          const composer = candidates.find(element =>
+            element instanceof HTMLElement
+            && element.getClientRects().length > 0
+            && !element.hasAttribute('disabled')
+            && element.getAttribute('aria-hidden') !== 'true'
+            && element.getAttribute('contenteditable') !== 'false'
+          );
+          if (composer instanceof HTMLElement) {
+            composer.focus({ preventScroll: true });
+            const bounds = composer.getBoundingClientRect();
+            if (bounds.width > 0 && bounds.height > 0) {
+              return {
+                x: Math.round(bounds.left + Math.max(90, Math.min(140, bounds.width * 0.2))),
+                y: Math.round(bounds.top + bounds.height / 2)
+              };
+            }
+          }
+          await new Promise(resolve => setTimeout(resolve, 200));
+        }
+        return null;
+      })();
+    `).then((point: { x: number; y: number } | null) => {
+      if (!point || view.webContents.isDestroyed()) return
+      view.webContents.sendInputEvent({ type: 'mouseDown', x: point.x, y: point.y, button: 'left' })
+      view.webContents.sendInputEvent({ type: 'mouseUp', x: point.x, y: point.y, button: 'left' })
+    }).catch(() => undefined)
+  }
 }
 
 function toggleWindow() {
@@ -431,7 +611,7 @@ function toggleFullscreen() {
 }
 
 function desiredBindings(candidate: AppSettings): ShortcutBindingsByName {
-  return { toggle: candidate.shortcuts.toggle }
+  return globalShortcutBindings(candidate)
 }
 
 function validateSettingsShortcuts(candidate: AppSettings): string[] {
@@ -483,19 +663,21 @@ function applyWindowPreferences() {
 
 function createWindow() {
   if (window && !window.isDestroyed()) return
-  const stored = settings.geometry.popover
-  const initialDisplay = screen.getDisplayNearestPoint(screen.getCursorScreenPoint()).workArea
-  const bounds = stored ?? centeredBounds('popover', initialDisplay)
-  const workArea = getWorkAreaFor(bounds)
-  const bounded = transitionWindowGeometry('popover', bounds, 'popover', {}, workArea, centeredBounds('popover', workArea)).bounds
+  windowHasBeenFocused = false
+  mode = 'compact'
+  modeBeforeFullscreen = 'compact'
+  const initialDisplay = screen.getDisplayNearestPoint(screen.getCursorScreenPoint())
+  const workArea = initialDisplay.workArea
+  const bounds = lowerCenteredBounds('compact', workArea, savedBoundsForDisplay('compact', initialDisplay))
 
   window = new BrowserWindow({
-    ...bounded,
-    minWidth: Math.min(700, workArea.width),
-    minHeight: Math.min(600, workArea.height),
+    ...bounds,
+    minWidth: Math.min(480, workArea.width),
+    minHeight: Math.min(180, workArea.height),
     show: false,
     frame: false,
     resizable: true,
+    icon: appIconPath,
     alwaysOnTop: settings.alwaysOnTop,
     opacity: settings.opacity,
     backgroundColor: shellBackgroundColor(),
@@ -527,19 +709,27 @@ function createWindow() {
   window.on('resize', () => { applyViewBounds(); scheduleSave() })
   window.on('move', scheduleSave)
   window.on('blur', () => {
-    if (!settings.autoHidePopover || mode !== 'popover') return
+    if (mode === 'compact' && Date.now() < suppressQuickChatBlurUntil) return
+    if (!windowHasBeenFocused || !shouldAutoHideOnBlur()) return
     if (autoHideTimer) clearTimeout(autoHideTimer)
     autoHideTimer = setTimeout(() => {
-      if (window && !window.isDestroyed() && !window.isModal() && window.isVisible() && mode === 'popover' && !window.isFocused()) hideWindow()
+      if (window && !window.isDestroyed() && !window.isModal() && window.isVisible() && shouldAutoHideOnBlur() && !window.isFocused()) {
+        hideWindow()
+      }
     }, 400)
   })
-  window.on('focus', () => { if (autoHideTimer) clearTimeout(autoHideTimer) })
+  window.on('focus', () => {
+    windowHasBeenFocused = true
+    if (autoHideTimer) clearTimeout(autoHideTimer)
+    setTimeout(focusChatComposer, 100)
+  })
   const appWindow = window
   appWindow.once('ready-to-show', () => {
     recordPerformance('cold-start-to-shell-ready-ms', { duration: timeSince(appStartTime), windowId: appWindow.id })
     showChatView()
     applyViewBounds()
-    appWindow.show()
+    syncCompactWelcome()
+    showWindow()
     focusChatView()
     sendState()
   })
@@ -551,7 +741,23 @@ function createWindow() {
   window.on('closed', () => { window = undefined; shellContentsId = undefined })
 }
 
+function shouldAutoHideOnBlur() {
+  if (!windowHasBeenFocused) return false
+  const view = webViews.get(settings.activeProviderId)
+  return shouldHideWindowOnBlur({
+    mode,
+    autoHidePopover: settings.autoHidePopover,
+    settingsVisible,
+    providerId: settings.activeProviderId,
+    providerUrl: view && !view.webContents.isDestroyed() ? view.webContents.getURL() : ''
+  })
+}
+
 app.whenReady().then(() => {
+  if (process.platform === 'darwin') {
+    const icon = nativeImage.createFromPath(appIconPath)
+    if (!icon.isEmpty()) app.dock?.setIcon(icon)
+  }
   startPerformanceSampler()
   settings = settingsStore.load()
   registerStartupBindings()

@@ -17,6 +17,20 @@ describe('settings', () => {
     expect(settings.shortcuts.toggle).toBe('Alt+Space')
   })
 
+  it('restores valid per-display window geometry and ignores invalid entries', () => {
+    const settings = normalizeSettings({
+      geometryByDisplay: {
+        compact: {
+          'display-1': { x: -900, y: 40, width: 760, height: 320 },
+          'display-bad': { x: 0, y: 0, width: Number.NaN, height: 320 }
+        }
+      }
+    }, 'darwin')
+    expect(settings.geometryByDisplay.compact).toEqual({
+      'display-1': { x: -900, y: 40, width: 760, height: 320 }
+    })
+  })
+
   it('accepts disabling the idle reset timer and falls back for unsupported values', () => {
     expect(normalizeSettings({ resetAfterMinutes: 0 }, 'darwin').resetAfterMinutes).toBe(0)
     expect(normalizeSettings({ resetAfterMinutes: 45 }, 'darwin').resetAfterMinutes).toBe(30)

@@ -12,7 +12,8 @@ const initialSettings: AppSettings = {
   escapeHidesPopover: true,
   opacity: 1,
   resetAfterMinutes: 30,
-  geometry: {}
+  geometry: {},
+  geometryByDisplay: {}
 }
 
 export function App() {
@@ -47,11 +48,10 @@ export function App() {
       <header className="shell-header">
         <div className="brand-row">
           <div className="window-actions">
-            <button className="icon-button" aria-label={state?.mode === 'compact' ? 'Return to Pop Over' : 'Quick Chat'} title={state?.mode === 'compact' ? 'Pop Over' : 'Quick Chat'} onClick={() => state?.mode === 'compact' ? window.justChat.collapse() : window.justChat.compact()}>
-              {state?.mode === 'compact' ? '⤢' : '▱'}
-            </button>
-            <button className="icon-button" aria-label={state?.mode === 'expanded' ? 'Collapse window' : 'Expand window'} title={state?.mode === 'expanded' ? 'Collapse' : 'Expand'} onClick={() => state?.mode === 'expanded' ? window.justChat.collapse() : window.justChat.expand()}>
-              {state?.mode === 'expanded' ? '↙' : '↗'}
+            <button className={`icon-button size-button ${state?.mode === 'expanded' ? 'selected' : ''}`} aria-label={state?.mode === 'expanded' ? 'Switch to Quick Chat' : 'Expand chat'} aria-pressed={state?.mode === 'expanded'} title={state?.mode === 'expanded' ? 'Quick Chat · 520 × 200' : 'Expand chat · 520 × 480'} onClick={() => state?.mode === 'expanded' ? window.justChat.compact() : window.justChat.expand()}>
+              {state?.mode === 'expanded'
+                ? <svg viewBox="0 0 20 20" aria-hidden="true"><path d="M7 3v4H3M13 3v4h4M3 13h4v4M17 13h-4v4"/><rect x="6" y="6" width="8" height="8" rx="1"/></svg>
+                : <svg viewBox="0 0 20 20" aria-hidden="true"><path d="M3 8V4h4M13 4h4v4M17 12v4h-4M7 16H3v-4"/><rect x="6.5" y="7" width="7" height="6" rx="1"/></svg>}
             </button>
             <button className="icon-button" aria-label={state?.mode === 'fullscreen' ? 'Exit full screen' : 'Fill current display'} title={state?.mode === 'fullscreen' ? 'Exit full screen' : 'Full screen'} onClick={() => window.justChat.toggleFullscreen()}>
               {state?.mode === 'fullscreen' ? '⤢' : '⛶'}

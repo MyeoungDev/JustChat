@@ -1,4 +1,5 @@
 import { validateShortcutMap, type ShortcutName } from './settings'
+import type { AppSettings } from './settings'
 
 export type ShortcutBindingsByName = Partial<Record<ShortcutName, string>>
 export interface ShortcutApi {
@@ -13,6 +14,11 @@ export interface ShortcutCallbacks {
 export interface RegistrationResult {
   registered: ShortcutBindingsByName
   failed: string[]
+}
+
+/** Only the launcher is allowed to register with Electron's system-wide API. */
+export function globalShortcutBindings(settings: Pick<AppSettings, 'shortcuts'>): ShortcutBindingsByName {
+  return { toggle: settings.shortcuts.toggle }
 }
 
 export function registerShortcutBindings(

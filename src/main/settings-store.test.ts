@@ -23,6 +23,12 @@ describe('settings persistence', () => {
       popover: { x: 20, y: 30, width: 900, height: 220 },
       expanded: { x: 40, y: 50, width: 1024, height: 768 }
     }
+    settings.geometryByDisplay = {
+      compact: {
+        'display-1': { x: -1200, y: 90, width: 760, height: 320 },
+        'display-2': { x: 200, y: 110, width: 760, height: 320 }
+      }
+    }
     store.save(settings)
     expect(store.load()).toEqual(settings)
     expect(readFileSync(path, 'utf8')).toContain('autoHidePopover')

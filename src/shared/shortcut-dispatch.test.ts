@@ -6,23 +6,31 @@ const focusedContext: ShortcutDispatchContext = {
   settingsVisible: false,
   windowVisible: true,
   windowFocused: true,
-  windowMode: 'popover'
+  windowMode: 'compact'
 }
 const rejectedContexts: [string, ShortcutDispatchContext][] = [
   ['key up', { ...focusedContext, eventType: 'keyUp' }],
   ['settings visible', { ...focusedContext, settingsVisible: true }],
   ['window hidden', { ...focusedContext, windowVisible: false }],
   ['another app focused', { ...focusedContext, windowFocused: false }],
+  ['pop over mode', { ...focusedContext, windowMode: 'popover' }],
   ['expanded mode', { ...focusedContext, windowMode: 'expanded' }],
   ['full screen mode', { ...focusedContext, windowMode: 'fullscreen' }]
 ]
 
-describe('focused ChatGPT conversation search shortcut', () => {
+describe('focused Quick Chat conversation search shortcut', () => {
   const commandK = { key: 'K', code: 'KeyK', altKey: false, ctrlKey: false, metaKey: true, shiftKey: false }
 
-  it('matches Command+K only while Just Chat is focused and visible', () => {
+  it('matches Command+K only while Quick Chat is focused and visible', () => {
     expect(shouldDispatchFocusedShortcut(commandK, 'darwin', 'Command+K', focusedContext)).toBe(true)
-    expect(shouldDispatchFocusedShortcut(commandK, 'darwin', 'Command+K', { ...focusedContext, windowFocused: false })).toBe(false)
-    expect(shouldDispatchFocusedShortcut(commandK, 'darwin', 'Command+K', { ...focusedContext, windowVisible: false })).toBe(false)
+    for (const [label, context] of rejectedContexts) {
+      expect(shouldDispatchFocusedShortcut(commandK, 'darwin', 'Command+K', context), label).toBe(false)
+    }
+  })
+
+  it('uses Control+K as the Windows in-app equivalent without global registration', () => {
+    const controlK = { key: 'k', code: 'KeyK', altKey: false, ctrlKey: true, metaKey: false, shiftKey: false }
+    expect(shouldDispatchFocusedShortcut(controlK, 'win32', 'Control+K', focusedContext)).toBe(true)
+    expect(shouldDispatchFocusedShortcut(controlK, 'win32', 'Control+K', { ...focusedContext, windowMode: 'expanded' })).toBe(false)
   })
 })

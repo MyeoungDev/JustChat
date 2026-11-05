@@ -18,14 +18,14 @@ Coverage includes settings normalization and persistence, shortcut registration 
 Keep user credentials and account state under the user's control. Use a temporary app-data directory for unauthenticated smoke checks and never clear or alter the normal profile during verification.
 
 - [ ] Launch opens directly into the retained ChatGPT web interface; no Just Chat composer screen appears.
-- [x] ChatGPT opens in Quick Chat at 760×320; its message composer, attachment and send controls remain visible at a manually resized 280px minimum. The Pop Over remains 900×600.
-- [ ] Settings opens, scrolls, and uses the available width in Pop Over, Expanded, and Full Screen modes.
+- [ ] Quick Chat now targets 520×200, opens with its center at 82% of the screen height, and allows resizing down to 480×180; verify the composer remains usable at the new minimum in the live ChatGPT page.
+- [ ] Settings opens, scrolls, and uses the available width in Quick Chat, Expanded, and Full Screen modes.
 - [ ] Shell controls remain limited to window mode, Settings, and Hide; their labels and accessibility names are clear.
 - [ ] System light and dark appearances update the shell without restarting; the remote ChatGPT page retains its own theme.
-- [x] Quick Chat ↔ Expanded transitions preserve the visible ChatGPT page; live authenticated conversation state was not tested.
-- [ ] Pop Over and Full Screen transitions preserve the same WebContentsView and conversation state.
+- [ ] Quick Chat → Expanded on Enter or conversation-route change keeps the lower edge fixed and preserves the live ChatGPT page; verify with a user-controlled chat session.
+- [ ] Quick Chat, Expanded, and Full Screen transitions preserve the same WebContentsView and conversation state.
 - [ ] Global Option+Space on macOS and Ctrl+Shift+Space on Windows show/hide Just Chat; other configured shortcuts do not register globally.
-- [ ] Configured conversation-search shortcut works only while Just Chat is visible, focused, and in Pop Over; other applications receive their own shortcuts. Temporary chat remains available through ChatGPT's own UI; Just Chat does not provide an unverified shortcut for it.
+- [ ] Configured conversation-search shortcut works only while Just Chat is visible, focused, and in Quick Chat; other applications receive their own shortcuts. Temporary chat remains available through ChatGPT's own UI; Just Chat does not provide an unverified shortcut for it.
 - [ ] Settings changes persist after restart; sign-out confirmation cancel leaves the session untouched.
 - [x] Window opacity control updates the native window; checked 80% and restored 100% in the isolated profile. ChatGPT content remains legible in the captured view.
 - [x] Fresh-profile size check showed ChatGPT's sidebar and composer in the 1000×700 default Expanded window.
@@ -64,6 +64,18 @@ Run context: local macOS development build, isolated `--user-data-dir=/tmp/just-
 - [x] Provider load timeout showed the existing Retry message. Login and message submission were not tested.
 - [x] Electron signal feasibility checked against its `before-input-event` and `before-mouse-event` contracts: keyboard events expose key/modifiers/IME composition but not focused page control or input value; mouse events expose coordinates but not semantic target. Automatic grow-after-send was therefore not implemented; the visible Expand control remains the safe transition.
 - [x] `pnpm exec vitest run src/shared/window-layout.test.ts` passed (9 tests); `pnpm typecheck` and `pnpm build` passed.
+
+## Quick Chat focus and display run — 2026-11-05
+
+Run context: local macOS development build with an isolated logged-out profile. No account login or message submission was performed.
+
+- [x] An empty ChatGPT start page opened in Quick Chat at 760×320. Orca accessibility state reported `screenIndex: 2`; the host reported three online displays.
+- [x] Activating Apple Notes moved focus away and the Quick Chat window disappeared from Orca's window list while the app process remained running.
+- [x] Startup and every hidden-to-shown transition now select the display nearest the current mouse cursor. Saved bounds are kept per display and mode; when that display has no saved bounds, the window is centered there.
+- [x] Focus-loss handling uses only the provider URL: an empty ChatGPT route hides, while a `/c/<id>` conversation route stays visible. The signed-in conversation case was covered by a unit test, not an authenticated GUI session.
+- [x] Orca validation passed: `pnpm typecheck`, `pnpm test` (10 files, 37 tests), `pnpm build`, and `git diff --check`.
+- Capture: [empty Quick Chat at 760×320](artifacts/quick-chat/quick-chat-start-empty-760x320-2026-11-05.png).
+- Limitation: a GUI capture was obtained on display index 2 only. Cursor-based selection and per-display bounds have regression coverage, but moving the pointer across all three physical displays was not manually demonstrated in this run.
 
 ## Transparency note
 

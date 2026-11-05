@@ -1,21 +1,77 @@
 # Just Chat
 
-Just Chat is a minimal, keyboard-first desktop shell for ChatGPT. It opens directly into ChatGPT's own web interface in Quick Chat at 760×320 by default (640×280 minimum). Expand the same window for a larger conversation view. Pop Over starts at 900×600 (700×600 minimum where the display allows), and the app also supports Full Screen, configurable shortcuts and preferences, and an optional idle reset.
+Just Chat is a small desktop window for opening ChatGPT while you work in another app. It loads ChatGPT's own website in an Electron window, so you use the same account, conversations, and web interface as you do in a browser.
+
+## Why I built it
+
+I used GPT Classic a lot because it made ChatGPT easy to reach while I worked. Over time, the app felt too heavy for that simple job, and support is expected to end. I started Just Chat to build a lighter replacement for the quick-chat workflow I relied on. I chose Electron so the same idea could work on both macOS and Windows, rather than being limited to a macOS-only app.
+
+## Goal
+
+Just Chat aims to make ChatGPT feel close at hand: open a small window with a shortcut, continue using ChatGPT's own interface and account, then get more room for a longer conversation. The long-term interaction I want is a compact start that grows into a comfortable conversation view when a chat begins. The current auto-growth signal is best-effort, and the app remains experimental while that flow is being verified.
+
+**Status: experimental Alpha.** ChatGPT is the current product target. Login, network challenges, and some website interactions depend on ChatGPT and are not guaranteed by this app.
+
+## What it does
+
+- Opens ChatGPT directly in a compact **Quick Chat** window.
+- Hides ChatGPT's empty-page welcome heading and suggestion chip in Quick Chat to leave more room for the composer.
+- Lets you switch the same window between Quick Chat and Expanded, or fill the display, without reloading the ChatGPT view.
+- Can grow Quick Chat into Expanded when Enter is pressed or ChatGPT navigates to a conversation. Enter is a best-effort signal: Electron cannot tell Just Chat which page control has focus.
+- Opens the window on the display containing the mouse pointer and remembers window size and position by display and mode.
+- Uses a Just Chat icon in the running app window and macOS Dock; macOS and Windows icon files are included under `assets/`.
+- Hides an empty Quick Chat when focus moves to another app.
+- Follows the system light or dark appearance for the Just Chat controls. ChatGPT's website appearance is controlled by ChatGPT.
+
+### Window sizes
+
+| Mode | Default size | Minimum size |
+|---|---:|---:|
+| Quick Chat | 520 × 200 | 480 × 180 |
+| Expanded | 520 × 480 | 480 × 400 |
+| Full Screen | Current display | — |
+
+Saved custom sizes take precedence over the defaults. The operating system may impose practical limits on very small windows.
 
 ## Requirements
 
-- Node.js 22.12+ (Node 24 recommended)
-- pnpm 10+
 - macOS or Windows desktop environment
+- Node.js 22.12 or newer
+- pnpm 10 or newer
+
+Packaged installers, code signing, and automatic updates are not available yet. Run the development build using the steps below.
 
 ## Run locally
 
 ```sh
+git clone https://github.com/MyeoungDev/JustChat.git
+cd JustChat
 pnpm install
 pnpm dev
 ```
 
-Default shortcuts are **Option+Space** on macOS and **Ctrl+Shift+Space** on Windows to show or hide Just Chat. This is the only global shortcut. **Command+K** on macOS (**Ctrl+K** on Windows) opens ChatGPT's conversation search. Other in-app shortcuts can be configured in Settings and work only while Just Chat is focused in Pop Over. They are not registered globally and do not intercept keys in other apps. Settings also lets you adjust whole-window opacity from 60% to 100% (default 100%), sign out of ChatGPT in Just Chat, and clear its local website data; this does not delete chats from your ChatGPT account, downloaded files, or settings. You can also choose whether to reload ChatGPT to a fresh page after the window stays hidden for 15, 30 or 60 minutes. This timer defaults to 30 minutes and can be disabled. It starts when Just Chat is hidden; showing the window again cancels it. The app does not save or index chat content locally.
+Sign in to ChatGPT in the window if needed. Just Chat stores the website session in its own persistent Electron profile; it does not share browser cookies with Chrome or Safari.
+
+## Use the app
+
+- **Show or hide:** `Option+Space` on macOS; `Ctrl+Shift+Space` on Windows. This is the only system-wide shortcut by default. Change it in Settings if it conflicts with another app.
+- **Quick Chat / Expanded:** Use the single size button to switch between the compact window and larger conversation window.
+- **Full Screen:** Use the full-screen button to fill the current display.
+- **ChatGPT zoom:** `Command+-` / `Command+plus` / `Command+0` on macOS, or `Ctrl+-` / `Ctrl+plus` / `Ctrl+0` on Windows, to zoom out, zoom in, or reset the ChatGPT page. This changes the website scale, not the outer Just Chat window.
+- **Search conversations:** `Command+K` on macOS or `Ctrl+K` on Windows. The configurable shortcut works only while Just Chat is visible and focused in Quick Chat; it is not registered globally.
+- **Escape:** Hides Just Chat by default. This can be changed in Settings.
+
+The compact window grows into Expanded on an unmodified Enter key or when ChatGPT creates a conversation route. The key signal may also respond to Enter in another page control, since Electron does not expose ChatGPT's focused element to the app. Sending with the mouse is detected when ChatGPT changes to a conversation route; existing website behavior may vary.
+
+## Settings
+
+- Configure the global show/hide shortcut and the focused conversation-search shortcut.
+- Keep Just Chat above other windows.
+- Adjust whole-window opacity from 60% to 100% (100% by default). This affects ChatGPT text as well as the shell.
+- Reload ChatGPT to a fresh page after the window has been hidden for 15, 30, or 60 minutes, or disable the reset. The default is 30 minutes.
+- Sign out of ChatGPT in Just Chat and clear its local website data. This does not delete conversations from the ChatGPT account or affect downloaded files.
+
+## Development checks
 
 ```sh
 pnpm typecheck
@@ -23,39 +79,37 @@ pnpm test
 pnpm build
 ```
 
-For opt-in timing and process samples:
+Run the app with opt-in timing and process samples:
 
 ```sh
 pnpm dev:perf
 ```
 
-The performance sampler prints to the terminal and does not save URLs, prompts or telemetry files.
+Performance output goes to the terminal. It does not save URLs, prompts, or telemetry files.
 
-## Structure
+## Privacy and security notes
+
+- ChatGPT is shown in its own remote web view; Just Chat does not call a model API.
+- The app does not extract or save conversation content locally.
+- ChatGPT website data is stored persistently in Just Chat's Electron profile until you sign out and clear it in Settings.
+- The remote page runs without Node.js integration or an app preload, and web permissions are denied by default.
+- Just Chat validates HTTPS navigation against the configured provider host list. Authentication redirects and future website changes still need verification.
+
+## Project layout
 
 ```text
-src/
-  main/       Electron main process and settings persistence
-  preload/    narrow IPC bridge for the trusted local shell
-  renderer/   local React shell, Provider controls and settings
-  shared/     settings, shortcuts, Provider policy, geometry and testable state helpers
-docs/
-  IMPLEMENTATION_STATUS.md
-  PERFORMANCE.md
-  SECURITY_REVIEW.md
-  architecture-review.md
-  verification.md
+src/main/       Electron window, provider view, shortcuts, and settings persistence
+src/preload/    Narrow IPC bridge for the local shell
+src/renderer/   React shell and settings UI
+src/shared/     Provider policy, shortcuts, settings, geometry, and behavior helpers
+docs/           Design, architecture, security, implementation status, and verification notes
 ```
 
-## Provider support and limits
+## Project notes
 
-- ChatGPT is the active development target and remains **Experimental** until interactive compatibility checks pass.
-- Other providers are deferred; they are not part of the current user-facing workflow.
-- Gemini and Grok are not implemented in this Alpha and remain visibly unavailable.
-- Provider top-level navigation is limited to the HTTPS host allowlist in `src/shared/providers.ts`; real authentication redirects need verification.
-- Separate persistent browser partitions are configured. The user confirmed ChatGPT login persisted after restarting `pnpm dev`; isolation for other Providers is deferred and unverified.
-- Chat input focus is requested at the WebContents level; the app does not use fragile DOM automation to force focus into a Provider input.
-- Chat contents are not extracted or saved locally. No provider API or conversation automation is implemented.
-- Native menu/tray, installer/signing, detailed download handling, packaged Windows testing and cross-platform focus verification remain future work.
-
-See [Implementation Status](docs/IMPLEMENTATION_STATUS.md), [Architecture Review](docs/architecture-review.md), [Security Review](docs/SECURITY_REVIEW.md), [Performance](docs/PERFORMANCE.md), and [Verification Plan](docs/verification.md).
+- [Implementation status](docs/IMPLEMENTATION_STATUS.md)
+- [Design](DESIGN.md)
+- [Architecture review](docs/architecture-review.md)
+- [Security review](docs/SECURITY_REVIEW.md)
+- [Performance notes](docs/PERFORMANCE.md)
+- [Verification checklist](docs/verification.md)

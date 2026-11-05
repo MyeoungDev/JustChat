@@ -1,5 +1,5 @@
 import type { ProviderId } from './providers'
-import type { WindowGeometry } from './window-layout'
+import type { WindowGeometry, WindowGeometryByDisplay } from './window-layout'
 
 export interface ShortcutBindings {
   toggle: string
@@ -16,6 +16,7 @@ export interface AppSettings {
   opacity: number
   resetAfterMinutes: number
   geometry: WindowGeometry
+  geometryByDisplay: WindowGeometryByDisplay
 }
 
 export function defaultSettings(platform: string): AppSettings {
@@ -34,7 +35,8 @@ export function defaultSettings(platform: string): AppSettings {
     escapeHidesPopover: true,
     opacity: 1,
     resetAfterMinutes: 30,
-    geometry: {}
+    geometry: {},
+    geometryByDisplay: {}
   }
 }
 
@@ -43,6 +45,7 @@ export function normalizeSettings(value: unknown, platform: string): AppSettings
   if (!value || typeof value !== 'object') return defaults
   const input = value as Partial<AppSettings>
   const geometry: WindowGeometry = {}
+  const geometryByDisplay: WindowGeometryByDisplay = {}
   for (const mode of ['popover', 'compact', 'expanded', 'fullscreen'] as const) {
     const bounds = input.geometry?.[mode]
     if (bounds && [bounds.x, bounds.y, bounds.width, bounds.height].every(Number.isFinite)) {
@@ -50,6 +53,14 @@ export function normalizeSettings(value: unknown, platform: string): AppSettings
         ? { x: bounds.x - 220, y: bounds.y + 210, width: 900, height: 220 }
         : { x: bounds.x, y: bounds.y, width: bounds.width, height: bounds.height }
     }
+  }
+  for (const mode of ['popover', 'compact', 'expanded', 'fullscreen'] as const) {
+    const saved = input.geometryByDisplay?.[mode]
+    if (!saved || typeof saved !== 'object') continue
+    const entries = Object.entries(saved).filter(([, bounds]) =>
+      bounds && [bounds.x, bounds.y, bounds.width, bounds.height].every(Number.isFinite)
+    )
+    if (entries.length) geometryByDisplay[mode] = Object.fromEntries(entries)
   }
   return {
     activeProviderId: input.activeProviderId === 'claude' ? 'claude' : 'chatgpt',
@@ -66,7 +77,8 @@ export function normalizeSettings(value: unknown, platform: string): AppSettings
     escapeHidesPopover: typeof input.escapeHidesPopover === 'boolean' ? input.escapeHidesPopover : defaults.escapeHidesPopover,
     opacity: typeof input.opacity === 'number' && Number.isFinite(input.opacity) ? Math.min(1, Math.max(0.6, input.opacity)) : defaults.opacity,
     resetAfterMinutes: [0, 15, 30, 60].includes(input.resetAfterMinutes ?? -1) ? input.resetAfterMinutes! : defaults.resetAfterMinutes,
-    geometry
+    geometry,
+    geometryByDisplay
   }
 }
 
