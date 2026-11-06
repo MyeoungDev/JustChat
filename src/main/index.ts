@@ -2,7 +2,7 @@ import { app, BrowserWindow, globalShortcut, ipcMain, nativeImage, nativeTheme, 
 import { dirname, join } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 import { classifyProviderPopup, isAllowedProviderNavigation, isSecureProviderRedirect, providers, resolveProviderSelection, type ProviderAdapter, type ProviderId } from '../shared/providers'
-import { defaultSettings, normalizeSettings, validateShortcutMap, type AppSettings, type ShortcutName } from '../shared/settings'
+import { defaultSettings, normalizeSettings, pageZoomFactor, validateShortcutMap, type AppSettings, type ShortcutName } from '../shared/settings'
 import { shouldDispatchFocusedShortcut } from '../shared/shortcut-dispatch'
 import { globalShortcutBindings, registerShortcutBindings, replaceShortcutBindings, type ShortcutBindingsByName } from '../shared/shortcut-registry'
 import { isTrustedShellSender } from '../shared/security'
@@ -228,6 +228,7 @@ function handleShellInput(event: Electron.Event, input: Electron.Input): void {
   if (handleCloseWindowShortcut(event, input)) return
   if (handleSettingsShortcut(event, input)) return
   handleEscape(event, input)
+  dispatchFullscreenShortcut(event, input)
   dispatchWindowSizeShortcut(event, input)
   dispatchTemporaryChatShortcut(event, input)
   handlePageZoomShortcut(event, input)
@@ -237,6 +238,7 @@ function handleProviderInput(event: Electron.Event, input: Electron.Input): void
   if (handleCloseWindowShortcut(event, input)) return
   if (handleSettingsShortcut(event, input)) return
   handleEscape(event, input)
+  dispatchFullscreenShortcut(event, input)
   dispatchWindowSizeShortcut(event, input)
   dispatchTemporaryChatShortcut(event, input)
   handlePageZoomShortcut(event, input)
@@ -265,29 +267,37 @@ function dispatchWindowSizeShortcut(event: Electron.Event, input: Electron.Input
   setMode(mode === 'compact' ? 'expanded' : 'compact')
 }
 
+function dispatchFullscreenShortcut(event: Electron.Event, input: Electron.Input): void {
+  const matches = shouldDispatchFocusedShortcut({
+    key: input.key,
+    code: input.code,
+    altKey: input.alt,
+    ctrlKey: input.control,
+    metaKey: input.meta,
+    shiftKey: input.shift
+  }, process.platform, settings.shortcuts.toggleFullscreen, {
+    eventType: input.type,
+    settingsVisible,
+    windowVisible: Boolean(window?.isVisible()),
+    windowFocused: Boolean(window?.isFocused()),
+    windowMode: mode
+  }, ['compact', 'expanded', 'fullscreen'])
+  if (!matches) return
+  event.preventDefault()
+  toggleFullscreen()
+}
+
 function handlePageZoomShortcut(event: Electron.Event, input: Electron.Input): void {
   if (input.type !== 'keyDown' || input.alt) return
   const modifierPressed = process.platform === 'darwin' ? input.meta && !input.control : input.control && !input.meta
   if (!modifierPressed) return
 
-  const view = webViews.get(settings.activeProviderId)
-  if (!view || view.webContents.isDestroyed()) return
-
   const key = input.key.toLowerCase()
   const code = input.code.toLowerCase()
-  if (key === '0' || code === 'digit0' || code === 'numpad0') {
-    event.preventDefault()
-    view.webContents.setZoomLevel(0)
-    return
-  }
-
-  const zoomOut = key === '-' || code === 'minus' || code === 'numpadsubtract'
-  const zoomIn = key === '+' || (code === 'equal' && input.shift) || code === 'numpadadd'
-  if (!zoomIn && !zoomOut) return
-
-  event.preventDefault()
-  const currentLevel = view.webContents.getZoomLevel()
-  view.webContents.setZoomLevel(Math.max(-3, Math.min(3, currentLevel + (zoomIn ? 0.5 : -0.5))))
+  const zoomShortcut = key === '0' || code === 'digit0' || code === 'numpad0'
+    || key === '-' || key === '_' || code === 'minus' || code === 'numpadsubtract'
+    || key === '+' || key === '=' || code === 'equal' || code === 'numpadadd'
+  if (zoomShortcut) event.preventDefault()
 }
 
 function dispatchTemporaryChatShortcut(event: Electron.Event, input: Electron.Input): void {
@@ -438,7 +448,7 @@ function getProviderView(id: ProviderId) {
     view.setBackgroundColor(selectiveBackground ? '#00000000' : shellBackgroundColor())
     const contents = view.webContents
     contents.setZoomMode('isolated')
-    contents.setZoomFactor(settings.pageZoomPercent / 100)
+    contents.setZoomFactor(pageZoomFactor(settings.pageZoomPercent))
 
     contents.setWindowOpenHandler(providerPopupHandler(adapter))
     contents.on('did-create-window', (popup) => guardProviderPopup(popup, adapter))
@@ -970,6 +980,7 @@ function validateSettingsShortcuts(candidate: AppSettings): string[] {
     toggle: candidate.shortcuts.toggle,
     'temporary-chat': candidate.shortcuts.temporaryChat,
     'toggle-size': candidate.shortcuts.toggleSize,
+    'toggle-fullscreen': candidate.shortcuts.toggleFullscreen,
     'provider:chatgpt': candidate.shortcuts.providers.chatgpt,
     'provider:claude': candidate.shortcuts.providers.claude
   })
@@ -1047,6 +1058,9 @@ function createWindow() {
       webSecurity: true
     }
   })
+  // Keep the shell (including Settings) at a stable 100% scale on every launch.
+  window.webContents.setZoomMode('isolated')
+  window.webContents.setZoomFactor(1)
   shellContentsId = window.webContents.id
   try { shellDevelopmentOrigin = isDevelopment && process.env.ELECTRON_RENDERER_URL ? new URL(process.env.ELECTRON_RENDERER_URL).origin : undefined } catch { shellDevelopmentOrigin = undefined }
   window.webContents.setWindowOpenHandler(() => ({ action: 'deny' }))
@@ -1178,7 +1192,7 @@ ipcMain.handle('settings:update', (event, patch: UserSettingsPatch) => {
   if (typeof patch.pageZoomPercent === 'number') {
     for (const provider of providers) {
       const view = webViews.get(provider.id)
-      if (view && !view.webContents.isDestroyed()) view.webContents.setZoomFactor(settings.pageZoomPercent / 100)
+      if (view && !view.webContents.isDestroyed()) view.webContents.setZoomFactor(pageZoomFactor(settings.pageZoomPercent))
     }
   }
   if (patch.shortcuts) shortcutFailures = []

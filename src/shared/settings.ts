@@ -5,6 +5,7 @@ export interface ShortcutBindings {
   toggle: string
   temporaryChat: string
   toggleSize: string
+  toggleFullscreen: string
   providers: Partial<Record<ProviderId, string>>
 }
 
@@ -22,6 +23,7 @@ export interface AppSettings {
   opacityMode: OpacityMode
   backgroundOpacity: number
   pageZoomPercent: number
+  pageZoomScaleVersion: number
   lastChatGPTConversationPath?: string
   resetAfterMinutes: number
   geometry: WindowGeometry
@@ -36,6 +38,7 @@ export function defaultSettings(platform: string): AppSettings {
       toggle: isMac ? 'Alt+Space' : 'Control+Shift+Space',
       temporaryChat: isMac ? 'Command+Shift+N' : 'Control+Shift+N',
       toggleSize: isMac ? 'Command+Shift+E' : 'Control+Shift+E',
+      toggleFullscreen: isMac ? 'Command+Shift+F' : 'Control+Shift+F',
       providers: isMac
         ? { chatgpt: 'Alt+1', claude: 'Alt+2' }
         : { chatgpt: 'Control+Shift+1', claude: 'Control+Shift+2' }
@@ -47,7 +50,8 @@ export function defaultSettings(platform: string): AppSettings {
     theme: 'system',
     opacityMode: 'window',
     backgroundOpacity: 0.9,
-  pageZoomPercent: Math.round(100 * Math.pow(1.2, -1)),
+    pageZoomPercent: 100,
+    pageZoomScaleVersion: 3,
     resetAfterMinutes: 30,
     geometry: {},
     geometryByDisplay: {}
@@ -96,6 +100,7 @@ export function normalizeSettings(value: unknown, platform: string): AppSettings
       toggle: typeof input.shortcuts?.toggle === 'string' ? input.shortcuts.toggle : defaults.shortcuts.toggle,
       temporaryChat: typeof input.shortcuts?.temporaryChat === 'string' ? input.shortcuts.temporaryChat : defaults.shortcuts.temporaryChat,
       toggleSize: typeof input.shortcuts?.toggleSize === 'string' ? input.shortcuts.toggleSize : defaults.shortcuts.toggleSize,
+      toggleFullscreen: typeof input.shortcuts?.toggleFullscreen === 'string' ? input.shortcuts.toggleFullscreen : defaults.shortcuts.toggleFullscreen,
       providers: {
         chatgpt: typeof input.shortcuts?.providers?.chatgpt === 'string' ? input.shortcuts.providers.chatgpt : defaults.shortcuts.providers.chatgpt,
         claude: typeof input.shortcuts?.providers?.claude === 'string' ? input.shortcuts.providers.claude : defaults.shortcuts.providers.claude
@@ -109,13 +114,23 @@ export function normalizeSettings(value: unknown, platform: string): AppSettings
     opacityMode: input.opacityMode === 'background' || input.opacityMode === 'window' ? input.opacityMode : defaults.opacityMode,
     backgroundOpacity: typeof input.backgroundOpacity === 'number' && Number.isFinite(input.backgroundOpacity) ? Math.min(1, Math.max(0.7, input.backgroundOpacity)) : defaults.backgroundOpacity,
     pageZoomPercent: typeof input.pageZoomPercent === 'number' && Number.isFinite(input.pageZoomPercent)
-      ? input.pageZoomPercent === 91 ? defaults.pageZoomPercent : Math.min(120, Math.max(70, Math.round(input.pageZoomPercent)))
+      ? Math.min(120, Math.max(70, Math.round(input.pageZoomScaleVersion === 2
+        ? input.pageZoomPercent * 83 / 99.6
+        : input.pageZoomScaleVersion === 3
+          ? input.pageZoomPercent
+          : (input.pageZoomPercent === 91 ? 83 : input.pageZoomPercent) * 100 / 99.6)))
       : defaults.pageZoomPercent,
+    pageZoomScaleVersion: 3,
     lastChatGPTConversationPath,
     resetAfterMinutes: [0, 15, 30, 60].includes(input.resetAfterMinutes ?? -1) ? input.resetAfterMinutes! : defaults.resetAfterMinutes,
     geometry,
     geometryByDisplay
   }
+}
+
+/** 100% preserves the previous maximum scale (83% base × 120% setting). */
+export function pageZoomFactor(percent: number): number {
+  return 0.996 * percent / 100
 }
 
 const modifiers = new Set(['Alt', 'Control', 'Command', 'Shift', 'Super'])
@@ -133,7 +148,7 @@ export function isValidAccelerator(accelerator: string): boolean {
   return keys.has(key) || /^[A-Z0-9]$/i.test(key) || /^F([1-9]|1\d|2[0-4])$/.test(key)
 }
 
-export type ShortcutName = 'toggle' | 'temporary-chat' | 'toggle-size' | `provider:${ProviderId}`
+export type ShortcutName = 'toggle' | 'temporary-chat' | 'toggle-size' | 'toggle-fullscreen' | `provider:${ProviderId}`
 
 export function validateShortcutMap(bindings: Partial<Record<ShortcutName, string>>): string[] {
   const errors: string[] = []

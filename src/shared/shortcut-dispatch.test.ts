@@ -50,3 +50,17 @@ describe('focused window-size shortcut', () => {
     }
   })
 })
+
+describe('focused fullscreen shortcut', () => {
+  const fullscreenChord = { key: 'F', code: 'KeyF', altKey: false, ctrlKey: false, metaKey: true, shiftKey: true }
+
+  it('enters or exits fullscreen only while Just Chat is focused and visible', () => {
+    expect(shouldDispatchFocusedShortcut(fullscreenChord, 'darwin', 'Command+Shift+F', focusedContext, ['compact', 'expanded', 'fullscreen'])).toBe(true)
+    expect(shouldDispatchFocusedShortcut(fullscreenChord, 'darwin', 'Command+Shift+F', { ...focusedContext, windowMode: 'expanded' }, ['compact', 'expanded', 'fullscreen'])).toBe(true)
+    expect(shouldDispatchFocusedShortcut(fullscreenChord, 'darwin', 'Command+Shift+F', { ...focusedContext, windowMode: 'fullscreen' }, ['compact', 'expanded', 'fullscreen'])).toBe(true)
+    expect(shouldDispatchFocusedShortcut(fullscreenChord, 'darwin', 'Command+Shift+F', { ...focusedContext, windowMode: 'popover' }, ['compact', 'expanded', 'fullscreen'])).toBe(false)
+    for (const [label, context] of rejectedContexts.filter(([label]) => label !== 'full screen mode')) {
+      expect(shouldDispatchFocusedShortcut(fullscreenChord, 'darwin', 'Command+Shift+F', context, ['compact', 'expanded', 'fullscreen']), label).toBe(false)
+    }
+  })
+})

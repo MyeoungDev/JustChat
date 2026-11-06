@@ -103,6 +103,9 @@ button:focus-visible, input:focus-visible { outline: 2px solid #5878d6; outline-
 .session-clear-actions { display: flex; justify-content: flex-end; align-items: center; gap: 14px; }
 .text-button:disabled { opacity: .5; cursor: default; }
 .danger-button { color: var(--danger-text); font-weight: 600; }
+.signout-button { flex: 0 0 auto; min-height: 32px; padding: 0 11px; color: var(--danger-text); background: color-mix(in srgb, var(--danger-text) 8%, var(--shell-bg)); border: 1px solid color-mix(in srgb, var(--danger-text) 34%, var(--border)); border-radius: 7px; font-size: 11px; font-weight: 600; }
+.signout-button:hover { background: color-mix(in srgb, var(--danger-text) 14%, var(--shell-bg)); }
+.signout-button:disabled { opacity: .5; cursor: default; }
 .settings-footer { min-height: 20px; padding-top: 6px; color: var(--text-secondary); font-size: 11px; }
 .text-button { padding: 2px 0; color: var(--text); background: transparent; border: 0; text-decoration: underline; white-space: nowrap; font-size: 10px; }
 .provider-state { position: absolute; z-index: 2; inset: 56px 12px auto; display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 9px 11px; color: var(--warning-text); text-align: left; background: var(--warning-bg); border: 1px solid var(--warning-border); border-radius: 9px; box-shadow: 0 3px 12px var(--shadow); font-size: 11px; }

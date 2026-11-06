@@ -1,14 +1,16 @@
 import { describe, expect, it } from 'vitest'
-import { acceleratorFromKeyChord, defaultSettings, isValidAccelerator, normalizeSettings, validateShortcutMap } from './settings'
+import { acceleratorFromKeyChord, defaultSettings, isValidAccelerator, normalizeSettings, pageZoomFactor, validateShortcutMap } from './settings'
 
 describe('settings', () => {
   it('provides platform-specific default shortcuts', () => {
-    expect(defaultSettings('darwin').shortcuts).toEqual({ toggle: 'Alt+Space', temporaryChat: 'Command+Shift+N', toggleSize: 'Command+Shift+E', providers: { chatgpt: 'Alt+1', claude: 'Alt+2' } })
+    expect(defaultSettings('darwin').shortcuts).toEqual({ toggle: 'Alt+Space', temporaryChat: 'Command+Shift+N', toggleSize: 'Command+Shift+E', toggleFullscreen: 'Command+Shift+F', providers: { chatgpt: 'Alt+1', claude: 'Alt+2' } })
     expect(defaultSettings('win32').shortcuts.toggle).toBe('Control+Shift+Space')
     expect(defaultSettings('win32').shortcuts.toggleSize).toBe('Control+Shift+E')
+    expect(defaultSettings('win32').shortcuts.toggleFullscreen).toBe('Control+Shift+F')
     expect(defaultSettings('win32').shortcuts).not.toHaveProperty('chatHistory')
     expect(defaultSettings('darwin').resetAfterMinutes).toBe(30)
-    expect(defaultSettings('darwin').pageZoomPercent).toBe(83)
+    expect(defaultSettings('darwin').pageZoomPercent).toBe(100)
+    expect(pageZoomFactor(100)).toBeCloseTo(0.996)
   })
 
   it('normalizes corrupt or partial persisted values safely', () => {
@@ -71,10 +73,12 @@ describe('settings', () => {
   })
 
   it('normalizes the provider page zoom setting', () => {
-    expect(normalizeSettings({ pageZoomPercent: 105.6 }, 'darwin').pageZoomPercent).toBe(106)
-    expect(normalizeSettings({ pageZoomPercent: 20 }, 'darwin').pageZoomPercent).toBe(70)
-    expect(normalizeSettings({ pageZoomPercent: Number.NaN }, 'darwin').pageZoomPercent).toBe(83)
+    expect(normalizeSettings({ pageZoomPercent: 105.6, pageZoomScaleVersion: 3 }, 'darwin').pageZoomPercent).toBe(106)
+    expect(normalizeSettings({ pageZoomPercent: 20, pageZoomScaleVersion: 3 }, 'darwin').pageZoomPercent).toBe(70)
+    expect(normalizeSettings({ pageZoomPercent: Number.NaN }, 'darwin').pageZoomPercent).toBe(100)
     expect(normalizeSettings({ pageZoomPercent: 91 }, 'darwin').pageZoomPercent).toBe(83)
+    expect(normalizeSettings({ pageZoomPercent: 83 }, 'darwin').pageZoomPercent).toBe(83)
+    expect(normalizeSettings({ pageZoomPercent: 120, pageZoomScaleVersion: 2 }, 'darwin').pageZoomPercent).toBe(100)
   })
 
   it('restores only a valid ChatGPT conversation path', () => {
