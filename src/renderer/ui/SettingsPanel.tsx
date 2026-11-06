@@ -6,7 +6,7 @@ interface SettingsPanelProps {
   settings: AppSettings
   shortcutFailures: string[]
   platform: string
-  onUpdate: (patch: Partial<Pick<AppSettings, 'shortcuts' | 'alwaysOnTop' | 'autoHidePopover' | 'escapeHidesPopover' | 'opacity' | 'opacityMode' | 'backgroundOpacity' | 'pageZoomPercent' | 'resetAfterMinutes'>>) => Promise<{ ok: boolean; failures?: string[] }>
+  onUpdate: (patch: Partial<Pick<AppSettings, 'shortcuts' | 'alwaysOnTop' | 'autoHidePopover' | 'escapeHidesPopover' | 'opacity' | 'theme' | 'opacityMode' | 'backgroundOpacity' | 'pageZoomPercent' | 'resetAfterMinutes'>>) => Promise<{ ok: boolean; failures?: string[] }>
   onClearChatGptSession: () => Promise<ClearChatGptSessionResult>
   onClose: () => void
 }
@@ -86,6 +86,7 @@ export function SettingsPanel({ settings, shortcutFailures, platform, onUpdate, 
     setCapturing(null)
     if (name === 'toggle') void update({ shortcuts: { ...settings.shortcuts, toggle: accelerator } })
     else if (name === 'temporary-chat') void update({ shortcuts: { ...settings.shortcuts, temporaryChat: accelerator } })
+    else if (name === 'toggle-size') void update({ shortcuts: { ...settings.shortcuts, toggleSize: accelerator } })
     else {
       const provider = name.slice('provider:'.length) as 'chatgpt' | 'claude'
       void update({ shortcuts: { ...settings.shortcuts, providers: { ...settings.shortcuts.providers, [provider]: accelerator } } })
@@ -121,12 +122,14 @@ export function SettingsPanel({ settings, shortcutFailures, platform, onUpdate, 
           <h2 id="shortcut-heading">Keyboard</h2>
           <div className="setting-row"><div><strong>Open or close Settings</strong><small>Only while Just Chat is focused.</small></div><kbd className="shortcut-hint">{platform === 'darwin' ? '⌘,' : 'Ctrl+,'}</kbd></div>
           <div className="setting-row"><div><strong>Show or hide Just Chat</strong><small>Global shortcut; works from any app.</small></div>{shortcutField('toggle', settings.shortcuts.toggle)}</div>
-          <div className="setting-row"><div><strong>Start a temporary ChatGPT chat</strong><small>Works only in focused Quick Chat when ChatGPT shows its Temporary Chat button; it is not registered globally.</small></div>{shortcutField('temporary-chat', settings.shortcuts.temporaryChat)}</div>
+          <div className="setting-row"><div><strong>Grow or shrink the window</strong><small>Only while Just Chat is focused in Compact or Expanded mode; it is not registered globally.</small></div>{shortcutField('toggle-size', settings.shortcuts.toggleSize)}</div>
+          <div className="setting-row"><div><strong>Start a temporary ChatGPT chat</strong><small>Works only while Just Chat is focused and ChatGPT shows its Temporary Chat button; it is not registered globally.</small></div>{shortcutField('temporary-chat', settings.shortcuts.temporaryChat)}</div>
           {shortcutFailures.length > 0 && <p className="settings-note warning">Some default shortcuts could not be registered. Choose a different combination here.</p>}
         </section>
 
         <section className="settings-group" aria-labelledby="window-heading">
           <h2 id="window-heading">Window</h2>
+          <label className="setting-row"><span><strong>Theme</strong><small>Follows your system appearance by default.</small></span><select aria-label="Theme" value={settings.theme} disabled={saving} onChange={(event) => void update({ theme: event.target.value as AppSettings['theme'] })}><option value="system">System</option><option value="dark">Dark</option><option value="light">Light</option></select></label>
           <label className="setting-row opacity-row"><span><strong>ChatGPT page zoom</strong><small>Sets the starting scale for embedded provider pages. Default is one Command− step below 100%.</small></span><span className="range-control"><input aria-label="ChatGPT page zoom" type="range" min="70" max="120" step="1" value={pageZoomDraft ?? settings.pageZoomPercent} disabled={saving} onChange={(event) => setPageZoomDraft(event.currentTarget.valueAsNumber)} /><output>{pageZoomDraft ?? settings.pageZoomPercent}%</output></span></label>
           <label className="setting-row toggle-row"><span><strong>Always on top</strong><small>Keep the Just Chat window above other windows.</small></span><input type="checkbox" checked={settings.alwaysOnTop} disabled={saving} onChange={(event) => void update({ alwaysOnTop: event.target.checked })} /></label>
           <label className="setting-row toggle-row"><span><strong>Also hide Pop Over when focus moves away</strong><small>Empty Quick Chat closes automatically; this option applies to Pop Over.</small></span><input type="checkbox" checked={settings.autoHidePopover} disabled={saving} onChange={(event) => void update({ autoHidePopover: event.target.checked })} /></label>

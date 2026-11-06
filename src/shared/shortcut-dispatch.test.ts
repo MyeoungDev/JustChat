@@ -14,11 +14,10 @@ const rejectedContexts: [string, ShortcutDispatchContext][] = [
   ['window hidden', { ...focusedContext, windowVisible: false }],
   ['another app focused', { ...focusedContext, windowFocused: false }],
   ['pop over mode', { ...focusedContext, windowMode: 'popover' }],
-  ['expanded mode', { ...focusedContext, windowMode: 'expanded' }],
   ['full screen mode', { ...focusedContext, windowMode: 'fullscreen' }]
 ]
 
-describe('focused Quick Chat temporary-chat shortcut', () => {
+describe('focused popover temporary-chat shortcut', () => {
   const temporaryChatChord = { key: 'N', code: 'KeyN', altKey: false, ctrlKey: false, metaKey: true, shiftKey: true }
 
   it('matches the configurable shortcut only while Quick Chat is focused and visible', () => {
@@ -31,6 +30,23 @@ describe('focused Quick Chat temporary-chat shortcut', () => {
   it('uses Control+Shift+N as the Windows in-app equivalent without global registration', () => {
     const controlShiftN = { key: 'n', code: 'KeyN', altKey: false, ctrlKey: true, metaKey: false, shiftKey: true }
     expect(shouldDispatchFocusedShortcut(controlShiftN, 'win32', 'Control+Shift+N', focusedContext)).toBe(true)
-    expect(shouldDispatchFocusedShortcut(controlShiftN, 'win32', 'Control+Shift+N', { ...focusedContext, windowMode: 'expanded' })).toBe(false)
+    expect(shouldDispatchFocusedShortcut(controlShiftN, 'win32', 'Control+Shift+N', { ...focusedContext, windowMode: 'expanded' })).toBe(true)
+  })
+
+  it('works in both compact and expanded popover sizes', () => {
+    expect(shouldDispatchFocusedShortcut(temporaryChatChord, 'darwin', 'Command+Shift+N', focusedContext)).toBe(true)
+    expect(shouldDispatchFocusedShortcut(temporaryChatChord, 'darwin', 'Command+Shift+N', { ...focusedContext, windowMode: 'expanded' })).toBe(true)
+  })
+})
+
+describe('focused window-size shortcut', () => {
+  const sizeChord = { key: 'E', code: 'KeyE', altKey: false, ctrlKey: false, metaKey: true, shiftKey: true }
+
+  it('matches the configurable size shortcut in compact and expanded modes only', () => {
+    expect(shouldDispatchFocusedShortcut(sizeChord, 'darwin', 'Command+Shift+E', focusedContext)).toBe(true)
+    expect(shouldDispatchFocusedShortcut(sizeChord, 'darwin', 'Command+Shift+E', { ...focusedContext, windowMode: 'expanded' })).toBe(true)
+    for (const [label, context] of rejectedContexts) {
+      expect(shouldDispatchFocusedShortcut(sizeChord, 'darwin', 'Command+Shift+E', context), label).toBe(false)
+    }
   })
 })

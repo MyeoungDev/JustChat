@@ -6,11 +6,12 @@ import './styles.css'
 
 const initialSettings: AppSettings = {
   activeProviderId: 'chatgpt',
-  shortcuts: { toggle: '', temporaryChat: '', providers: {} },
+  shortcuts: { toggle: '', temporaryChat: '', toggleSize: '', providers: {} },
   alwaysOnTop: true,
   autoHidePopover: false,
   escapeHidesPopover: true,
   opacity: 1,
+  theme: 'system',
   opacityMode: 'window',
   backgroundOpacity: 0.9,
   pageZoomPercent: 91,

@@ -16,7 +16,7 @@ export interface DisplayWorkArea {
 
 export const windowSizes: Record<WindowMode, { width: number; height: number }> = {
   popover: { width: 900, height: 600 },
-  compact: { width: 520, height: 200 },
+  compact: { width: 520, height: 320 },
   expanded: { width: 520, height: 480 },
   fullscreen: { width: 0, height: 0 }
 }

@@ -4,10 +4,12 @@ import type { WindowGeometry, WindowGeometryByDisplay } from './window-layout'
 export interface ShortcutBindings {
   toggle: string
   temporaryChat: string
+  toggleSize: string
   providers: Partial<Record<ProviderId, string>>
 }
 
 export type OpacityMode = 'window' | 'background'
+export type ThemePreference = 'system' | 'dark' | 'light'
 
 export interface AppSettings {
   activeProviderId: ProviderId
@@ -16,6 +18,7 @@ export interface AppSettings {
   autoHidePopover: boolean
   escapeHidesPopover: boolean
   opacity: number
+  theme: ThemePreference
   opacityMode: OpacityMode
   backgroundOpacity: number
   pageZoomPercent: number
@@ -32,6 +35,7 @@ export function defaultSettings(platform: string): AppSettings {
     shortcuts: {
       toggle: isMac ? 'Alt+Space' : 'Control+Shift+Space',
       temporaryChat: isMac ? 'Command+Shift+N' : 'Control+Shift+N',
+      toggleSize: isMac ? 'Command+Shift+E' : 'Control+Shift+E',
       providers: isMac
         ? { chatgpt: 'Alt+1', claude: 'Alt+2' }
         : { chatgpt: 'Control+Shift+1', claude: 'Control+Shift+2' }
@@ -40,9 +44,10 @@ export function defaultSettings(platform: string): AppSettings {
     autoHidePopover: false,
     escapeHidesPopover: true,
     opacity: 1,
+    theme: 'system',
     opacityMode: 'window',
     backgroundOpacity: 0.9,
-    pageZoomPercent: Math.round(100 * Math.pow(1.2, -0.5)),
+  pageZoomPercent: Math.round(100 * Math.pow(1.2, -1)),
     resetAfterMinutes: 30,
     geometry: {},
     geometryByDisplay: {}
@@ -65,12 +70,16 @@ export function normalizeSettings(value: unknown, platform: string): AppSettings
   }
   const geometry: WindowGeometry = {}
   const geometryByDisplay: WindowGeometryByDisplay = {}
+  const normalizeBounds = (mode: keyof WindowGeometry, bounds: { x: number; y: number; width: number; height: number }) =>
+    mode === 'compact' && bounds.width === 520 && bounds.height === 200
+      ? { ...bounds, height: 320 }
+      : { ...bounds }
   for (const mode of ['popover', 'compact', 'expanded', 'fullscreen'] as const) {
     const bounds = input.geometry?.[mode]
     if (bounds && [bounds.x, bounds.y, bounds.width, bounds.height].every(Number.isFinite)) {
       geometry[mode] = mode === 'popover' && bounds.width === 460 && bounds.height === 640
         ? { x: bounds.x - 220, y: bounds.y + 210, width: 900, height: 220 }
-        : { x: bounds.x, y: bounds.y, width: bounds.width, height: bounds.height }
+        : normalizeBounds(mode, bounds)
     }
   }
   for (const mode of ['popover', 'compact', 'expanded', 'fullscreen'] as const) {
@@ -78,7 +87,7 @@ export function normalizeSettings(value: unknown, platform: string): AppSettings
     if (!saved || typeof saved !== 'object') continue
     const entries = Object.entries(saved).filter(([, bounds]) =>
       bounds && [bounds.x, bounds.y, bounds.width, bounds.height].every(Number.isFinite)
-    )
+    ).map(([displayId, bounds]) => [displayId, normalizeBounds(mode, bounds)] as const)
     if (entries.length) geometryByDisplay[mode] = Object.fromEntries(entries)
   }
   return {
@@ -86,6 +95,7 @@ export function normalizeSettings(value: unknown, platform: string): AppSettings
     shortcuts: {
       toggle: typeof input.shortcuts?.toggle === 'string' ? input.shortcuts.toggle : defaults.shortcuts.toggle,
       temporaryChat: typeof input.shortcuts?.temporaryChat === 'string' ? input.shortcuts.temporaryChat : defaults.shortcuts.temporaryChat,
+      toggleSize: typeof input.shortcuts?.toggleSize === 'string' ? input.shortcuts.toggleSize : defaults.shortcuts.toggleSize,
       providers: {
         chatgpt: typeof input.shortcuts?.providers?.chatgpt === 'string' ? input.shortcuts.providers.chatgpt : defaults.shortcuts.providers.chatgpt,
         claude: typeof input.shortcuts?.providers?.claude === 'string' ? input.shortcuts.providers.claude : defaults.shortcuts.providers.claude
@@ -95,9 +105,12 @@ export function normalizeSettings(value: unknown, platform: string): AppSettings
     autoHidePopover: typeof input.autoHidePopover === 'boolean' ? input.autoHidePopover : defaults.autoHidePopover,
     escapeHidesPopover: typeof input.escapeHidesPopover === 'boolean' ? input.escapeHidesPopover : defaults.escapeHidesPopover,
     opacity: typeof input.opacity === 'number' && Number.isFinite(input.opacity) ? Math.min(1, Math.max(0.6, input.opacity)) : defaults.opacity,
+    theme: input.theme === 'dark' || input.theme === 'light' || input.theme === 'system' ? input.theme : defaults.theme,
     opacityMode: input.opacityMode === 'background' || input.opacityMode === 'window' ? input.opacityMode : defaults.opacityMode,
     backgroundOpacity: typeof input.backgroundOpacity === 'number' && Number.isFinite(input.backgroundOpacity) ? Math.min(1, Math.max(0.7, input.backgroundOpacity)) : defaults.backgroundOpacity,
-    pageZoomPercent: typeof input.pageZoomPercent === 'number' && Number.isFinite(input.pageZoomPercent) ? Math.min(120, Math.max(70, Math.round(input.pageZoomPercent))) : defaults.pageZoomPercent,
+    pageZoomPercent: typeof input.pageZoomPercent === 'number' && Number.isFinite(input.pageZoomPercent)
+      ? input.pageZoomPercent === 91 ? defaults.pageZoomPercent : Math.min(120, Math.max(70, Math.round(input.pageZoomPercent)))
+      : defaults.pageZoomPercent,
     lastChatGPTConversationPath,
     resetAfterMinutes: [0, 15, 30, 60].includes(input.resetAfterMinutes ?? -1) ? input.resetAfterMinutes! : defaults.resetAfterMinutes,
     geometry,
@@ -120,7 +133,7 @@ export function isValidAccelerator(accelerator: string): boolean {
   return keys.has(key) || /^[A-Z0-9]$/i.test(key) || /^F([1-9]|1\d|2[0-4])$/.test(key)
 }
 
-export type ShortcutName = 'toggle' | 'temporary-chat' | `provider:${ProviderId}`
+export type ShortcutName = 'toggle' | 'temporary-chat' | 'toggle-size' | `provider:${ProviderId}`
 
 export function validateShortcutMap(bindings: Partial<Record<ShortcutName, string>>): string[] {
   const errors: string[] = []

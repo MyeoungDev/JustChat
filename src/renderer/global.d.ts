@@ -15,7 +15,7 @@ declare global {
       retryProvider: () => void
       selectProvider: (provider: ProviderId) => void
       getState: () => Promise<ShellState | null>
-      updateSettings: (patch: Partial<Pick<AppSettings, 'shortcuts' | 'alwaysOnTop' | 'autoHidePopover' | 'escapeHidesPopover' | 'opacity' | 'opacityMode' | 'backgroundOpacity' | 'pageZoomPercent' | 'resetAfterMinutes'>>) => Promise<{ ok: boolean; settings?: AppSettings; failures?: string[]; reason?: string }>
+      updateSettings: (patch: Partial<Pick<AppSettings, 'shortcuts' | 'alwaysOnTop' | 'autoHidePopover' | 'escapeHidesPopover' | 'opacity' | 'theme' | 'opacityMode' | 'backgroundOpacity' | 'pageZoomPercent' | 'resetAfterMinutes'>>) => Promise<{ ok: boolean; settings?: AppSettings; failures?: string[]; reason?: string }>
       clearChatGptSession: () => Promise<ClearChatGptSessionResult>
       onState: (callback: (state: ShellState) => void) => () => void
       platform: string

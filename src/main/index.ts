@@ -14,7 +14,7 @@ import { clearProviderSessionData } from './provider-session'
 import { performance } from 'node:perf_hooks'
 
 type ProviderLoadState = 'loading' | 'ready' | 'error'
-type UserSettingsPatch = Partial<Pick<AppSettings, 'shortcuts' | 'alwaysOnTop' | 'autoHidePopover' | 'escapeHidesPopover' | 'opacity' | 'opacityMode' | 'backgroundOpacity' | 'pageZoomPercent' | 'resetAfterMinutes'>>
+type UserSettingsPatch = Partial<Pick<AppSettings, 'shortcuts' | 'alwaysOnTop' | 'autoHidePopover' | 'escapeHidesPopover' | 'opacity' | 'theme' | 'opacityMode' | 'backgroundOpacity' | 'pageZoomPercent' | 'resetAfterMinutes'>>
 
 const currentDir = dirname(fileURLToPath(import.meta.url))
 const rendererFile = join(currentDir, '../renderer/index.html')
@@ -228,6 +228,7 @@ function handleShellInput(event: Electron.Event, input: Electron.Input): void {
   if (handleCloseWindowShortcut(event, input)) return
   if (handleSettingsShortcut(event, input)) return
   handleEscape(event, input)
+  dispatchWindowSizeShortcut(event, input)
   dispatchTemporaryChatShortcut(event, input)
   handlePageZoomShortcut(event, input)
 }
@@ -236,11 +237,32 @@ function handleProviderInput(event: Electron.Event, input: Electron.Input): void
   if (handleCloseWindowShortcut(event, input)) return
   if (handleSettingsShortcut(event, input)) return
   handleEscape(event, input)
+  dispatchWindowSizeShortcut(event, input)
   dispatchTemporaryChatShortcut(event, input)
   handlePageZoomShortcut(event, input)
   if (settings.activeProviderId === 'chatgpt' && mode === 'compact' && isChatGPTSendKey(input)) {
     setMode('expanded')
   }
+}
+
+function dispatchWindowSizeShortcut(event: Electron.Event, input: Electron.Input): void {
+  const matches = shouldDispatchFocusedShortcut({
+    key: input.key,
+    code: input.code,
+    altKey: input.alt,
+    ctrlKey: input.control,
+    metaKey: input.meta,
+    shiftKey: input.shift
+  }, process.platform, settings.shortcuts.toggleSize, {
+    eventType: input.type,
+    settingsVisible,
+    windowVisible: Boolean(window?.isVisible()),
+    windowFocused: Boolean(window?.isFocused()),
+    windowMode: mode
+  })
+  if (!matches) return
+  event.preventDefault()
+  setMode(mode === 'compact' ? 'expanded' : 'compact')
 }
 
 function handlePageZoomShortcut(event: Electron.Event, input: Electron.Input): void {
@@ -387,6 +409,18 @@ function guardProviderPopup(popup: BrowserWindow, adapter: ProviderAdapter) {
   })
 }
 
+function canWriteSanitizedClipboard(permission: string, requestingUrl: string | undefined, isMainFrame: boolean, adapter: ProviderAdapter): boolean {
+  if (permission !== 'clipboard-sanitized-write' || !requestingUrl || !isMainFrame) return false
+  try {
+    const url = new URL(requestingUrl)
+    return url.protocol === 'https:' && adapter.allowedTopLevelHosts.some(host =>
+      url.hostname === host || url.hostname.endsWith(`.${host}`)
+    )
+  } catch {
+    return false
+  }
+}
+
 function getProviderView(id: ProviderId) {
   return webViews.getOrCreate(id, () => {
     const adapter = providerFor(id)
@@ -433,8 +467,12 @@ function getProviderView(id: ProviderId) {
       try { host = new URL(url).hostname } catch { /* keep full URLs out of logs */ }
       console.info(`[Just Chat] ${id} redirected to ${host}`)
     })
-    contents.session.setPermissionRequestHandler((_webContents, _permission, callback) => callback(false))
-    contents.session.setPermissionCheckHandler(() => false)
+    contents.session.setPermissionRequestHandler((_webContents, permission, callback, details) => {
+      callback(canWriteSanitizedClipboard(permission, details.requestingUrl, details.isMainFrame, adapter))
+    })
+    contents.session.setPermissionCheckHandler((_webContents, permission, requestingOrigin, details) => {
+      return canWriteSanitizedClipboard(permission, details.requestingUrl ?? requestingOrigin, details.isMainFrame, adapter)
+    })
     contents.on('did-start-loading', () => {
       let host = 'unknown'
       try { host = new URL(contents.getURL()).hostname } catch { /* URL may not be available yet */ }
@@ -931,6 +969,7 @@ function validateSettingsShortcuts(candidate: AppSettings): string[] {
   return validateShortcutMap({
     toggle: candidate.shortcuts.toggle,
     'temporary-chat': candidate.shortcuts.temporaryChat,
+    'toggle-size': candidate.shortcuts.toggleSize,
     'provider:chatgpt': candidate.shortcuts.providers.chatgpt,
     'provider:claude': candidate.shortcuts.providers.claude
   })
@@ -1079,6 +1118,7 @@ app.whenReady().then(() => {
   }
   startPerformanceSampler()
   settings = settingsStore.load()
+  nativeTheme.themeSource = settings.theme
   registerStartupBindings()
   createWindow()
   app.on('activate', () => {
@@ -1124,6 +1164,7 @@ ipcMain.handle('settings:update', (event, patch: UserSettingsPatch) => {
     autoHidePopover: typeof patch.autoHidePopover === 'boolean' ? patch.autoHidePopover : settings.autoHidePopover,
     escapeHidesPopover: typeof patch.escapeHidesPopover === 'boolean' ? patch.escapeHidesPopover : settings.escapeHidesPopover,
     opacity: typeof patch.opacity === 'number' ? patch.opacity : settings.opacity,
+    theme: patch.theme === 'system' || patch.theme === 'dark' || patch.theme === 'light' ? patch.theme : settings.theme,
     opacityMode: patch.opacityMode === 'window' || patch.opacityMode === 'background' ? patch.opacityMode : settings.opacityMode,
     backgroundOpacity: typeof patch.backgroundOpacity === 'number' ? patch.backgroundOpacity : settings.backgroundOpacity,
     pageZoomPercent: typeof patch.pageZoomPercent === 'number' ? patch.pageZoomPercent : settings.pageZoomPercent,
@@ -1133,6 +1174,7 @@ ipcMain.handle('settings:update', (event, patch: UserSettingsPatch) => {
   const failures = patch.shortcuts ? replaceBindings(candidate) : []
   if (failures.length) return { ok: false, failures }
   settings = candidate
+  if (patch.theme) nativeTheme.themeSource = settings.theme
   if (typeof patch.pageZoomPercent === 'number') {
     for (const provider of providers) {
       const view = webViews.get(provider.id)

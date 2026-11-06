@@ -3,11 +3,12 @@ import { acceleratorFromKeyChord, defaultSettings, isValidAccelerator, normalize
 
 describe('settings', () => {
   it('provides platform-specific default shortcuts', () => {
-    expect(defaultSettings('darwin').shortcuts).toEqual({ toggle: 'Alt+Space', temporaryChat: 'Command+Shift+N', providers: { chatgpt: 'Alt+1', claude: 'Alt+2' } })
+    expect(defaultSettings('darwin').shortcuts).toEqual({ toggle: 'Alt+Space', temporaryChat: 'Command+Shift+N', toggleSize: 'Command+Shift+E', providers: { chatgpt: 'Alt+1', claude: 'Alt+2' } })
     expect(defaultSettings('win32').shortcuts.toggle).toBe('Control+Shift+Space')
+    expect(defaultSettings('win32').shortcuts.toggleSize).toBe('Control+Shift+E')
     expect(defaultSettings('win32').shortcuts).not.toHaveProperty('chatHistory')
     expect(defaultSettings('darwin').resetAfterMinutes).toBe(30)
-    expect(defaultSettings('darwin').pageZoomPercent).toBe(91)
+    expect(defaultSettings('darwin').pageZoomPercent).toBe(83)
   })
 
   it('normalizes corrupt or partial persisted values safely', () => {
@@ -32,6 +33,27 @@ describe('settings', () => {
     })
   })
 
+  it('upgrades the previous default compact size while preserving custom sizes', () => {
+    const settings = normalizeSettings({
+      geometry: {
+        compact: { x: 40, y: 60, width: 520, height: 200 },
+        expanded: { x: 80, y: 90, width: 700, height: 500 }
+      },
+      geometryByDisplay: {
+        compact: {
+          'default-sized-display': { x: 40, y: 60, width: 520, height: 200 },
+          'custom-sized-display': { x: 40, y: 60, width: 600, height: 240 }
+        }
+      }
+    }, 'darwin')
+    expect(settings.geometry.compact).toEqual({ x: 40, y: 60, width: 520, height: 320 })
+    expect(settings.geometry.expanded).toEqual({ x: 80, y: 90, width: 700, height: 500 })
+    expect(settings.geometryByDisplay.compact).toEqual({
+      'default-sized-display': { x: 40, y: 60, width: 520, height: 320 },
+      'custom-sized-display': { x: 40, y: 60, width: 600, height: 240 }
+    })
+  })
+
   it('accepts disabling the idle reset timer and falls back for unsupported values', () => {
     expect(normalizeSettings({ resetAfterMinutes: 0 }, 'darwin').resetAfterMinutes).toBe(0)
     expect(normalizeSettings({ resetAfterMinutes: 45 }, 'darwin').resetAfterMinutes).toBe(30)
@@ -51,7 +73,8 @@ describe('settings', () => {
   it('normalizes the provider page zoom setting', () => {
     expect(normalizeSettings({ pageZoomPercent: 105.6 }, 'darwin').pageZoomPercent).toBe(106)
     expect(normalizeSettings({ pageZoomPercent: 20 }, 'darwin').pageZoomPercent).toBe(70)
-    expect(normalizeSettings({ pageZoomPercent: Number.NaN }, 'darwin').pageZoomPercent).toBe(91)
+    expect(normalizeSettings({ pageZoomPercent: Number.NaN }, 'darwin').pageZoomPercent).toBe(83)
+    expect(normalizeSettings({ pageZoomPercent: 91 }, 'darwin').pageZoomPercent).toBe(83)
   })
 
   it('restores only a valid ChatGPT conversation path', () => {

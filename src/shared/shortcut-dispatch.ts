@@ -15,6 +15,7 @@ export function shouldDispatchFocusedShortcut(
   configuredAccelerator: string,
   context: ShortcutDispatchContext
 ): boolean {
-  if (context.eventType !== 'keyDown' || context.settingsVisible || !context.windowVisible || !context.windowFocused || context.windowMode !== 'compact') return false
+  if (context.eventType !== 'keyDown' || context.settingsVisible || !context.windowVisible || !context.windowFocused) return false
+  if (context.windowMode !== 'compact' && context.windowMode !== 'expanded') return false
   return acceleratorFromKeyChord(chord, platform) === configuredAccelerator
 }

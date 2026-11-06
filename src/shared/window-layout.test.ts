@@ -36,7 +36,7 @@ describe('window geometry', () => {
   })
 
   it('provides a smaller Quick Chat mode and minimum size', () => {
-    expect(centeredBounds('compact', display)).toEqual({ x: -980, y: 350, width: 520, height: 200 })
+    expect(centeredBounds('compact', display)).toEqual({ x: -980, y: 290, width: 520, height: 320 })
     expect(clampWindowBounds({ x: -1000, y: 100, width: 460, height: 160 }, display, 'compact'))
       .toEqual({ x: -1000, y: 100, width: 480, height: 180 })
   })
@@ -53,7 +53,7 @@ describe('window geometry', () => {
     expect(boundsForDisplay('expanded', { x: 496, y: 100, width: 520, height: 480 }, laptop))
       .toEqual({ x: 496, y: 100, width: 520, height: 480 })
     expect(lowerCenteredBounds('expanded', laptop, { x: 496, y: 100, width: 700, height: 600 }))
-      .toEqual({ x: 406, y: 438, width: 700, height: 600 })
+      .toEqual({ x: 406, y: 300, width: 700, height: 600 })
   })
 
   it('grows the conversation window upward while keeping its lower edge in place', () => {
@@ -65,7 +65,7 @@ describe('window geometry', () => {
 
   it('uses the cursor display fallback when there is no geometry saved for that display', () => {
     expect(boundsForDisplay('compact', undefined, { x: 0, y: 0, width: 1440, height: 900 }))
-      .toEqual({ x: 460, y: 350, width: 520, height: 200 })
+      .toEqual({ x: 460, y: 290, width: 520, height: 320 })
     expect(boundsForDisplay('compact', { x: -1200, y: 100, width: 760, height: 320 }, display))
       .toEqual({ x: -1200, y: 100, width: 760, height: 320 })
   })

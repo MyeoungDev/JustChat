@@ -15,19 +15,19 @@ Just Chat aims to make ChatGPT feel close at hand: open a small window with a sh
 ## What it does
 
 - Opens ChatGPT directly in a compact **Quick Chat** window.
-- Hides ChatGPT's empty-page welcome heading and suggestion chip in Quick Chat to leave more room for the composer.
+- Keeps ChatGPT's welcome heading visible and starts its page at 83% zoom so the welcome content and composer fit the compact window more comfortably.
 - Lets you switch the same window between Quick Chat and Expanded, or fill the display, without reloading the ChatGPT view.
 - Can grow Quick Chat into Expanded when Enter is pressed or ChatGPT navigates to a conversation. Enter is a best-effort signal: Electron cannot tell Just Chat which page control has focus.
 - Opens the window on the display containing the mouse pointer and remembers window size and position by display and mode.
 - Uses a Just Chat icon in the running app window and macOS Dock; macOS and Windows icon files are included under `assets/`.
 - Hides an empty Quick Chat when focus moves to another app.
-- Follows the system light or dark appearance for the Just Chat controls. ChatGPT's website appearance is controlled by ChatGPT.
+- Follows the system appearance by default, with optional Dark and Light themes in Settings.
 
 ### Window sizes
 
 | Mode | Default size | Minimum size |
 |---|---:|---:|
-| Quick Chat | 520 × 200 | 480 × 180 |
+| Quick Chat | 520 × 320 | 480 × 180 |
 | Expanded | 520 × 480 | 480 × 400 |
 | Full Screen | Current display | — |
 
@@ -69,7 +69,7 @@ The compact window grows into Expanded on an unmodified Enter key or when ChatGP
 - Configure the global show/hide shortcut and the focused temporary-chat shortcut. ChatGPT's built-in search shortcut remains owned by ChatGPT.
 - Keep Just Chat above other windows.
 - Adjust whole-window opacity from 60% to 100% (100% by default), or try experimental ChatGPT background-only opacity from 70% to 100%. The experiment keeps text and controls fully opaque; some ChatGPT surfaces may remain opaque.
-- Adjust embedded page zoom from 70% to 120%. The default is 91%, approximately one Command− step below 100%; this changes provider page content, not the Just Chat frame.
+- Adjust embedded page zoom from 70% to 120%. The default is 83%, approximately one Command− step below 100%; this changes provider page content, not the Just Chat frame.
 - Reload ChatGPT to a fresh page after the window has been hidden for 15, 30, or 60 minutes, or disable the reset. The default is 30 minutes.
 - Sign out of ChatGPT in Just Chat and clear its local website data. This does not delete conversations from the ChatGPT account or affect downloaded files.
 
