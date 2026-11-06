@@ -68,7 +68,7 @@ The compact window grows into Expanded on an unmodified Enter key or when ChatGP
 
 - Configure the global show/hide shortcut and the focused temporary-chat shortcut. ChatGPT's built-in search shortcut remains owned by ChatGPT.
 - Keep Just Chat above other windows.
-- Adjust whole-window opacity from 60% to 100% (100% by default), or try experimental ChatGPT background-only opacity from 70% to 100%. The experiment keeps text and controls fully opaque; some ChatGPT surfaces may remain opaque.
+- Adjust whole-window opacity from 60% to 100% (100% by default), or try experimental ChatGPT background-only opacity from 70% to 100%. Background-only mode leaves ChatGPT text colors alone and adds a soft, more opaque surface behind the conversation and composer.
 - Adjust embedded page zoom from 70% to 120%. The default 100% is calibrated to the previous maximum size; this changes provider page content, not the Just Chat frame.
 - Reload ChatGPT to a fresh page after the window has been hidden for 15, 30, or 60 minutes, or disable the reset. The default is 30 minutes.
 - Sign out of ChatGPT in Just Chat and clear its local website data. This does not delete conversations from the ChatGPT account or affect downloaded files.

@@ -810,6 +810,7 @@ function syncBackgroundOpacity() {
   if (!view || view.webContents.isDestroyed()) return
   const enabled = settings.opacityMode === 'background' && settings.activeProviderId === 'chatgpt'
   const alpha = Math.round(settings.backgroundOpacity * 100)
+  const readableAlpha = Math.min(100, alpha + 25)
   void view.webContents.executeJavaScript(`(() => {
     const root = document.documentElement;
     const styleId = 'just-chat-background-opacity-style';
@@ -821,6 +822,12 @@ function syncBackgroundOpacity() {
         html[data-just-chat-bg-opacity] body,
         html[data-just-chat-bg-opacity] #thread,
         html[data-just-chat-bg-opacity] #root { background-color: transparent !important; }
+        html[data-just-chat-bg-opacity] #thread,
+        html[data-just-chat-bg-opacity] [data-testid="composer"] {
+          background-color: color-mix(in srgb, var(--color-token-main-surface-primary) var(--just-chat-readable-alpha), transparent) !important;
+          backdrop-filter: blur(12px);
+          -webkit-backdrop-filter: blur(12px);
+        }
         html[data-just-chat-bg-opacity] .bg-token-main-surface-primary {
           background-color: color-mix(in srgb, var(--color-token-main-surface-primary) var(--just-chat-bg-alpha), transparent) !important;
         }
@@ -838,10 +845,12 @@ function syncBackgroundOpacity() {
     }
     if (${enabled}) {
       root.style.setProperty('--just-chat-bg-alpha', '${alpha}%');
+      root.style.setProperty('--just-chat-readable-alpha', '${readableAlpha}%');
       root.dataset.justChatBgOpacity = 'true';
     } else {
       delete root.dataset.justChatBgOpacity;
       root.style.removeProperty('--just-chat-bg-alpha');
+      root.style.removeProperty('--just-chat-readable-alpha');
     }
     return true;
   })()`).catch(() => undefined)

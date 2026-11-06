@@ -39,6 +39,7 @@
 ## Visual language
 - Color: Use semantic shell tokens for light and dark system appearances, with readable contrast. The Provider page may retain its own in-site appearance setting; do not imply the shell can force a remote page's theme unless supported.
 - Typography: Native system sans-serif, compact but readable
+- Transparency: Preserve ChatGPT's text, links, and semantic colors. Improve legibility only on conversation and composer surfaces with background-opacity and blur adjustments; keep the treatment scoped to background-only opacity mode.
 - Spacing/layout rhythm: Tight title row and one Provider row; avoid extra navigation rail
 - Shape/radius/elevation: Subtle rounded buttons, restrained separators, minimal shadow
 - Motion: No required transition animation; OS window transitions take priority

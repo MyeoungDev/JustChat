@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useState, type CSSProperties } from 'react'
 import { acceleratorFromKeyChord, defaultSettings, type AppSettings, type ShortcutName } from '../../shared/settings'
 import type { ClearChatGptSessionResult } from '../../preload'
 
@@ -22,6 +22,10 @@ export function SettingsPanel({ settings, shortcutFailures, platform, onUpdate, 
   const [opacityDraft, setOpacityDraft] = useState<number | null>(null)
   const [backgroundOpacityDraft, setBackgroundOpacityDraft] = useState<number | null>(null)
   const [pageZoomDraft, setPageZoomDraft] = useState<number | null>(null)
+  const previewOpacity = settings.opacityMode === 'window'
+    ? Math.round((opacityDraft ?? settings.opacity) * 100)
+    : Math.round((backgroundOpacityDraft ?? settings.backgroundOpacity) * 100)
+  const previewSurfaceOpacity = Math.min(100, previewOpacity + 25)
 
   useEffect(() => {
     if (opacityDraft === null || opacityDraft === settings.opacity) return
@@ -170,8 +174,19 @@ export function SettingsPanel({ settings, shortcutFailures, platform, onUpdate, 
           <label className="setting-row toggle-row"><span><strong>Always on top</strong><small>Keep the Just Chat window above other windows.</small></span><input type="checkbox" checked={settings.alwaysOnTop} disabled={saving} onChange={(event) => void update({ alwaysOnTop: event.target.checked })} /></label>
           <label className="setting-row toggle-row"><span><strong>Also hide Pop Over when focus moves away</strong><small>Empty Quick Chat closes automatically; this option applies to Pop Over.</small></span><input type="checkbox" checked={settings.autoHidePopover} disabled={saving} onChange={(event) => void update({ autoHidePopover: event.target.checked })} /></label>
           <label className="setting-row toggle-row"><span><strong>Escape hides Just Chat</strong><small>When enabled, Escape hides the window in any size mode.</small></span><input type="checkbox" checked={settings.escapeHidesPopover} disabled={saving} onChange={(event) => void update({ escapeHidesPopover: event.target.checked })} /></label>
-          <label className="setting-row"><span><strong>Transparency mode</strong><small>Background only is experimental and applies to ChatGPT surfaces.</small></span><select aria-label="Transparency mode" value={settings.opacityMode} disabled={saving} onChange={(event) => void update({ opacityMode: event.target.value as AppSettings['opacityMode'] })}><option value="window">Whole window</option><option value="background">Background only (Experimental)</option></select></label>
+          <label className="setting-row"><span><strong>Transparency mode</strong><small>Background only adds a soft, more opaque surface behind the conversation and composer; ChatGPT text colors stay unchanged.</small></span><select aria-label="Transparency mode" value={settings.opacityMode} disabled={saving} onChange={(event) => void update({ opacityMode: event.target.value as AppSettings['opacityMode'] })}><option value="window">Whole window</option><option value="background">Background only (Experimental)</option></select></label>
           {settings.opacityMode === 'window' ? <label className="setting-row opacity-row"><span><strong>Window opacity</strong><small>Applies to everything in the window, including ChatGPT text.</small></span><span className="range-control"><input aria-label="Window opacity" type="range" min="60" max="100" step="5" value={Math.round((opacityDraft ?? settings.opacity) * 100)} onChange={(event) => setOpacityDraft(event.currentTarget.valueAsNumber / 100)} /><output>{Math.round((opacityDraft ?? settings.opacity) * 100)}%</output></span></label> : <label className="setting-row opacity-row"><span><strong>ChatGPT background opacity</strong><small>Text and controls stay at full opacity. Some ChatGPT surfaces may remain opaque.</small></span><span className="range-control"><input aria-label="ChatGPT background opacity" type="range" min="70" max="100" step="10" value={Math.round((backgroundOpacityDraft ?? settings.backgroundOpacity) * 100)} onChange={(event) => setBackgroundOpacityDraft(event.currentTarget.valueAsNumber / 100)} /><output>{Math.round((backgroundOpacityDraft ?? settings.backgroundOpacity) * 100)}%</output></span></label>}
+          <div className="opacity-preview" aria-label="Transparency preview">
+            <div className="opacity-preview-caption">Preview · {settings.opacityMode === 'window' ? `${previewOpacity}% whole window` : `${previewOpacity}% background · ${previewSurfaceOpacity}% conversation and composer`}</div>
+            <div className={`opacity-preview-window ${settings.theme === 'dark' ? 'theme-dark' : settings.theme === 'light' ? 'theme-light' : 'theme-system'} ${settings.opacityMode === 'window' ? 'whole-window' : 'background-only'}`} style={{ opacity: settings.opacityMode === 'window' ? previewOpacity / 100 : 1, '--preview-bg-alpha': `${previewOpacity}%`, '--preview-surface-alpha': `${previewSurfaceOpacity}%` } as CSSProperties}>
+              <div className="opacity-preview-topbar"><span className="opacity-preview-dot" /><span>ChatGPT</span></div>
+              <div className="opacity-preview-chat">
+                <div className="opacity-preview-user">이 내용을 간단히 설명해줘</div>
+                <p>핵심 내용을 정리해 답변합니다. 글자 색은 그대로 유지됩니다.</p>
+                <div className="opacity-preview-composer">ChatGPT에게 물어보세요 <span>↑</span></div>
+              </div>
+            </div>
+          </div>
           <label className="setting-row"><span><strong>Reset conversation after hiding</strong><small>Starts a fresh ChatGPT page next time if Just Chat stays hidden for this long.</small></span><select aria-label="Reset conversation after hiding" value={settings.resetAfterMinutes} disabled={saving} onChange={(event) => void update({ resetAfterMinutes: Number(event.target.value) })}><option value={0}>Never</option><option value={15}>15 minutes</option><option value={30}>30 minutes</option><option value={60}>1 hour</option></select></label>
           <div className="setting-row">
             <div><strong>Restore settings to defaults</strong><small>Resets shortcuts, appearance, zoom, transparency and window behavior. Window size, ChatGPT sign-in and chats are kept.</small></div>
