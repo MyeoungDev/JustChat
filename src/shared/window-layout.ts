@@ -24,8 +24,12 @@ export const windowSizes: Record<WindowMode, { width: number; height: number }> 
 export const minimumWindowSizes: Record<WindowMode, { width: number; height: number }> = {
   popover: { width: 700, height: 600 },
   compact: { width: 480, height: 180 },
-  expanded: { width: 480, height: 400 },
+  expanded: { width: 480, height: 320 },
   fullscreen: { width: 0, height: 0 }
+}
+
+export function windowSizeForDisplay(mode: WindowMode, _display: DisplayWorkArea): { width: number; height: number } {
+  return windowSizes[mode]
 }
 
 export function boundsAnchoredAtBottom(current: WindowBounds, target: WindowBounds, display: DisplayWorkArea): WindowBounds {
@@ -68,7 +72,7 @@ export function clampWindowBounds(bounds: WindowBounds, display: DisplayWorkArea
 
 export function centeredBounds(mode: WindowMode, display: DisplayWorkArea): WindowBounds {
   if (mode === 'fullscreen') return { ...display }
-  const size = windowSizes[mode]
+  const size = windowSizeForDisplay(mode, display)
   return clampWindowBounds({
     x: Math.round(display.x + (display.width - size.width) / 2),
     y: Math.round(display.y + (display.height - size.height) / 2),
@@ -82,9 +86,9 @@ export function lowerCenteredBounds(
   savedBounds?: WindowBounds
 ): WindowBounds {
   if (mode === 'fullscreen') return { ...display }
-  const defaultSize = windowSizes[mode]
+  const defaultSize = windowSizeForDisplay(mode, display)
   const size = savedBounds
-    ? { width: Math.min(savedBounds.width, defaultSize.width), height: Math.min(savedBounds.height, defaultSize.height) }
+    ? { width: savedBounds.width, height: savedBounds.height }
     : defaultSize
   const width = Math.min(size.width, display.width)
   const height = Math.min(size.height, display.height)
@@ -101,9 +105,9 @@ export function boundsForDisplay(
   savedBounds: WindowBounds | undefined,
   display: DisplayWorkArea
 ): WindowBounds {
-  return mode === 'fullscreen'
-    ? { ...display }
-    : clampWindowBounds(savedBounds ?? centeredBounds(mode, display), display, mode)
+  if (mode === 'fullscreen') return { ...display }
+  const candidate = savedBounds ?? centeredBounds(mode, display)
+  return clampWindowBounds(candidate, display, mode)
 }
 
 export function rememberDisplayBounds(
@@ -127,7 +131,8 @@ export function transitionWindowGeometry(
   fallback: WindowBounds
 ): { mode: WindowMode; geometry: WindowGeometry; bounds: WindowBounds } {
   const geometry = { ...savedGeometry, [currentMode]: clampWindowBounds(currentBounds, display, currentMode) }
-  const target = geometry[nextMode] ?? fallback
+  const storedTarget = geometry[nextMode]
+  const target = storedTarget ?? fallback
   const bounds = clampWindowBounds(target, display, nextMode)
   return { mode: nextMode, geometry: { ...geometry, [nextMode]: bounds }, bounds }
 }

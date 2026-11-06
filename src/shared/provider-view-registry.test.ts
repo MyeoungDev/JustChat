@@ -11,4 +11,12 @@ describe('Provider WebView lifecycle', () => {
     expect(registry.getOrCreate('claude', () => ({ id: `view-${++creations}` }))).toBe(claude)
     expect(creations).toBe(2)
   })
+
+  it('replaces a provider view that is no longer usable', () => {
+    const registry = new RetainedViewRegistry<string, { id: string; alive: boolean }>()
+    const oldView = registry.getOrCreate('chatgpt', () => ({ id: 'old', alive: false }))
+    const nextView = registry.getOrCreate('chatgpt', () => ({ id: 'new', alive: true }), view => view.alive)
+    expect(nextView).not.toBe(oldView)
+    expect(registry.get('chatgpt')).toBe(nextView)
+  })
 })

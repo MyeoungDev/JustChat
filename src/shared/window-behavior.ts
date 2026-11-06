@@ -9,14 +9,45 @@ export interface WindowBlurContext {
   providerUrl: string
 }
 
+export function isSettingsToggleShortcut(input: {
+  type: string
+  key: string
+  code: string
+  alt?: boolean
+  control?: boolean
+  meta?: boolean
+  shift?: boolean
+}, platform: NodeJS.Platform): boolean {
+  if (input.type !== 'keyDown' || input.alt || input.shift) return false
+  const modifierPressed = platform === 'darwin' ? input.meta && !input.control : input.control && !input.meta
+  return Boolean(modifierPressed && (input.key === ',' || input.code.toLowerCase() === 'comma'))
+}
+
+export function isCloseWindowShortcut(input: {
+  type: string
+  key: string
+  code: string
+  alt?: boolean
+  control?: boolean
+  meta?: boolean
+  shift?: boolean
+}, platform: NodeJS.Platform): boolean {
+  if (platform !== 'darwin' || input.type !== 'keyDown' || input.alt || input.control || input.shift || !input.meta) return false
+  return input.key.toLowerCase() === 'w' || input.code.toLowerCase() === 'keyw'
+}
+
 export function hasChatGPTConversationRoute(providerId: ProviderId, rawUrl: string): boolean {
-  if (providerId !== 'chatgpt') return false
+  return chatGPTConversationPath(providerId, rawUrl) !== undefined
+}
+
+export function chatGPTConversationPath(providerId: ProviderId, rawUrl: string): string | undefined {
+  if (providerId !== 'chatgpt') return undefined
   try {
     const url = new URL(rawUrl)
-    if (url.protocol !== 'https:' || !['chatgpt.com', 'www.chatgpt.com'].includes(url.hostname)) return false
-    return /(?:^|\/)c\/[^/]+(?:\/|$)/i.test(url.pathname)
+    if (url.protocol !== 'https:' || !['chatgpt.com', 'www.chatgpt.com'].includes(url.hostname)) return undefined
+    return /(?:^|\/)c\/[^/]+(?:\/|$)/i.test(url.pathname) ? url.pathname : undefined
   } catch {
-    return false
+    return undefined
   }
 }
 

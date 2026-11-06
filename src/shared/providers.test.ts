@@ -1,10 +1,18 @@
 import { describe, expect, it } from 'vitest'
-import { classifyProviderPopup, isAllowedProviderNavigation, providers, resolveProviderSelection } from './providers'
+import { classifyProviderPopup, isAllowedProviderNavigation, isSecureProviderRedirect, providers, resolveProviderSelection } from './providers'
 
 describe('provider navigation policy', () => {
   it('allows HTTPS provider and configured login hosts', () => {
     expect(isAllowedProviderNavigation('https://chatgpt.com/', providers[0])).toBe(true)
     expect(isAllowedProviderNavigation('https://accounts.google.com/signin', providers[0])).toBe(true)
+    expect(isAllowedProviderNavigation('https://login.microsoftonline.com/', providers[0])).toBe(true)
+    expect(isAllowedProviderNavigation('https://appleid.apple.com/', providers[0])).toBe(true)
+  })
+
+  it('allows secure redirect hops while rejecting insecure or malformed redirects', () => {
+    expect(isSecureProviderRedirect('https://unlisted-auth.example/callback')).toBe(true)
+    expect(isSecureProviderRedirect('http://unlisted-auth.example/')).toBe(false)
+    expect(isSecureProviderRedirect('not a URL')).toBe(false)
   })
 
   it('rejects unconfigured hosts, insecure URLs, and malformed URLs', () => {

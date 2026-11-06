@@ -6,7 +6,7 @@ interface SettingsPanelProps {
   settings: AppSettings
   shortcutFailures: string[]
   platform: string
-  onUpdate: (patch: Partial<Pick<AppSettings, 'shortcuts' | 'alwaysOnTop' | 'autoHidePopover' | 'escapeHidesPopover' | 'opacity' | 'resetAfterMinutes'>>) => Promise<{ ok: boolean; failures?: string[] }>
+  onUpdate: (patch: Partial<Pick<AppSettings, 'shortcuts' | 'alwaysOnTop' | 'autoHidePopover' | 'escapeHidesPopover' | 'opacity' | 'opacityMode' | 'backgroundOpacity' | 'pageZoomPercent' | 'resetAfterMinutes'>>) => Promise<{ ok: boolean; failures?: string[] }>
   onClearChatGptSession: () => Promise<ClearChatGptSessionResult>
   onClose: () => void
 }
@@ -19,6 +19,8 @@ export function SettingsPanel({ settings, shortcutFailures, platform, onUpdate, 
   const [clearingSession, setClearingSession] = useState(false)
   const [sessionMessage, setSessionMessage] = useState('')
   const [opacityDraft, setOpacityDraft] = useState<number | null>(null)
+  const [backgroundOpacityDraft, setBackgroundOpacityDraft] = useState<number | null>(null)
+  const [pageZoomDraft, setPageZoomDraft] = useState<number | null>(null)
 
   useEffect(() => {
     if (opacityDraft === null || opacityDraft === settings.opacity) return
@@ -27,6 +29,22 @@ export function SettingsPanel({ settings, shortcutFailures, platform, onUpdate, 
     }, 250)
     return () => window.clearTimeout(timer)
   }, [opacityDraft])
+
+  useEffect(() => {
+    if (backgroundOpacityDraft === null || backgroundOpacityDraft === settings.backgroundOpacity) return
+    const timer = window.setTimeout(() => {
+      void update({ backgroundOpacity: backgroundOpacityDraft }).finally(() => setBackgroundOpacityDraft(null))
+    }, 250)
+    return () => window.clearTimeout(timer)
+  }, [backgroundOpacityDraft])
+
+  useEffect(() => {
+    if (pageZoomDraft === null || pageZoomDraft === settings.pageZoomPercent) return
+    const timer = window.setTimeout(() => {
+      void update({ pageZoomPercent: pageZoomDraft }).finally(() => setPageZoomDraft(null))
+    }, 250)
+    return () => window.clearTimeout(timer)
+  }, [pageZoomDraft])
 
   async function update(patch: Parameters<typeof onUpdate>[0]) {
     setSaving(true)
@@ -67,7 +85,7 @@ export function SettingsPanel({ settings, shortcutFailures, platform, onUpdate, 
     if (!accelerator) return
     setCapturing(null)
     if (name === 'toggle') void update({ shortcuts: { ...settings.shortcuts, toggle: accelerator } })
-    else if (name === 'chat-history') void update({ shortcuts: { ...settings.shortcuts, chatHistory: accelerator } })
+    else if (name === 'temporary-chat') void update({ shortcuts: { ...settings.shortcuts, temporaryChat: accelerator } })
     else {
       const provider = name.slice('provider:'.length) as 'chatgpt' | 'claude'
       void update({ shortcuts: { ...settings.shortcuts, providers: { ...settings.shortcuts.providers, [provider]: accelerator } } })
@@ -94,7 +112,6 @@ export function SettingsPanel({ settings, shortcutFailures, platform, onUpdate, 
       <div className="settings-heading">
         <div>
           <h1>Settings</h1>
-          <p>Keep the shell close to the way you work.</p>
         </div>
         <button className="icon-button" aria-label="Close settings" onClick={onClose}>×</button>
       </div>
@@ -102,18 +119,21 @@ export function SettingsPanel({ settings, shortcutFailures, platform, onUpdate, 
       <div className="settings-content">
         <section className="settings-group" aria-labelledby="shortcut-heading">
           <h2 id="shortcut-heading">Keyboard</h2>
+          <div className="setting-row"><div><strong>Open or close Settings</strong><small>Only while Just Chat is focused.</small></div><kbd className="shortcut-hint">{platform === 'darwin' ? '⌘,' : 'Ctrl+,'}</kbd></div>
           <div className="setting-row"><div><strong>Show or hide Just Chat</strong><small>Global shortcut; works from any app.</small></div>{shortcutField('toggle', settings.shortcuts.toggle)}</div>
-          <div className="setting-row"><div><strong>Search ChatGPT conversations</strong><small>Works only while Quick Chat is focused; it is not registered globally.</small></div>{shortcutField('chat-history', settings.shortcuts.chatHistory)}</div>
+          <div className="setting-row"><div><strong>Start a temporary ChatGPT chat</strong><small>Works only in focused Quick Chat when ChatGPT shows its Temporary Chat button; it is not registered globally.</small></div>{shortcutField('temporary-chat', settings.shortcuts.temporaryChat)}</div>
           {shortcutFailures.length > 0 && <p className="settings-note warning">Some default shortcuts could not be registered. Choose a different combination here.</p>}
         </section>
 
         <section className="settings-group" aria-labelledby="window-heading">
           <h2 id="window-heading">Window</h2>
+          <label className="setting-row opacity-row"><span><strong>ChatGPT page zoom</strong><small>Sets the starting scale for embedded provider pages. Default is one Command− step below 100%.</small></span><span className="range-control"><input aria-label="ChatGPT page zoom" type="range" min="70" max="120" step="1" value={pageZoomDraft ?? settings.pageZoomPercent} disabled={saving} onChange={(event) => setPageZoomDraft(event.currentTarget.valueAsNumber)} /><output>{pageZoomDraft ?? settings.pageZoomPercent}%</output></span></label>
           <label className="setting-row toggle-row"><span><strong>Always on top</strong><small>Keep the Just Chat window above other windows.</small></span><input type="checkbox" checked={settings.alwaysOnTop} disabled={saving} onChange={(event) => void update({ alwaysOnTop: event.target.checked })} /></label>
           <label className="setting-row toggle-row"><span><strong>Also hide Pop Over when focus moves away</strong><small>Empty Quick Chat closes automatically; this option applies to Pop Over.</small></span><input type="checkbox" checked={settings.autoHidePopover} disabled={saving} onChange={(event) => void update({ autoHidePopover: event.target.checked })} /></label>
           <label className="setting-row toggle-row"><span><strong>Escape hides Just Chat</strong><small>When enabled, Escape hides the window in any size mode.</small></span><input type="checkbox" checked={settings.escapeHidesPopover} disabled={saving} onChange={(event) => void update({ escapeHidesPopover: event.target.checked })} /></label>
-          <label className="setting-row opacity-row"><span><strong>Window opacity</strong><small>Applies to everything in the window, including ChatGPT text.</small></span><span className="range-control"><input aria-label="Window opacity" type="range" min="60" max="100" step="5" value={Math.round((opacityDraft ?? settings.opacity) * 100)} onChange={(event) => setOpacityDraft(event.currentTarget.valueAsNumber / 100)} /><output>{Math.round((opacityDraft ?? settings.opacity) * 100)}%</output></span></label>
-          <label className="setting-row"><span><strong>Reset conversation after hiding</strong><small>Return to a fresh ChatGPT page after the window has been hidden.</small></span><select aria-label="Reset conversation after hiding" value={settings.resetAfterMinutes} disabled={saving} onChange={(event) => void update({ resetAfterMinutes: Number(event.target.value) })}><option value={0}>Never</option><option value={15}>15 minutes</option><option value={30}>30 minutes</option><option value={60}>1 hour</option></select></label>
+          <label className="setting-row"><span><strong>Transparency mode</strong><small>Background only is experimental and applies to ChatGPT surfaces.</small></span><select aria-label="Transparency mode" value={settings.opacityMode} disabled={saving} onChange={(event) => void update({ opacityMode: event.target.value as AppSettings['opacityMode'] })}><option value="window">Whole window</option><option value="background">Background only (Experimental)</option></select></label>
+          {settings.opacityMode === 'window' ? <label className="setting-row opacity-row"><span><strong>Window opacity</strong><small>Applies to everything in the window, including ChatGPT text.</small></span><span className="range-control"><input aria-label="Window opacity" type="range" min="60" max="100" step="5" value={Math.round((opacityDraft ?? settings.opacity) * 100)} onChange={(event) => setOpacityDraft(event.currentTarget.valueAsNumber / 100)} /><output>{Math.round((opacityDraft ?? settings.opacity) * 100)}%</output></span></label> : <label className="setting-row opacity-row"><span><strong>ChatGPT background opacity</strong><small>Text and controls stay at full opacity. Some ChatGPT surfaces may remain opaque.</small></span><span className="range-control"><input aria-label="ChatGPT background opacity" type="range" min="70" max="100" step="10" value={Math.round((backgroundOpacityDraft ?? settings.backgroundOpacity) * 100)} onChange={(event) => setBackgroundOpacityDraft(event.currentTarget.valueAsNumber / 100)} /><output>{Math.round((backgroundOpacityDraft ?? settings.backgroundOpacity) * 100)}%</output></span></label>}
+          <label className="setting-row"><span><strong>Reset conversation after hiding</strong><small>Starts a fresh ChatGPT page next time if Just Chat stays hidden for this long.</small></span><select aria-label="Reset conversation after hiding" value={settings.resetAfterMinutes} disabled={saving} onChange={(event) => void update({ resetAfterMinutes: Number(event.target.value) })}><option value={0}>Never</option><option value={15}>15 minutes</option><option value={30}>30 minutes</option><option value={60}>1 hour</option></select></label>
         </section>
 
         <section className="settings-group" aria-labelledby="privacy-heading">

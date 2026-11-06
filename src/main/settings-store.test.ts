@@ -19,6 +19,8 @@ describe('settings persistence', () => {
     const store = new SettingsStore(path, 'darwin')
     const settings = defaultSettings('darwin')
     settings.autoHidePopover = true
+    settings.opacityMode = 'background'
+    settings.backgroundOpacity = 0.8
     settings.geometry = {
       popover: { x: 20, y: 30, width: 900, height: 220 },
       expanded: { x: 40, y: 50, width: 1024, height: 768 }

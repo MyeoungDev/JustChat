@@ -15,7 +15,9 @@ export const providers: readonly ProviderAdapter[] = [
     name: 'ChatGPT',
     url: 'https://chatgpt.com/',
     sessionPartition: 'persist:provider-chatgpt',
-    allowedTopLevelHosts: ['chatgpt.com', 'openai.com', 'auth0.com', 'accounts.google.com', 'challenges.cloudflare.com'],
+    // ChatGPT's login may pass through the same identity providers Quick Chat allows.
+    // Keep suffix matching in isAllowedProviderNavigation so these cover their subdomains.
+    allowedTopLevelHosts: ['chatgpt.com', 'openai.com', 'auth0.com', 'google.com', 'apple.com', 'microsoftonline.com', 'live.com', 'microsoft.com', 'challenges.cloudflare.com'],
     compatibility: 'experimental'
   },
   {
@@ -43,6 +45,10 @@ export function isAllowedProviderNavigation(url: string, adapter: ProviderAdapte
   } catch {
     return false
   }
+}
+
+export function isSecureProviderRedirect(url: string): boolean {
+  try { return new URL(url).protocol === 'https:' } catch { return false }
 }
 
 export function classifyProviderPopup(url: string, adapter: ProviderAdapter): 'provider' | 'external' | 'deny' {

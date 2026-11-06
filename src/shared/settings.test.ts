@@ -3,10 +3,11 @@ import { acceleratorFromKeyChord, defaultSettings, isValidAccelerator, normalize
 
 describe('settings', () => {
   it('provides platform-specific default shortcuts', () => {
-    expect(defaultSettings('darwin').shortcuts).toEqual({ toggle: 'Alt+Space', chatHistory: 'Command+K', providers: { chatgpt: 'Alt+1', claude: 'Alt+2' } })
+    expect(defaultSettings('darwin').shortcuts).toEqual({ toggle: 'Alt+Space', temporaryChat: 'Command+Shift+N', providers: { chatgpt: 'Alt+1', claude: 'Alt+2' } })
     expect(defaultSettings('win32').shortcuts.toggle).toBe('Control+Shift+Space')
-    expect(defaultSettings('win32').shortcuts.chatHistory).toBe('Control+K')
+    expect(defaultSettings('win32').shortcuts).not.toHaveProperty('chatHistory')
     expect(defaultSettings('darwin').resetAfterMinutes).toBe(30)
+    expect(defaultSettings('darwin').pageZoomPercent).toBe(91)
   })
 
   it('normalizes corrupt or partial persisted values safely', () => {
@@ -36,12 +37,34 @@ describe('settings', () => {
     expect(normalizeSettings({ resetAfterMinutes: 45 }, 'darwin').resetAfterMinutes).toBe(30)
   })
 
+  it('keeps whole-window opacity and experimental background opacity independently', () => {
+    const settings = normalizeSettings({ opacity: 0.75, opacityMode: 'background', backgroundOpacity: 0.8 }, 'darwin')
+    expect(settings.opacity).toBe(0.75)
+    expect(settings.opacityMode).toBe('background')
+    expect(settings.backgroundOpacity).toBe(0.8)
+    expect(normalizeSettings({ opacityMode: 'unknown', backgroundOpacity: 0.2 }, 'darwin')).toMatchObject({
+      opacityMode: 'window',
+      backgroundOpacity: 0.7
+    })
+  })
+
+  it('normalizes the provider page zoom setting', () => {
+    expect(normalizeSettings({ pageZoomPercent: 105.6 }, 'darwin').pageZoomPercent).toBe(106)
+    expect(normalizeSettings({ pageZoomPercent: 20 }, 'darwin').pageZoomPercent).toBe(70)
+    expect(normalizeSettings({ pageZoomPercent: Number.NaN }, 'darwin').pageZoomPercent).toBe(91)
+  })
+
+  it('restores only a valid ChatGPT conversation path', () => {
+    expect(normalizeSettings({ lastChatGPTConversationPath: '/c/thread-123?secret=value' }, 'darwin').lastChatGPTConversationPath).toBe('/c/thread-123')
+    expect(normalizeSettings({ lastChatGPTConversationPath: 'https://example.com/c/thread-123' }, 'darwin').lastChatGPTConversationPath).toBeUndefined()
+  })
+
   it('validates accelerator grammar and duplicate bindings', () => {
     expect(isValidAccelerator('Alt+Space')).toBe(true)
     expect(isValidAccelerator('Space')).toBe(false)
     expect(isValidAccelerator('Control+Shift+F6')).toBe(true)
-    expect(validateShortcutMap({ toggle: 'Alt+Space', 'chat-history': 'Alt+Space', 'provider:claude': 'Alt+2' }))
-      .toEqual(['chat-history:duplicate:toggle'])
+    expect(validateShortcutMap({ toggle: 'Alt+Space', 'temporary-chat': 'Alt+Space', 'provider:claude': 'Alt+2' }))
+      .toEqual(['temporary-chat:duplicate:toggle'])
   })
 
   it('builds a shortcut from captured keyboard input', () => {

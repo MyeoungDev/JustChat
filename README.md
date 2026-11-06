@@ -58,16 +58,18 @@ Sign in to ChatGPT in the window if needed. Just Chat stores the website session
 - **Quick Chat / Expanded:** Use the single size button to switch between the compact window and larger conversation window.
 - **Full Screen:** Use the full-screen button to fill the current display.
 - **ChatGPT zoom:** `Command+-` / `Command+plus` / `Command+0` on macOS, or `Ctrl+-` / `Ctrl+plus` / `Ctrl+0` on Windows, to zoom out, zoom in, or reset the ChatGPT page. This changes the website scale, not the outer Just Chat window.
-- **Search conversations:** `Command+K` on macOS or `Ctrl+K` on Windows. The configurable shortcut works only while Just Chat is visible and focused in Quick Chat; it is not registered globally.
+- **Search conversations:** `Command+K` on macOS or `Ctrl+K` on Windows. This is ChatGPT's built-in web shortcut; Just Chat does not intercept or remap it.
+- **Temporary chat:** `Command+Shift+N` on macOS or `Ctrl+Shift+N` on Windows. This focused Quick Chat shortcut clicks ChatGPT's own Temporary Chat control when it is available; it is configurable in Settings and is not registered globally.
 - **Escape:** Hides Just Chat by default. This can be changed in Settings.
 
 The compact window grows into Expanded on an unmodified Enter key or when ChatGPT creates a conversation route. The key signal may also respond to Enter in another page control, since Electron does not expose ChatGPT's focused element to the app. Sending with the mouse is detected when ChatGPT changes to a conversation route; existing website behavior may vary.
 
 ## Settings
 
-- Configure the global show/hide shortcut and the focused conversation-search shortcut.
+- Configure the global show/hide shortcut and the focused temporary-chat shortcut. ChatGPT's built-in search shortcut remains owned by ChatGPT.
 - Keep Just Chat above other windows.
-- Adjust whole-window opacity from 60% to 100% (100% by default). This affects ChatGPT text as well as the shell.
+- Adjust whole-window opacity from 60% to 100% (100% by default), or try experimental ChatGPT background-only opacity from 70% to 100%. The experiment keeps text and controls fully opaque; some ChatGPT surfaces may remain opaque.
+- Adjust embedded page zoom from 70% to 120%. The default is 91%, approximately one Command− step below 100%; this changes provider page content, not the Just Chat frame.
 - Reload ChatGPT to a fresh page after the window has been hidden for 15, 30, or 60 minutes, or disable the reset. The default is 30 minutes.
 - Sign out of ChatGPT in Just Chat and clear its local website data. This does not delete conversations from the ChatGPT account or affect downloaded files.
 
@@ -92,8 +94,9 @@ Performance output goes to the terminal. It does not save URLs, prompts, or tele
 - ChatGPT is shown in its own remote web view; Just Chat does not call a model API.
 - The app does not extract or save conversation content locally.
 - ChatGPT website data is stored persistently in Just Chat's Electron profile until you sign out and clear it in Settings.
+- When a ChatGPT conversation is open, Just Chat stores only its URL path (without query parameters) in local Settings so it can reopen that conversation in the expanded window after a restart. Conversation contents are not copied into Just Chat's settings.
 - The remote page runs without Node.js integration or an app preload, and web permissions are denied by default.
-- Just Chat validates HTTPS navigation against the configured provider host list. Authentication redirects and future website changes still need verification.
+- Just Chat validates user-started top-level navigation and popup destinations against the provider host list. HTTPS redirect hops stay embedded so authentication flows can use identity hosts that change or are not known in advance; insecure redirects are blocked.
 
 ## Project layout
 

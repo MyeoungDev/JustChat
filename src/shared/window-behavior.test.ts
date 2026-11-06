@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { hasChatGPTConversationRoute, isChatGPTSendKey, shouldHideWindowOnBlur } from './window-behavior'
+import { chatGPTConversationPath, hasChatGPTConversationRoute, isChatGPTSendKey, isCloseWindowShortcut, isSettingsToggleShortcut, shouldHideWindowOnBlur } from './window-behavior'
 
 describe('compact chat growth signals', () => {
   it('recognizes an unmodified Enter send key without inspecting page content', () => {
@@ -11,6 +11,29 @@ describe('compact chat growth signals', () => {
   })
 })
 
+describe('Settings shortcut', () => {
+  it('uses Command+, on macOS and only accepts the local unshifted chord', () => {
+    expect(isSettingsToggleShortcut({ type: 'keyDown', key: ',', code: 'Comma', meta: true }, 'darwin')).toBe(true)
+    expect(isSettingsToggleShortcut({ type: 'keyDown', key: ',', code: 'Comma', meta: true, shift: true }, 'darwin')).toBe(false)
+    expect(isSettingsToggleShortcut({ type: 'keyDown', key: ',', code: 'Comma', control: true }, 'darwin')).toBe(false)
+    expect(isSettingsToggleShortcut({ type: 'keyUp', key: ',', code: 'Comma', meta: true }, 'darwin')).toBe(false)
+  })
+
+  it('uses Control+, on non-macOS platforms', () => {
+    expect(isSettingsToggleShortcut({ type: 'keyDown', key: ',', code: 'Comma', control: true }, 'win32')).toBe(true)
+    expect(isSettingsToggleShortcut({ type: 'keyDown', key: ',', code: 'Comma', meta: true }, 'win32')).toBe(false)
+  })
+})
+
+describe('macOS window close shortcut', () => {
+  it('recognizes Command+W only on macOS', () => {
+    expect(isCloseWindowShortcut({ type: 'keyDown', key: 'w', code: 'KeyW', meta: true }, 'darwin')).toBe(true)
+    expect(isCloseWindowShortcut({ type: 'keyDown', key: 'w', code: 'KeyW', meta: true, shift: true }, 'darwin')).toBe(false)
+    expect(isCloseWindowShortcut({ type: 'keyDown', key: 'w', code: 'KeyW', control: true }, 'darwin')).toBe(false)
+    expect(isCloseWindowShortcut({ type: 'keyDown', key: 'w', code: 'KeyW', control: true }, 'win32')).toBe(false)
+  })
+})
+
 describe('window blur behavior', () => {
   it('recognizes regular ChatGPT conversation routes without inspecting page content', () => {
     expect(hasChatGPTConversationRoute('chatgpt', 'https://chatgpt.com/c/abc123')).toBe(true)
@@ -18,6 +41,8 @@ describe('window blur behavior', () => {
     expect(hasChatGPTConversationRoute('chatgpt', 'https://chatgpt.com/')).toBe(false)
     expect(hasChatGPTConversationRoute('chatgpt', 'https://chatgpt.com/?temporary-chat=true')).toBe(false)
     expect(hasChatGPTConversationRoute('claude', 'https://chatgpt.com/c/abc123')).toBe(false)
+    expect(chatGPTConversationPath('chatgpt', 'https://chatgpt.com/g/gpt-name/c/abc123?model=x')).toBe('/g/gpt-name/c/abc123')
+    expect(chatGPTConversationPath('chatgpt', 'https://example.com/c/abc123')).toBeUndefined()
   })
 
   it('dismisses an empty compact ChatGPT page but keeps a routed conversation open', () => {

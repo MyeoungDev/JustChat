@@ -3,9 +3,11 @@ import type { WindowGeometry, WindowGeometryByDisplay } from './window-layout'
 
 export interface ShortcutBindings {
   toggle: string
-  chatHistory: string
+  temporaryChat: string
   providers: Partial<Record<ProviderId, string>>
 }
+
+export type OpacityMode = 'window' | 'background'
 
 export interface AppSettings {
   activeProviderId: ProviderId
@@ -14,6 +16,10 @@ export interface AppSettings {
   autoHidePopover: boolean
   escapeHidesPopover: boolean
   opacity: number
+  opacityMode: OpacityMode
+  backgroundOpacity: number
+  pageZoomPercent: number
+  lastChatGPTConversationPath?: string
   resetAfterMinutes: number
   geometry: WindowGeometry
   geometryByDisplay: WindowGeometryByDisplay
@@ -25,7 +31,7 @@ export function defaultSettings(platform: string): AppSettings {
     activeProviderId: 'chatgpt',
     shortcuts: {
       toggle: isMac ? 'Alt+Space' : 'Control+Shift+Space',
-      chatHistory: isMac ? 'Command+K' : 'Control+K',
+      temporaryChat: isMac ? 'Command+Shift+N' : 'Control+Shift+N',
       providers: isMac
         ? { chatgpt: 'Alt+1', claude: 'Alt+2' }
         : { chatgpt: 'Control+Shift+1', claude: 'Control+Shift+2' }
@@ -34,6 +40,9 @@ export function defaultSettings(platform: string): AppSettings {
     autoHidePopover: false,
     escapeHidesPopover: true,
     opacity: 1,
+    opacityMode: 'window',
+    backgroundOpacity: 0.9,
+    pageZoomPercent: Math.round(100 * Math.pow(1.2, -0.5)),
     resetAfterMinutes: 30,
     geometry: {},
     geometryByDisplay: {}
@@ -44,6 +53,16 @@ export function normalizeSettings(value: unknown, platform: string): AppSettings
   const defaults = defaultSettings(platform)
   if (!value || typeof value !== 'object') return defaults
   const input = value as Partial<AppSettings>
+  let lastChatGPTConversationPath: string | undefined
+  if (typeof input.lastChatGPTConversationPath === 'string') {
+    try {
+      const restoredUrl = new URL(input.lastChatGPTConversationPath, 'https://chatgpt.com/')
+      if (restoredUrl.protocol === 'https:' && ['chatgpt.com', 'www.chatgpt.com'].includes(restoredUrl.hostname)
+        && /(?:^|\/)c\/[^/]+(?:\/|$)/i.test(restoredUrl.pathname)) {
+        lastChatGPTConversationPath = restoredUrl.pathname
+      }
+    } catch { /* ignore malformed persisted conversation routes */ }
+  }
   const geometry: WindowGeometry = {}
   const geometryByDisplay: WindowGeometryByDisplay = {}
   for (const mode of ['popover', 'compact', 'expanded', 'fullscreen'] as const) {
@@ -66,7 +85,7 @@ export function normalizeSettings(value: unknown, platform: string): AppSettings
     activeProviderId: input.activeProviderId === 'claude' ? 'claude' : 'chatgpt',
     shortcuts: {
       toggle: typeof input.shortcuts?.toggle === 'string' ? input.shortcuts.toggle : defaults.shortcuts.toggle,
-      chatHistory: typeof input.shortcuts?.chatHistory === 'string' ? input.shortcuts.chatHistory : defaults.shortcuts.chatHistory,
+      temporaryChat: typeof input.shortcuts?.temporaryChat === 'string' ? input.shortcuts.temporaryChat : defaults.shortcuts.temporaryChat,
       providers: {
         chatgpt: typeof input.shortcuts?.providers?.chatgpt === 'string' ? input.shortcuts.providers.chatgpt : defaults.shortcuts.providers.chatgpt,
         claude: typeof input.shortcuts?.providers?.claude === 'string' ? input.shortcuts.providers.claude : defaults.shortcuts.providers.claude
@@ -76,6 +95,10 @@ export function normalizeSettings(value: unknown, platform: string): AppSettings
     autoHidePopover: typeof input.autoHidePopover === 'boolean' ? input.autoHidePopover : defaults.autoHidePopover,
     escapeHidesPopover: typeof input.escapeHidesPopover === 'boolean' ? input.escapeHidesPopover : defaults.escapeHidesPopover,
     opacity: typeof input.opacity === 'number' && Number.isFinite(input.opacity) ? Math.min(1, Math.max(0.6, input.opacity)) : defaults.opacity,
+    opacityMode: input.opacityMode === 'background' || input.opacityMode === 'window' ? input.opacityMode : defaults.opacityMode,
+    backgroundOpacity: typeof input.backgroundOpacity === 'number' && Number.isFinite(input.backgroundOpacity) ? Math.min(1, Math.max(0.7, input.backgroundOpacity)) : defaults.backgroundOpacity,
+    pageZoomPercent: typeof input.pageZoomPercent === 'number' && Number.isFinite(input.pageZoomPercent) ? Math.min(120, Math.max(70, Math.round(input.pageZoomPercent))) : defaults.pageZoomPercent,
+    lastChatGPTConversationPath,
     resetAfterMinutes: [0, 15, 30, 60].includes(input.resetAfterMinutes ?? -1) ? input.resetAfterMinutes! : defaults.resetAfterMinutes,
     geometry,
     geometryByDisplay
@@ -97,7 +120,7 @@ export function isValidAccelerator(accelerator: string): boolean {
   return keys.has(key) || /^[A-Z0-9]$/i.test(key) || /^F([1-9]|1\d|2[0-4])$/.test(key)
 }
 
-export type ShortcutName = 'toggle' | 'chat-history' | `provider:${ProviderId}`
+export type ShortcutName = 'toggle' | 'temporary-chat' | `provider:${ProviderId}`
 
 export function validateShortcutMap(bindings: Partial<Record<ShortcutName, string>>): string[] {
   const errors: string[] = []

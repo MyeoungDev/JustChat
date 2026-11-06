@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { boundsAnchoredAtBottom, boundsForDisplay, clampWindowBounds, centeredBounds, geometryForCurrentDisplay, modeForProviderPage, rememberDisplayBounds, transitionWindowGeometry, type WindowBounds } from './window-layout'
+import { boundsAnchoredAtBottom, boundsForDisplay, clampWindowBounds, centeredBounds, geometryForCurrentDisplay, lowerCenteredBounds, modeForProviderPage, rememberDisplayBounds, transitionWindowGeometry, type WindowBounds } from './window-layout'
 
 const display = { x: -1440, y: 0, width: 1440, height: 900 }
 
@@ -41,11 +41,26 @@ describe('window geometry', () => {
       .toEqual({ x: -1000, y: 100, width: 480, height: 180 })
   })
 
+  it('uses the same default Expanded size on every display', () => {
+    const laptop = { x: 0, y: 0, width: 1512, height: 900 }
+    const largeMonitor = { x: 0, y: 0, width: 2560, height: 1440 }
+    expect(centeredBounds('expanded', laptop)).toEqual({ x: 496, y: 210, width: 520, height: 480 })
+    expect(centeredBounds('expanded', largeMonitor)).toEqual({ x: 1020, y: 480, width: 520, height: 480 })
+  })
+
+  it('preserves the user-saved Expanded size across displays', () => {
+    const laptop = { x: 0, y: 0, width: 1512, height: 900 }
+    expect(boundsForDisplay('expanded', { x: 496, y: 100, width: 520, height: 480 }, laptop))
+      .toEqual({ x: 496, y: 100, width: 520, height: 480 })
+    expect(lowerCenteredBounds('expanded', laptop, { x: 496, y: 100, width: 700, height: 600 }))
+      .toEqual({ x: 406, y: 438, width: 700, height: 600 })
+  })
+
   it('grows the conversation window upward while keeping its lower edge in place', () => {
     const current = { x: 400, y: 640, width: 520, height: 200 }
     const target = { x: 220, y: 100, width: 1000, height: 700 }
     expect(boundsAnchoredAtBottom(current, target, { x: 0, y: 0, width: 1440, height: 900 }))
-      .toEqual({ x: 180, y: 140, width: 1000, height: 700 })
+      .toEqual({ x: 160, y: 140, width: 1000, height: 700 })
   })
 
   it('uses the cursor display fallback when there is no geometry saved for that display', () => {

@@ -29,7 +29,7 @@ contextBridge.exposeInMainWorld('justChat', {
   retryProvider: () => ipcRenderer.send('app:retry-provider'),
   selectProvider: (provider: ProviderId) => ipcRenderer.send('app:provider', provider),
   getState: () => ipcRenderer.invoke('shell:get-state') as Promise<ShellState | null>,
-  updateSettings: (patch: Partial<Pick<AppSettings, 'shortcuts' | 'alwaysOnTop' | 'autoHidePopover' | 'escapeHidesPopover' | 'opacity' | 'resetAfterMinutes'>>) =>
+  updateSettings: (patch: Partial<Pick<AppSettings, 'shortcuts' | 'alwaysOnTop' | 'autoHidePopover' | 'escapeHidesPopover' | 'opacity' | 'opacityMode' | 'backgroundOpacity' | 'pageZoomPercent' | 'resetAfterMinutes'>>) =>
     ipcRenderer.invoke('settings:update', patch) as Promise<{ ok: boolean; settings?: AppSettings; failures?: string[]; reason?: string }>,
   clearChatGptSession: () => ipcRenderer.invoke('provider:clear-chatgpt-session') as Promise<ClearChatGptSessionResult>,
   onState: (callback: (state: ShellState) => void) => {
