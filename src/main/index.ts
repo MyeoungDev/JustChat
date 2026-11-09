@@ -8,7 +8,7 @@ import { globalShortcutBindings, registerShortcutBindings, replaceShortcutBindin
 import { isTrustedShellSender } from '../shared/security'
 import { RetainedViewRegistry } from '../shared/provider-view-registry'
 import { boundsAnchoredAtBottom, boundsForDisplay, centeredBounds, geometryForCurrentDisplay, lowerCenteredBounds, minimumWindowSizes, modeForProviderPage, rememberDisplayBounds, transitionWindowGeometry, type WindowMode } from '../shared/window-layout'
-import { chatGPTConversationPath, hasChatGPTConversationRoute, isChatGPTSendKey, isCloseWindowShortcut, isSettingsToggleShortcut, shouldHideWindowOnBlur } from '../shared/window-behavior'
+import { chatGPTConversationPath, hasChatGPTConversationRoute, isChatGPTSendKey, isCloseWindowShortcut, isSettingsToggleShortcut, shouldCollapseChatGPTSidebar, shouldHideWindowOnBlur } from '../shared/window-behavior'
 import { SettingsStore } from './settings-store'
 import { clearProviderSessionData } from './provider-session'
 import { performance } from 'node:perf_hooks'
@@ -33,6 +33,7 @@ let windowHasBeenFocused = false
 let suppressQuickChatBlurUntil = 0
 let mode: WindowMode = 'compact'
 let modeBeforeFullscreen: WindowMode = 'compact'
+let collapseSidebarOnNextCompactSync = false
 let settingsVisible = false
 let shellContentsId: number | undefined
 let shellDevelopmentOrigin: string | undefined
@@ -48,6 +49,7 @@ const providerLoadStarts = new Map<ProviderId, number>()
 const providerSwitchStarts = new Map<ProviderId, number>()
 const providerLoadTimeouts = new Map<ProviderId, NodeJS.Timeout>()
 const timedOutProviders = new Set<ProviderId>()
+const composerFocusInFlight = new WeakSet<Electron.WebContents>()
 
 function shellBackgroundColor() {
   return nativeTheme.shouldUseDarkColors ? '#1c1c1b' : '#f6f6f4'
@@ -184,16 +186,32 @@ function providerFor(id: ProviderId) {
   return providers.find((provider) => provider.id === id) ?? providers[0]
 }
 
-function handleEscape(event: Electron.Event, input: Electron.Input): void {
-  if (input.type !== 'keyDown' || input.key !== 'Escape') return
+function handleEscape(event: Electron.Event, input: Electron.Input): boolean {
+  if (input.type !== 'keyDown' || input.key !== 'Escape') return false
   if (settingsVisible) {
     event.preventDefault()
     setSettingsVisibility(false)
-    return
+    return true
   }
-  if (!settings.escapeHidesPopover || !window?.isVisible()) return
+  if (!settings.escapeHidesPopover || !window?.isVisible()) return false
   event.preventDefault()
   hideWindow()
+  return true
+}
+
+function isDeveloperToolsShortcut(input: Electron.Input): boolean {
+  if (input.key === 'F12') return true
+  const inspectModifier = process.platform === 'darwin' ? input.meta && input.alt : input.control
+  return inspectModifier && input.shift && ['i', 'j', 'c'].includes(input.key.toLowerCase())
+}
+
+function installDeveloperToolsPolicy(contents: Electron.WebContents): void {
+  contents.on('before-input-event', (event, input) => {
+    if (isDeveloperToolsShortcut(input)) event.preventDefault()
+  })
+  contents.on('devtools-opened', () => {
+    if (!contents.isDestroyed()) contents.closeDevTools()
+  })
 }
 
 function setSettingsVisibility(visible: boolean) {
@@ -227,34 +245,36 @@ function handleCloseWindowShortcut(event: Electron.Event, input: Electron.Input)
 function handleShellInput(event: Electron.Event, input: Electron.Input): void {
   if (handleCloseWindowShortcut(event, input)) return
   if (handleSettingsShortcut(event, input)) return
-  handleEscape(event, input)
-  dispatchFullscreenShortcut(event, input)
-  dispatchWindowSizeShortcut(event, input)
-  dispatchTemporaryChatShortcut(event, input)
+  if (handleEscape(event, input)) return
+  if (dispatchFullscreenShortcut(event, input)) return
+  if (dispatchWindowSizeShortcut(event, input)) return
+  if (dispatchTemporaryChatShortcut(event, input)) return
   handlePageZoomShortcut(event, input)
 }
 
 function handleProviderInput(event: Electron.Event, input: Electron.Input): void {
   if (handleCloseWindowShortcut(event, input)) return
   if (handleSettingsShortcut(event, input)) return
-  handleEscape(event, input)
-  dispatchFullscreenShortcut(event, input)
-  dispatchWindowSizeShortcut(event, input)
-  dispatchTemporaryChatShortcut(event, input)
-  handlePageZoomShortcut(event, input)
+  if (handleEscape(event, input)) return
+  if (dispatchFullscreenShortcut(event, input)) return
+  if (dispatchWindowSizeShortcut(event, input)) return
+  if (dispatchTemporaryChatShortcut(event, input)) return
+  if (handlePageZoomShortcut(event, input)) return
   if (settings.activeProviderId === 'chatgpt' && mode === 'compact' && isChatGPTSendKey(input)) {
     setMode('expanded')
   }
 }
 
-function dispatchWindowSizeShortcut(event: Electron.Event, input: Electron.Input): void {
+function dispatchWindowSizeShortcut(event: Electron.Event, input: Electron.Input): boolean {
   const matches = shouldDispatchFocusedShortcut({
     key: input.key,
     code: input.code,
     altKey: input.alt,
     ctrlKey: input.control,
     metaKey: input.meta,
-    shiftKey: input.shift
+    shiftKey: input.shift,
+    isAutoRepeat: input.isAutoRepeat,
+    isComposing: input.isComposing
   }, process.platform, settings.shortcuts.toggleSize, {
     eventType: input.type,
     settingsVisible,
@@ -262,19 +282,22 @@ function dispatchWindowSizeShortcut(event: Electron.Event, input: Electron.Input
     windowFocused: Boolean(window?.isFocused()),
     windowMode: mode
   })
-  if (!matches) return
+  if (!matches) return false
   event.preventDefault()
   setMode(mode === 'compact' ? 'expanded' : 'compact')
+  return true
 }
 
-function dispatchFullscreenShortcut(event: Electron.Event, input: Electron.Input): void {
+function dispatchFullscreenShortcut(event: Electron.Event, input: Electron.Input): boolean {
   const matches = shouldDispatchFocusedShortcut({
     key: input.key,
     code: input.code,
     altKey: input.alt,
     ctrlKey: input.control,
     metaKey: input.meta,
-    shiftKey: input.shift
+    shiftKey: input.shift,
+    isAutoRepeat: input.isAutoRepeat,
+    isComposing: input.isComposing
   }, process.platform, settings.shortcuts.toggleFullscreen, {
     eventType: input.type,
     settingsVisible,
@@ -282,15 +305,16 @@ function dispatchFullscreenShortcut(event: Electron.Event, input: Electron.Input
     windowFocused: Boolean(window?.isFocused()),
     windowMode: mode
   }, ['compact', 'expanded', 'fullscreen'])
-  if (!matches) return
+  if (!matches) return false
   event.preventDefault()
   toggleFullscreen()
+  return true
 }
 
-function handlePageZoomShortcut(event: Electron.Event, input: Electron.Input): void {
-  if (input.type !== 'keyDown' || input.alt) return
+function handlePageZoomShortcut(event: Electron.Event, input: Electron.Input): boolean {
+  if (input.type !== 'keyDown' || input.alt || input.isAutoRepeat || input.isComposing) return false
   const modifierPressed = process.platform === 'darwin' ? input.meta && !input.control : input.control && !input.meta
-  if (!modifierPressed) return
+  if (!modifierPressed) return false
 
   const key = input.key.toLowerCase()
   const code = input.code.toLowerCase()
@@ -298,17 +322,20 @@ function handlePageZoomShortcut(event: Electron.Event, input: Electron.Input): v
     || key === '-' || key === '_' || code === 'minus' || code === 'numpadsubtract'
     || key === '+' || key === '=' || code === 'equal' || code === 'numpadadd'
   if (zoomShortcut) event.preventDefault()
+  return zoomShortcut
 }
 
-function dispatchTemporaryChatShortcut(event: Electron.Event, input: Electron.Input): void {
-  if (settings.activeProviderId !== 'chatgpt') return
+function dispatchTemporaryChatShortcut(event: Electron.Event, input: Electron.Input): boolean {
+  if (settings.activeProviderId !== 'chatgpt') return false
   const matches = shouldDispatchFocusedShortcut({
     key: input.key,
     code: input.code,
     altKey: input.alt,
     ctrlKey: input.control,
     metaKey: input.meta,
-    shiftKey: input.shift
+    shiftKey: input.shift,
+    isAutoRepeat: input.isAutoRepeat,
+    isComposing: input.isComposing
   }, process.platform, settings.shortcuts.temporaryChat, {
     eventType: input.type,
     settingsVisible,
@@ -316,23 +343,59 @@ function dispatchTemporaryChatShortcut(event: Electron.Event, input: Electron.In
     windowFocused: Boolean(window?.isFocused()),
     windowMode: mode
   })
-  if (!matches) return
+  if (!matches) return false
   const view = webViews.get('chatgpt')
-  if (!view || view.webContents.isDestroyed()) return
+  if (!view || view.webContents.isDestroyed()) return false
   event.preventDefault()
-  void view.webContents.executeJavaScript(`(() => {
-    const buttons = Array.from(document.querySelectorAll('button, [role="button"]'));
-    const temporaryChatButton = buttons.find(button => {
-      const label = [button.getAttribute('aria-label'), button.getAttribute('title'), button.getAttribute('data-testid'), button.textContent]
-        .filter(Boolean).join(' ').replace(/\\s+/g, ' ').trim();
-      return /temporary[\\s-]*chat|임시\\s*채팅/i.test(label);
+  void view.webContents.executeJavaScript(`(async () => {
+    const getLabel = (element) => [
+      element.getAttribute('aria-label'),
+      element.getAttribute('title'),
+      element.getAttribute('data-testid'),
+      element.textContent
+    ].filter(Boolean).join(' ').replace(/\\s+/g, ' ').trim();
+    const controls = () => Array.from(document.querySelectorAll('button, [role="button"], a'));
+    const findTemporaryChat = () => controls().find(element => /temporary[\\s-]*chat|임시\\s*채팅/i.test(getLabel(element)));
+    const findNewChat = () => controls().find(element => {
+      const label = getLabel(element);
+      return /(?:^|\\b)new[\\s-]*chat\\b|새\\s*채팅|새\\s*대화|create[-_\\s]*new[-_\\s]*chat/i.test(label);
     });
-    if (!temporaryChatButton) return false;
-    temporaryChatButton.click();
-    return true;
-  })()`).then((started: boolean) => {
-    if (!started) console.info('[Just Chat] Temporary Chat shortcut unavailable; the ChatGPT button is not present.')
+    const waitFor = async (find, timeout = 4000) => {
+      const deadline = Date.now() + timeout;
+      while (Date.now() < deadline) {
+        const element = find();
+        if (element && element.getClientRects().length > 0) return element;
+        await new Promise(resolve => setTimeout(resolve, 100));
+      }
+      return null;
+    };
+
+    const temporaryChatButton = findTemporaryChat();
+    const isDefaultScreen = location.pathname === '/' && !location.search.includes('temporary-chat');
+    if (isDefaultScreen && temporaryChatButton) {
+      temporaryChatButton.click();
+      return 'temporary-chat';
+    }
+
+    let newChatButton = findNewChat();
+    if (!newChatButton) {
+      const sidebarButton = controls().find(element => /sidebar|사이드바/i.test(getLabel(element)));
+      if (sidebarButton && sidebarButton.getAttribute('aria-expanded') !== 'true') sidebarButton.click();
+      newChatButton = await waitFor(findNewChat);
+    }
+    if (!newChatButton) return 'new-chat-unavailable';
+
+    newChatButton.click();
+    const nextTemporaryChatButton = await waitFor(findTemporaryChat, 6000);
+    if (!nextTemporaryChatButton) return 'temporary-chat-unavailable';
+    nextTemporaryChatButton.click();
+    return 'new-temporary-chat';
+  })()`).then((result: string) => {
+    if (result !== 'temporary-chat' && result !== 'new-temporary-chat') {
+      console.info(`[Just Chat] Temporary Chat shortcut could not start: ${result}`)
+    }
   }).catch(() => undefined)
+  return true
 }
 
 function setProviderState(id: ProviderId, state: ProviderLoadState) {
@@ -410,6 +473,7 @@ function providerPopupHandler(adapter: ProviderAdapter) {
 }
 
 function guardProviderPopup(popup: BrowserWindow, adapter: ProviderAdapter) {
+  installDeveloperToolsPolicy(popup.webContents)
   popup.webContents.setWindowOpenHandler(providerPopupHandler(adapter))
   popup.webContents.on('will-navigate', (event, url) => {
     if (!isAllowedProviderNavigation(url, adapter)) event.preventDefault()
@@ -447,6 +511,7 @@ function getProviderView(id: ProviderId) {
     const selectiveBackground = id === 'chatgpt' && settings.opacityMode === 'background' && settings.activeProviderId === 'chatgpt'
     view.setBackgroundColor(selectiveBackground ? '#00000000' : shellBackgroundColor())
     const contents = view.webContents
+    installDeveloperToolsPolicy(contents)
     contents.setZoomMode('isolated')
     contents.setZoomFactor(pageZoomFactor(settings.pageZoomPercent))
 
@@ -490,18 +555,13 @@ function getProviderView(id: ProviderId) {
       setProviderState(id, 'loading')
     })
     contents.on('dom-ready', () => {
-      if (id === 'chatgpt') logChatGPTReadiness(contents, 'DOM ready')
       setProviderState(id, 'ready')
-      if (window?.isVisible() && !settingsVisible && settings.activeProviderId === id) setTimeout(focusChatComposer, 200)
     })
     contents.on('did-frame-finish-load', (_event, isMainFrame) => {
       if (isMainFrame) setProviderState(id, 'ready')
     })
     contents.on('did-finish-load', () => {
       setProviderState(id, 'ready')
-      if (id === 'chatgpt') syncCompactWelcome()
-      if (id === 'chatgpt') syncBackgroundOpacity()
-      if (window?.isVisible() && !settingsVisible && settings.activeProviderId === id) setTimeout(focusChatComposer, 100)
     })
     contents.on('did-stop-loading', () => {
       if (id === 'chatgpt') logChatGPTReadiness(contents, 'load stopped')
@@ -575,7 +635,7 @@ function syncCompactAuthDialogMonitor() {
 
   compactAuthDialogTimer = setInterval(() => {
     const view = webViews.get('chatgpt')
-    if (authDialogCheckInFlight || !view || view.webContents.isDestroyed()) return
+    if (authDialogCheckInFlight || !view || view.webContents.isDestroyed() || view.webContents.isLoadingMainFrame()) return
     authDialogCheckInFlight = true
     void view.webContents.executeJavaScript(`(() => {
       const text = document.body?.innerText || '';
@@ -686,6 +746,12 @@ function setMode(nextMode: WindowMode) {
   settings.geometryByDisplay = rememberDisplayBounds(settings.geometryByDisplay, mode, String(currentDisplay.id), oldBounds)
   settings.geometryByDisplay = rememberDisplayBounds(settings.geometryByDisplay, nextMode, String(currentDisplay.id), result.bounds)
   mode = result.mode
+  const activeChatGPT = webViews.get('chatgpt')?.webContents
+  collapseSidebarOnNextCompactSync = shouldCollapseChatGPTSidebar({
+    mode,
+    providerId: settings.activeProviderId,
+    providerUrl: activeChatGPT && !activeChatGPT.isDestroyed() ? activeChatGPT.getURL() : ''
+  })
   syncCompactAuthDialogMonitor()
   const minimum = minimumWindowSizes[nextMode]
   window.setMinimumSize(Math.min(minimum.width, targetArea.width), Math.min(minimum.height, targetArea.height))
@@ -695,7 +761,6 @@ function setMode(nextMode: WindowMode) {
   sendState()
   applyViewBounds()
   syncCompactWelcome()
-  if (settings.activeProviderId === 'chatgpt') setTimeout(syncCompactWelcome, 300)
   recordPerformance(`window-${nextMode}-api-ms`, { duration: timeSince(started) })
 }
 
@@ -717,11 +782,16 @@ function resetWindowToCompactDefaults() {
 
 function syncCompactWelcome() {
   const view = webViews.get('chatgpt')
-  if (!view || view.webContents.isDestroyed()) return
+  if (!view || view.webContents.isDestroyed() || view.webContents.isLoadingMainFrame()) return
   syncChatGptFixedFooter()
   const compact = mode === 'compact' && !hasChatGPTConversationRoute('chatgpt', view.webContents.getURL())
+  if (mode !== 'compact') collapseSidebarOnNextCompactSync = false
+  else if (compact && collapseSidebarOnNextCompactSync) {
+    collapseSidebarOnNextCompactSync = false
+    collapseChatGPTSidebar(view.webContents)
+  }
   void view.webContents.executeJavaScript(`
-    (async () => {
+    (() => {
       const styleId = 'just-chat-compact-welcome-style';
       let style = document.getElementById(styleId);
       if (!style) {
@@ -733,31 +803,34 @@ function syncCompactWelcome() {
       document.documentElement.dataset.justChatCompact = '${compact ? 'true' : 'false'}';
       const normalize = value => (value || '').trim().replace(/\\s+/g, ' ').replace(/[.!?。！？]+$/g, '');
       const suggestionTexts = new Set(['무엇을 할 수 있나요?', 'What can I do?']);
-      for (let attempt = 0; attempt < 16; attempt += 1) {
-        const buttons = Array.from(document.querySelectorAll('button, [role="button"]'));
-        const label = button => [button.getAttribute('aria-label'), button.getAttribute('title'), button.getAttribute('data-testid'), button.textContent]
-          .filter(Boolean).join(' ').replace(/\\s+/g, ' ').trim();
-        const closeSidebar = buttons.find(button => /(?:close|collapse|hide).*sidebar|sidebar.*(?:close|collapse|hide)/i.test(label(button))
-          || /(사이드바|탐색\\s*패널|메뉴).*(닫기|접기|숨기기)|(닫기|접기|숨기기).*(사이드바|탐색\\s*패널|메뉴)/.test(label(button))
-          || /sidebar.*close/i.test(button.getAttribute('data-testid') || ''));
-        const sidebarAlreadyClosed = buttons.some(button => /(?:open|expand|show).*sidebar|sidebar.*(?:open|expand|show)/i.test(label(button))
-          || /(사이드바|탐색\\s*패널).*(열기|펼치기|보이기)/.test(label(button)));
-        closeSidebar?.click();
-        const sidebarHandled = Boolean(closeSidebar || sidebarAlreadyClosed);
-        for (const button of document.querySelectorAll('button')) {
-          if (suggestionTexts.has(normalize(button.textContent))) button.classList.add('just-chat-compact-welcome-suggestion');
-        }
-        if (sidebarHandled) return true;
-        await new Promise(resolve => setTimeout(resolve, 150));
+      for (const button of document.querySelectorAll('button')) {
+        if (suggestionTexts.has(normalize(button.textContent))) button.classList.add('just-chat-compact-welcome-suggestion');
       }
-      return false;
+      return true;
     })();
   `).catch(() => undefined)
 }
 
+function collapseChatGPTSidebar(contents: Electron.WebContents) {
+  if (contents.isDestroyed()) return
+  void contents.executeJavaScript(`(() => {
+    const buttons = Array.from(document.querySelectorAll('button, [role="button"]'));
+    const label = button => [button.getAttribute('aria-label'), button.getAttribute('title'), button.getAttribute('data-testid'), button.textContent]
+      .filter(Boolean).join(' ').replace(/\\s+/g, ' ').trim();
+    const closeSidebar = buttons.find(button => button.getClientRects().length > 0 && (
+      /(?:close|collapse|hide).*sidebar|sidebar.*(?:close|collapse|hide)/i.test(label(button))
+      || /(사이드바|탐색\\s*패널|메뉴).*(닫기|접기|숨기기)|(닫기|접기|숨기기).*(사이드바|탐색\\s*패널|메뉴)/.test(label(button))
+      || /sidebar.*close/i.test(button.getAttribute('data-testid') || '')
+    ));
+    if (!closeSidebar) return false;
+    closeSidebar.click();
+    return true;
+  })()`).catch(() => undefined)
+}
+
 function syncChatGptFixedFooter() {
   const view = webViews.get('chatgpt')
-  if (!view || view.webContents.isDestroyed()) return
+  if (!view || view.webContents.isDestroyed() || view.webContents.isLoadingMainFrame()) return
   void view.webContents.executeJavaScript(`(() => {
     const styleId = 'just-chat-disclaimer-style';
     let style = document.getElementById(styleId);
@@ -807,10 +880,9 @@ function syncChatGptFixedFooter() {
 
 function syncBackgroundOpacity() {
   const view = webViews.get('chatgpt')
-  if (!view || view.webContents.isDestroyed()) return
+  if (!view || view.webContents.isDestroyed() || view.webContents.isLoadingMainFrame()) return
   const enabled = settings.opacityMode === 'background' && settings.activeProviderId === 'chatgpt'
   const alpha = Math.round(settings.backgroundOpacity * 100)
-  const readableAlpha = Math.min(100, alpha + 25)
   void view.webContents.executeJavaScript(`(() => {
     const root = document.documentElement;
     const styleId = 'just-chat-background-opacity-style';
@@ -822,35 +894,37 @@ function syncBackgroundOpacity() {
         html[data-just-chat-bg-opacity] body,
         html[data-just-chat-bg-opacity] #thread,
         html[data-just-chat-bg-opacity] #root { background-color: transparent !important; }
+        html[data-just-chat-bg-opacity][data-theme="dark"] {
+          --app-color-background-surface-under: color-mix(in srgb, #0d0d0d var(--just-chat-bg-alpha), transparent);
+        }
+        html[data-just-chat-bg-opacity][data-theme="light"] {
+          --app-color-background-surface-under: color-mix(in srgb, #fff var(--just-chat-bg-alpha), transparent);
+        }
         html[data-just-chat-bg-opacity] #thread,
         html[data-just-chat-bg-opacity] [data-testid="composer"] {
-          background-color: color-mix(in srgb, var(--color-token-main-surface-primary) var(--just-chat-readable-alpha), transparent) !important;
-          backdrop-filter: blur(12px);
-          -webkit-backdrop-filter: blur(12px);
-        }
-        html[data-just-chat-bg-opacity] .bg-token-main-surface-primary {
           background-color: color-mix(in srgb, var(--color-token-main-surface-primary) var(--just-chat-bg-alpha), transparent) !important;
         }
+        html[data-just-chat-bg-opacity] .bg-token-main-surface-primary {
+          background-color: color-mix(in srgb, var(--main-surface-primary, #212121) var(--just-chat-bg-alpha), transparent) !important;
+        }
         html[data-just-chat-bg-opacity] .bg-token-bg-primary {
-          background-color: color-mix(in srgb, var(--color-token-bg-primary) var(--just-chat-bg-alpha), transparent) !important;
+          background-color: color-mix(in srgb, var(--bg-primary, #212121) var(--just-chat-bg-alpha), transparent) !important;
         }
         html[data-just-chat-bg-opacity] .bg-token-bg-secondary {
-          background-color: color-mix(in srgb, var(--color-token-bg-secondary) var(--just-chat-bg-alpha), transparent) !important;
+          background-color: color-mix(in srgb, var(--bg-secondary, #303030) var(--just-chat-bg-alpha), transparent) !important;
         }
         html[data-just-chat-bg-opacity] .bg-token-bg-tertiary {
-          background-color: color-mix(in srgb, var(--color-token-bg-tertiary) var(--just-chat-bg-alpha), transparent) !important;
+          background-color: color-mix(in srgb, var(--bg-tertiary, #424242) var(--just-chat-bg-alpha), transparent) !important;
         }
       \`;
       document.head.appendChild(style);
     }
     if (${enabled}) {
       root.style.setProperty('--just-chat-bg-alpha', '${alpha}%');
-      root.style.setProperty('--just-chat-readable-alpha', '${readableAlpha}%');
       root.dataset.justChatBgOpacity = 'true';
     } else {
       delete root.dataset.justChatBgOpacity;
       root.style.removeProperty('--just-chat-bg-alpha');
-      root.style.removeProperty('--just-chat-readable-alpha');
     }
     return true;
   })()`).catch(() => undefined)
@@ -907,9 +981,12 @@ function focusChatView() {
 function focusChatComposer() {
   if (!window || window.isDestroyed() || settingsVisible) return
   const view = webViews.get(settings.activeProviderId)
-  if (view && !view.webContents.isDestroyed()) {
-    view.webContents.focus()
-    void view.webContents.executeJavaScript(`
+  if (!view || view.webContents.isDestroyed()) return
+  const contents = view.webContents
+  if (contents.isLoadingMainFrame() || composerFocusInFlight.has(contents)) return
+  composerFocusInFlight.add(contents)
+  contents.focus()
+  void contents.executeJavaScript(`
       (async () => {
         for (let attempt = 0; attempt < 30; attempt += 1) {
           const candidates = [
@@ -944,11 +1021,10 @@ function focusChatComposer() {
         return null;
       })();
     `).then((point: { x: number; y: number } | null) => {
-      if (!point || view.webContents.isDestroyed()) return
-      view.webContents.sendInputEvent({ type: 'mouseDown', x: point.x, y: point.y, button: 'left' })
-      view.webContents.sendInputEvent({ type: 'mouseUp', x: point.x, y: point.y, button: 'left' })
-    }).catch(() => undefined)
-  }
+    if (!point || contents.isDestroyed()) return
+    contents.sendInputEvent({ type: 'mouseDown', x: point.x, y: point.y, button: 'left' })
+    contents.sendInputEvent({ type: 'mouseUp', x: point.x, y: point.y, button: 'left' })
+  }).catch(() => undefined).finally(() => composerFocusInFlight.delete(contents))
 }
 
 function toggleWindow() {
@@ -992,7 +1068,7 @@ function validateSettingsShortcuts(candidate: AppSettings): string[] {
     'toggle-fullscreen': candidate.shortcuts.toggleFullscreen,
     'provider:chatgpt': candidate.shortcuts.providers.chatgpt,
     'provider:claude': candidate.shortcuts.providers.claude
-  })
+  }, process.platform)
 }
 
 function shortcutCallbacks() {
@@ -1041,6 +1117,11 @@ function createWindow() {
   windowHasBeenFocused = false
   settingsVisible = false
   mode = settings.activeProviderId === 'chatgpt' && settings.lastChatGPTConversationPath ? 'expanded' : 'compact'
+  collapseSidebarOnNextCompactSync = shouldCollapseChatGPTSidebar({
+    mode,
+    providerId: settings.activeProviderId,
+    providerUrl: settings.lastChatGPTConversationPath ?? '/'
+  })
   modeBeforeFullscreen = mode
   const initialDisplay = screen.getDisplayNearestPoint(screen.getCursorScreenPoint())
   const workArea = initialDisplay.workArea
@@ -1071,6 +1152,7 @@ function createWindow() {
   window.webContents.setZoomMode('isolated')
   window.webContents.setZoomFactor(1)
   shellContentsId = window.webContents.id
+  installDeveloperToolsPolicy(window.webContents)
   try { shellDevelopmentOrigin = isDevelopment && process.env.ELECTRON_RENDERER_URL ? new URL(process.env.ELECTRON_RENDERER_URL).origin : undefined } catch { shellDevelopmentOrigin = undefined }
   window.webContents.setWindowOpenHandler(() => ({ action: 'deny' }))
   window.webContents.on('will-navigate', (event, url) => {

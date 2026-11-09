@@ -44,10 +44,21 @@ describe('focused window-size shortcut', () => {
 
   it('matches the configurable size shortcut in compact and expanded modes only', () => {
     expect(shouldDispatchFocusedShortcut(sizeChord, 'darwin', 'Command+Shift+E', focusedContext)).toBe(true)
+    expect(shouldDispatchFocusedShortcut(sizeChord, 'darwin', 'Shift+command+e', focusedContext)).toBe(true)
     expect(shouldDispatchFocusedShortcut(sizeChord, 'darwin', 'Command+Shift+E', { ...focusedContext, windowMode: 'expanded' })).toBe(true)
     for (const [label, context] of rejectedContexts) {
       expect(shouldDispatchFocusedShortcut(sizeChord, 'darwin', 'Command+Shift+E', context), label).toBe(false)
     }
+  })
+
+  it('does not dispatch an auto-repeat or IME composition event', () => {
+    expect(shouldDispatchFocusedShortcut({ ...sizeChord, isAutoRepeat: true }, 'darwin', 'Command+Shift+E', focusedContext)).toBe(false)
+    expect(shouldDispatchFocusedShortcut({ ...sizeChord, isComposing: true }, 'darwin', 'Command+Shift+E', focusedContext)).toBe(false)
+  })
+
+  it("leaves ChatGPT's native Command+Shift+S sidebar shortcut unclaimed", () => {
+    const sidebarChord = { key: 'S', code: 'KeyS', altKey: false, ctrlKey: false, metaKey: true, shiftKey: true }
+    expect(shouldDispatchFocusedShortcut(sidebarChord, 'darwin', 'Command+Shift+S', focusedContext)).toBe(false)
   })
 })
 

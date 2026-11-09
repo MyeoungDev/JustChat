@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { acceleratorFromKeyChord, defaultSettings, isValidAccelerator, normalizeSettings, pageZoomFactor, validateShortcutMap } from './settings'
+import { acceleratorFromKeyChord, defaultSettings, isReservedProviderShortcut, isValidAccelerator, normalizeAccelerator, normalizeSettings, pageZoomFactor, validateShortcutMap } from './settings'
 
 describe('settings', () => {
   it('provides platform-specific default shortcuts', () => {
@@ -92,6 +92,19 @@ describe('settings', () => {
     expect(isValidAccelerator('Control+Shift+F6')).toBe(true)
     expect(validateShortcutMap({ toggle: 'Alt+Space', 'temporary-chat': 'Alt+Space', 'provider:claude': 'Alt+2' }))
       .toEqual(['temporary-chat:duplicate:toggle'])
+  })
+
+  it('normalizes accelerator case and modifier order before comparing bindings', () => {
+    expect(normalizeAccelerator('shift+command+e')).toBe('Command+Shift+E')
+    expect(validateShortcutMap({ toggle: 'Shift+Alt+Space', 'temporary-chat': 'shift+alt+space' }))
+      .toEqual(['temporary-chat:duplicate:toggle'])
+  })
+
+  it('reserves ChatGPT sidebar shortcut on macOS', () => {
+    expect(isReservedProviderShortcut('Shift+command+s', 'darwin')).toBe(true)
+    expect(isReservedProviderShortcut('Control+Shift+S', 'win32')).toBe(false)
+    expect(validateShortcutMap({ 'toggle-size': 'shift+command+s' }, 'darwin'))
+      .toEqual(['toggle-size:reserved:chatgpt-sidebar'])
   })
 
   it('builds a shortcut from captured keyboard input', () => {

@@ -25,7 +25,7 @@ export function SettingsPanel({ settings, shortcutFailures, platform, onUpdate, 
   const previewOpacity = settings.opacityMode === 'window'
     ? Math.round((opacityDraft ?? settings.opacity) * 100)
     : Math.round((backgroundOpacityDraft ?? settings.backgroundOpacity) * 100)
-  const previewSurfaceOpacity = Math.min(100, previewOpacity + 25)
+  const previewSurfaceOpacity = previewOpacity
 
   useEffect(() => {
     if (opacityDraft === null || opacityDraft === settings.opacity) return
@@ -56,7 +56,12 @@ export function SettingsPanel({ settings, shortcutFailures, platform, onUpdate, 
     setMessage('')
     try {
       const result = await onUpdate(patch)
-      setMessage(result.ok ? 'Saved' : 'That shortcut is unavailable. The previous shortcuts are still active.')
+      if (result.ok) setMessage('Saved')
+      else if (result.failures?.some((failure) => failure.includes(':reserved:chatgpt-sidebar'))) {
+        setMessage("Command+Shift+S is ChatGPT's sidebar shortcut. Choose a different combination.")
+      } else if (result.failures?.some((failure) => failure.includes(':duplicate:'))) {
+        setMessage('That combination is already used by another Just Chat shortcut. Choose a different one.')
+      } else setMessage('That shortcut is unavailable. The previous shortcuts are still active.')
     } catch {
       setMessage('Could not save this setting.')
     } finally {
@@ -163,7 +168,7 @@ export function SettingsPanel({ settings, shortcutFailures, platform, onUpdate, 
           <div className="setting-row"><div><strong>Show or hide Just Chat</strong><small>Global shortcut; works from any app.</small></div>{shortcutField('toggle', settings.shortcuts.toggle)}</div>
           <div className="setting-row"><div><strong>Grow or shrink the window</strong><small>Only while Just Chat is focused in Compact or Expanded mode; it is not registered globally.</small></div>{shortcutField('toggle-size', settings.shortcuts.toggleSize)}</div>
           <div className="setting-row"><div><strong>Toggle full screen</strong><small>Only while Just Chat is focused; it is not registered globally.</small></div>{shortcutField('toggle-fullscreen', settings.shortcuts.toggleFullscreen)}</div>
-          <div className="setting-row"><div><strong>Start a temporary ChatGPT chat</strong><small>Works only while Just Chat is focused and ChatGPT shows its Temporary Chat button; it is not registered globally.</small></div>{shortcutField('temporary-chat', settings.shortcuts.temporaryChat)}</div>
+          <div className="setting-row"><div><strong>Start a temporary ChatGPT chat</strong><small>Only while Just Chat is focused. Opens a new chat first when you are already in a conversation.</small></div>{shortcutField('temporary-chat', settings.shortcuts.temporaryChat)}</div>
           {shortcutFailures.length > 0 && <p className="settings-note warning">Some default shortcuts could not be registered. Choose a different combination here.</p>}
         </section>
 
@@ -174,10 +179,10 @@ export function SettingsPanel({ settings, shortcutFailures, platform, onUpdate, 
           <label className="setting-row toggle-row"><span><strong>Always on top</strong><small>Keep the Just Chat window above other windows.</small></span><input type="checkbox" checked={settings.alwaysOnTop} disabled={saving} onChange={(event) => void update({ alwaysOnTop: event.target.checked })} /></label>
           <label className="setting-row toggle-row"><span><strong>Also hide Pop Over when focus moves away</strong><small>Empty Quick Chat closes automatically; this option applies to Pop Over.</small></span><input type="checkbox" checked={settings.autoHidePopover} disabled={saving} onChange={(event) => void update({ autoHidePopover: event.target.checked })} /></label>
           <label className="setting-row toggle-row"><span><strong>Escape hides Just Chat</strong><small>When enabled, Escape hides the window in any size mode.</small></span><input type="checkbox" checked={settings.escapeHidesPopover} disabled={saving} onChange={(event) => void update({ escapeHidesPopover: event.target.checked })} /></label>
-          <label className="setting-row"><span><strong>Transparency mode</strong><small>Background only adds a soft, more opaque surface behind the conversation and composer; ChatGPT text colors stay unchanged.</small></span><select aria-label="Transparency mode" value={settings.opacityMode} disabled={saving} onChange={(event) => void update({ opacityMode: event.target.value as AppSettings['opacityMode'] })}><option value="window">Whole window</option><option value="background">Background only (Experimental)</option></select></label>
-          {settings.opacityMode === 'window' ? <label className="setting-row opacity-row"><span><strong>Window opacity</strong><small>Applies to everything in the window, including ChatGPT text.</small></span><span className="range-control"><input aria-label="Window opacity" type="range" min="60" max="100" step="5" value={Math.round((opacityDraft ?? settings.opacity) * 100)} onChange={(event) => setOpacityDraft(event.currentTarget.valueAsNumber / 100)} /><output>{Math.round((opacityDraft ?? settings.opacity) * 100)}%</output></span></label> : <label className="setting-row opacity-row"><span><strong>ChatGPT background opacity</strong><small>Text and controls stay at full opacity. Some ChatGPT surfaces may remain opaque.</small></span><span className="range-control"><input aria-label="ChatGPT background opacity" type="range" min="70" max="100" step="10" value={Math.round((backgroundOpacityDraft ?? settings.backgroundOpacity) * 100)} onChange={(event) => setBackgroundOpacityDraft(event.currentTarget.valueAsNumber / 100)} /><output>{Math.round((backgroundOpacityDraft ?? settings.backgroundOpacity) * 100)}%</output></span></label>}
+          <label className="setting-row"><span><strong>Transparency mode</strong><small>Background only changes the opacity of ChatGPT surfaces. Text and controls stay opaque.</small></span><select aria-label="Transparency mode" value={settings.opacityMode} disabled={saving} onChange={(event) => void update({ opacityMode: event.target.value as AppSettings['opacityMode'] })}><option value="window">Whole window</option><option value="background">Background only (Experimental)</option></select></label>
+          {settings.opacityMode === 'window' ? <label className="setting-row opacity-row"><span><strong>Window opacity</strong><small>Applies to everything in the window, including ChatGPT text.</small></span><span className="range-control"><input aria-label="Window opacity" type="range" min="60" max="100" step="5" value={Math.round((opacityDraft ?? settings.opacity) * 100)} onChange={(event) => setOpacityDraft(event.currentTarget.valueAsNumber / 100)} /><output>{Math.round((opacityDraft ?? settings.opacity) * 100)}%</output></span></label> : <label className="setting-row opacity-row"><span><strong>ChatGPT background opacity</strong><small>100% is fully opaque. Lower values make backgrounds more transparent; text and controls stay opaque.</small></span><span className="range-control"><input aria-label="ChatGPT background opacity" type="range" min="70" max="100" step="10" value={Math.round((backgroundOpacityDraft ?? settings.backgroundOpacity) * 100)} onChange={(event) => setBackgroundOpacityDraft(event.currentTarget.valueAsNumber / 100)} /><output>{Math.round((backgroundOpacityDraft ?? settings.backgroundOpacity) * 100)}%</output></span></label>}
           <div className="opacity-preview" aria-label="Transparency preview">
-            <div className="opacity-preview-caption">Preview · {settings.opacityMode === 'window' ? `${previewOpacity}% whole window` : `${previewOpacity}% background · ${previewSurfaceOpacity}% conversation and composer`}</div>
+            <div className="opacity-preview-caption">Preview · {settings.opacityMode === 'window' ? `${previewOpacity}% whole window` : `${previewOpacity}% background, conversation and composer`}</div>
             <div className={`opacity-preview-window ${settings.theme === 'dark' ? 'theme-dark' : settings.theme === 'light' ? 'theme-light' : 'theme-system'} ${settings.opacityMode === 'window' ? 'whole-window' : 'background-only'}`} style={{ opacity: settings.opacityMode === 'window' ? previewOpacity / 100 : 1, '--preview-bg-alpha': `${previewOpacity}%`, '--preview-surface-alpha': `${previewSurfaceOpacity}%` } as CSSProperties}>
               <div className="opacity-preview-topbar"><span className="opacity-preview-dot" /><span>ChatGPT</span></div>
               <div className="opacity-preview-chat">

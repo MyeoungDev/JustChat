@@ -80,3 +80,24 @@ Run context: local macOS development build with an isolated logged-out profile. 
 ## Transparency note
 
 Window opacity is adjustable from 60% to 100% in Settings and defaults to 100%. It applies to the ChatGPT page and shell together. The macOS run confirmed 80% and restored 100%; translucency against other desktop windows was not separately assessed. This is separate from making only the shell background translucent.
+
+## Reliability plan run — 2026-11-09
+
+Run context: macOS development build using the existing Just Chat profile. The user had authorized smoke testing in a temporary ChatGPT conversation. No account settings, saved conversations, cookies, or session data were changed.
+
+- [x] Follow-up UI run completed six harmless smoke prompts in a temporary conversation: three submitted from Quick Chat and three from Expanded. All six assistant turns completed and the expected markers appeared. No black or blank view occurred during sending or mode transitions.
+- [x] Sanitized main-process logs showed ChatGPT load start/stop events and a completed document with a visible composer and main content. No sign-in/challenge state or main-frame load error was reported in this run. Logs contained DOM counts/booleans and hostnames only, not page text, prompts, cookies, or full URLs.
+- [x] Screenshot/accessibility checks showed the 520×320 Quick Chat view and a 729×701 Expanded view. Compact-to-expanded and expanded-to-compact transitions retained the same temporary conversation route.
+- [x] A separate harmless code-block prompt produced ChatGPT's native code-copy control. Clicking it changed its accessible label to “복사됨”.
+- [x] ChatGPT's native sidebar control opened the sidebar, then `Command+Shift+S` closed it once. Ten synthetic `Command+Shift+E` / `Command+Shift+S` pairs each changed window mode and sidebar state exactly once; the window remained visible on every run.
+- [x] While Settings was open, synthetic `Command+Shift+E` left the window mode unchanged. Closing Settings returned to the same conversation. Synthetic `Command+Shift+F` entered and exited Full Screen while retaining the same conversation route.
+- [x] Synthetic `Command+Shift+N` from a temporary conversation returned to a fresh temporary-chat home with the composer ready.
+- [x] Automated verification passed: `pnpm typecheck`, `pnpm test` (10 files, 58 tests), `pnpm build`, and `git diff --check`.
+- [x] Code review confirmed the ChatGPT view is retained across mode changes; provider errors replace the view with a Retry state, and retry reloads the existing WebContentsView/session. No reproducible runtime defect justified changing this flow.
+- [ ] The reported black-screen scenario was not reproduced during the six-prompt run. This is a successful smoke run, not proof the intermittent failure is fixed.
+- [ ] Physical keyboard verification remains outstanding. CUA hotkeys are synthetic input and cannot count as physical verification; `Command+Shift+S` remains unclaimed by Just Chat in the routing code and is covered by automated tests.
+- [ ] CUA drag attempts at the window edge did not change the 729×701 window dimensions, so native edge resizing during idle remains unverified. Mode-button resizing was verified while the conversation was idle and retained the same route.
+- [ ] Moving the window between all physical displays and Windows runtime behavior were not exercised in this run.
+- [ ] A live DOM fixture suite has not been added. The current DOM readiness probe confirmed composer/main-content presence, but broader home/conversation/sidebar/error fixture coverage remains outstanding.
+
+No app code was changed during this run because the reported blank-screen failure did not reproduce and the plan prohibits speculative retries or focus suppression without evidence. Existing uncommitted source changes were preserved. No commit or push was made.

@@ -1,4 +1,4 @@
-import { acceleratorFromKeyChord, type KeyboardChord } from './settings'
+import { acceleratorFromKeyChord, isReservedProviderShortcut, normalizeAccelerator, type KeyboardChord } from './settings'
 import type { WindowMode } from './window-layout'
 
 export interface ShortcutDispatchContext {
@@ -16,7 +16,12 @@ export function shouldDispatchFocusedShortcut(
   context: ShortcutDispatchContext,
   allowedModes: WindowMode[] = ['compact', 'expanded']
 ): boolean {
-  if (context.eventType !== 'keyDown' || context.settingsVisible || !context.windowVisible || !context.windowFocused) return false
+  if (context.eventType !== 'keyDown' || chord.isAutoRepeat || chord.isComposing
+    || context.settingsVisible || !context.windowVisible || !context.windowFocused) return false
   if (!allowedModes.includes(context.windowMode)) return false
-  return acceleratorFromKeyChord(chord, platform) === configuredAccelerator
+  const received = acceleratorFromKeyChord(chord, platform)
+  const normalizedReceived = received ? normalizeAccelerator(received) : undefined
+  const normalizedConfigured = normalizeAccelerator(configuredAccelerator)
+  if (isReservedProviderShortcut(configuredAccelerator, platform)) return false
+  return Boolean(normalizedReceived && normalizedConfigured && normalizedReceived === normalizedConfigured)
 }

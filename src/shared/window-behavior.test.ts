@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { chatGPTConversationPath, hasChatGPTConversationRoute, isChatGPTSendKey, isCloseWindowShortcut, isSettingsToggleShortcut, shouldHideWindowOnBlur } from './window-behavior'
+import { chatGPTConversationPath, hasChatGPTConversationRoute, isChatGPTSendKey, isCloseWindowShortcut, isSettingsToggleShortcut, shouldCollapseChatGPTSidebar, shouldHideWindowOnBlur } from './window-behavior'
 
 describe('compact chat growth signals', () => {
   it('recognizes an unmodified Enter send key without inspecting page content', () => {
@@ -69,5 +69,14 @@ describe('window blur behavior', () => {
     expect(shouldHideWindowOnBlur({ ...context, autoHidePopover: true })).toBe(true)
     expect(shouldHideWindowOnBlur({ ...context, mode: 'expanded' })).toBe(false)
     expect(shouldHideWindowOnBlur({ ...context, settingsVisible: true })).toBe(false)
+  })
+})
+
+describe('compact sidebar initialization', () => {
+  it('collapses only for a compact ChatGPT home, not on later conversation or expanded syncs', () => {
+    expect(shouldCollapseChatGPTSidebar({ mode: 'compact', providerId: 'chatgpt', providerUrl: 'https://chatgpt.com/' })).toBe(true)
+    expect(shouldCollapseChatGPTSidebar({ mode: 'compact', providerId: 'chatgpt', providerUrl: 'https://chatgpt.com/c/abc123' })).toBe(false)
+    expect(shouldCollapseChatGPTSidebar({ mode: 'expanded', providerId: 'chatgpt', providerUrl: 'https://chatgpt.com/' })).toBe(false)
+    expect(shouldCollapseChatGPTSidebar({ mode: 'compact', providerId: 'claude', providerUrl: 'https://chatgpt.com/' })).toBe(false)
   })
 })

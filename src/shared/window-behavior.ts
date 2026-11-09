@@ -77,3 +77,9 @@ export function shouldHideWindowOnBlur(context: WindowBlurContext): boolean {
   if (context.mode !== 'compact') return false
   return !hasChatGPTConversationRoute(context.providerId, context.providerUrl)
 }
+
+export function shouldCollapseChatGPTSidebar(context: Pick<WindowBlurContext, 'mode' | 'providerId' | 'providerUrl'>): boolean {
+  return context.mode === 'compact'
+    && context.providerId === 'chatgpt'
+    && !hasChatGPTConversationRoute(context.providerId, context.providerUrl)
+}

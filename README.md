@@ -2,6 +2,16 @@
 
 Just Chat is a small desktop window for opening ChatGPT while you work in another app. It loads ChatGPT's own website in an Electron window, so you use the same account, conversations, and web interface as you do in a browser.
 
+<p align="center">
+  <img src="docs/artifacts/readme/quick-chat.png" alt="Just Chat's compact Quick Chat window with the ChatGPT composer ready for input" width="720" />
+</p>
+
+<p align="center">
+  <img src="docs/artifacts/readme/quick-chat-demo.gif" alt="Quick Chat starts with a compact composer, accepts a prompt, and expands into a conversation" width="720" />
+</p>
+
+The window starts compact and grows into a conversation view when you begin chatting.
+
 ## Why I built it
 
 I used GPT Classic a lot because it made ChatGPT easy to reach while I worked. Over time, the app felt too heavy for that simple job, and support is expected to end. I started Just Chat to build a lighter replacement for the quick-chat workflow I relied on. I chose Electron so the same idea could work on both macOS and Windows, rather than being limited to a macOS-only app.

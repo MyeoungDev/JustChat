@@ -1,5 +1,7 @@
 # Architecture review — Just Chat Alpha
 
+> Decision (2026-11-09): keep Electron. The Tauri evaluation is closed; this document is retained as historical architecture context, not an active migration plan.
+
 Date: 2026-11-02
 
 ## 1. Electron vs Tauri 2

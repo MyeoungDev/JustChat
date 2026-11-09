@@ -92,9 +92,10 @@ export function lowerCenteredBounds(
     : defaultSize
   const width = Math.min(size.width, display.width)
   const height = Math.min(size.height, display.height)
+  const bottomGap = Math.max(48, Math.round(display.height * 0.07))
   return clampWindowBounds({
     x: Math.round(display.x + (display.width - width) / 2),
-    y: Math.round(display.y + display.height * 0.82 - height / 2),
+    y: display.y + display.height - height - bottomGap,
     width,
     height
   }, display, mode)

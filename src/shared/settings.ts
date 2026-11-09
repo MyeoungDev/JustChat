@@ -133,36 +133,68 @@ export function pageZoomFactor(percent: number): number {
   return 0.996 * percent / 100
 }
 
-const modifiers = new Set(['Alt', 'Control', 'Command', 'Shift', 'Super'])
-const keys = new Set(['Space', 'Enter', 'Tab', 'Escape', 'Backspace', 'Delete', 'Insert', 'Home', 'End', 'PageUp', 'PageDown', 'Up', 'Down', 'Left', 'Right', 'Plus', 'Comma', 'Period'])
+const modifierNames = new Map([
+  ['alt', 'Alt'],
+  ['control', 'Control'],
+  ['command', 'Command'],
+  ['shift', 'Shift'],
+  ['super', 'Super']
+])
+const modifierOrder = ['Alt', 'Control', 'Command', 'Shift', 'Super']
+const keyNames = new Map<string, string>([
+  ['space', 'Space'], ['enter', 'Enter'], ['tab', 'Tab'], ['escape', 'Escape'], ['backspace', 'Backspace'],
+  ['delete', 'Delete'], ['insert', 'Insert'], ['home', 'Home'], ['end', 'End'], ['pageup', 'PageUp'],
+  ['pagedown', 'PageDown'], ['up', 'Up'], ['down', 'Down'], ['left', 'Left'], ['right', 'Right'],
+  ['plus', 'Plus'], ['comma', 'Comma'], ['period', 'Period']
+])
+
+export function normalizeAccelerator(accelerator: string): string | undefined {
+  const parts = accelerator.split('+').map((part) => part.trim())
+  if (parts.length < 2 || parts.some((part) => !part)) return undefined
+  const modifiers: string[] = []
+  const mainKeys: string[] = []
+  for (const part of parts) {
+    const modifier = modifierNames.get(part.toLowerCase())
+    if (modifier) modifiers.push(modifier)
+    else mainKeys.push(part)
+  }
+  if (!modifiers.length || new Set(modifiers).size !== modifiers.length || mainKeys.length !== 1) return undefined
+
+  const rawKey = mainKeys[0]
+  const namedKey = keyNames.get(rawKey.toLowerCase())
+  const key = namedKey
+    ?? (/^[a-z0-9]$/i.test(rawKey) ? rawKey.toUpperCase() : /^f([1-9]|1\d|2[0-4])$/i.test(rawKey) ? rawKey.toUpperCase() : undefined)
+  if (!key) return undefined
+
+  modifiers.sort((left, right) => modifierOrder.indexOf(left) - modifierOrder.indexOf(right))
+  return [...modifiers, key].join('+')
+}
 
 export function isValidAccelerator(accelerator: string): boolean {
-  const parts = accelerator.split('+')
-  if (parts.length < 2 || parts.some((part) => !part)) return false
-  const normalized = parts.map((part) => part.trim())
-  const mods = normalized.filter((part) => modifiers.has(part))
-  if (mods.length === 0 || new Set(mods).size !== mods.length) return false
-  const mainKeys = normalized.filter((part) => !modifiers.has(part))
-  if (mainKeys.length !== 1) return false
-  const key = mainKeys[0]
-  return keys.has(key) || /^[A-Z0-9]$/i.test(key) || /^F([1-9]|1\d|2[0-4])$/.test(key)
+  return normalizeAccelerator(accelerator) !== undefined
 }
 
 export type ShortcutName = 'toggle' | 'temporary-chat' | 'toggle-size' | 'toggle-fullscreen' | `provider:${ProviderId}`
 
-export function validateShortcutMap(bindings: Partial<Record<ShortcutName, string>>): string[] {
+export function validateShortcutMap(bindings: Partial<Record<ShortcutName, string>>, platform?: string): string[] {
   const errors: string[] = []
   const seen = new Map<string, ShortcutName>()
   for (const [name, accelerator] of Object.entries(bindings) as [ShortcutName, string][]) {
-    if (!isValidAccelerator(accelerator)) {
+    const normalized = normalizeAccelerator(accelerator)
+    if (!normalized) {
       errors.push(`${name}:invalid`)
       continue
     }
-    const previous = seen.get(accelerator.toLowerCase())
+    const previous = seen.get(normalized.toLowerCase())
     if (previous) errors.push(`${name}:duplicate:${previous}`)
-    else seen.set(accelerator.toLowerCase(), name)
+    else seen.set(normalized.toLowerCase(), name)
+    if (platform && isReservedProviderShortcut(normalized, platform)) errors.push(`${name}:reserved:chatgpt-sidebar`)
   }
   return errors
+}
+
+export function isReservedProviderShortcut(accelerator: string, platform: string): boolean {
+  return platform === 'darwin' && normalizeAccelerator(accelerator) === 'Command+Shift+S'
 }
 
 export interface KeyboardChord {
@@ -172,6 +204,8 @@ export interface KeyboardChord {
   ctrlKey: boolean
   metaKey: boolean
   shiftKey: boolean
+  isAutoRepeat?: boolean
+  isComposing?: boolean
 }
 
 export function acceleratorFromKeyChord(chord: KeyboardChord, platform: string): string | null {
@@ -186,7 +220,7 @@ export function acceleratorFromKeyChord(chord: KeyboardChord, platform: string):
   else if (/^Digit[0-9]$/.test(chord.code)) key = chord.code.slice(-1)
   else if (/^Key[A-Z]$/.test(chord.code)) key = chord.code.slice(-1)
   else if (/^F([1-9]|1\d|2[0-4])$/.test(chord.key)) key = chord.key
-  else if (keys.has(chord.key)) key = chord.key
+  else if (keyNames.has(chord.key.toLowerCase())) key = keyNames.get(chord.key.toLowerCase())!
   else return null
 
   if (modifiersInOrder.length === 0) return null

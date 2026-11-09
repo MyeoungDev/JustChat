@@ -53,7 +53,7 @@ describe('window geometry', () => {
     expect(boundsForDisplay('expanded', { x: 496, y: 100, width: 520, height: 480 }, laptop))
       .toEqual({ x: 496, y: 100, width: 520, height: 480 })
     expect(lowerCenteredBounds('expanded', laptop, { x: 496, y: 100, width: 700, height: 600 }))
-      .toEqual({ x: 406, y: 300, width: 700, height: 600 })
+      .toEqual({ x: 406, y: 237, width: 700, height: 600 })
   })
 
   it('grows the conversation window upward while keeping its lower edge in place', () => {
