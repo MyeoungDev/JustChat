@@ -168,7 +168,7 @@ export function SettingsPanel({ settings, shortcutFailures, platform, onUpdate, 
           <div className="setting-row"><div><strong>Show or hide Just Chat</strong><small>Global shortcut; works from any app.</small></div>{shortcutField('toggle', settings.shortcuts.toggle)}</div>
           <div className="setting-row"><div><strong>Grow or shrink the window</strong><small>Only while Just Chat is focused in Compact or Expanded mode; it is not registered globally.</small></div>{shortcutField('toggle-size', settings.shortcuts.toggleSize)}</div>
           <div className="setting-row"><div><strong>Toggle full screen</strong><small>Only while Just Chat is focused; it is not registered globally.</small></div>{shortcutField('toggle-fullscreen', settings.shortcuts.toggleFullscreen)}</div>
-          <div className="setting-row"><div><strong>Start a temporary ChatGPT chat</strong><small>Only while Just Chat is focused. Opens a new chat first when you are already in a conversation.</small></div>{shortcutField('temporary-chat', settings.shortcuts.temporaryChat)}</div>
+          <div className="setting-row"><div><strong>Start a temporary ChatGPT chat</strong><small>Only while Just Chat is focused. Uses ChatGPT’s current GPT when available.</small></div>{shortcutField('temporary-chat', settings.shortcuts.temporaryChat)}</div>
           {shortcutFailures.length > 0 && <p className="settings-note warning">Some default shortcuts could not be registered. Choose a different combination here.</p>}
         </section>
 

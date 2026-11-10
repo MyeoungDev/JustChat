@@ -35,6 +35,7 @@ let mode: WindowMode = 'compact'
 let modeBeforeFullscreen: WindowMode = 'compact'
 let collapseSidebarOnNextCompactSync = false
 let settingsVisible = false
+let preserveChatGPTConversationPathUntil = 0
 let shellContentsId: number | undefined
 let shellDevelopmentOrigin: string | undefined
 let registeredShortcuts: ShortcutBindingsByName = {}
@@ -347,6 +348,7 @@ function dispatchTemporaryChatShortcut(event: Electron.Event, input: Electron.In
   const view = webViews.get('chatgpt')
   if (!view || view.webContents.isDestroyed()) return false
   event.preventDefault()
+  preserveChatGPTConversationPathUntil = Date.now() + 10_000
   void view.webContents.executeJavaScript(`(async () => {
     const getLabel = (element) => [
       element.getAttribute('aria-label'),
@@ -354,12 +356,30 @@ function dispatchTemporaryChatShortcut(event: Electron.Event, input: Electron.In
       element.getAttribute('data-testid'),
       element.textContent
     ].filter(Boolean).join(' ').replace(/\\s+/g, ' ').trim();
-    const controls = () => Array.from(document.querySelectorAll('button, [role="button"], a'));
+    const controls = () => Array.from(document.querySelectorAll('button, [role="button"], a'))
+      .filter(element => element instanceof HTMLElement && element.getClientRects().length > 0);
     const findTemporaryChat = () => controls().find(element => /temporary[\\s-]*chat|임시\\s*채팅/i.test(getLabel(element)));
     const findNewChat = () => controls().find(element => {
       const label = getLabel(element);
       return /(?:^|\\b)new[\\s-]*chat\\b|새\\s*채팅|새\\s*대화|create[-_\\s]*new[-_\\s]*chat/i.test(label);
     });
+    const isTemporaryChatActive = element => {
+      const label = element ? getLabel(element) : '';
+      // ChatGPT exposes the active toggle as "Turn off Temporary Chat" / "임시 채팅 끄기"
+      // rather than setting aria-pressed on some UI versions.
+      const normalizedLabel = label.toLowerCase();
+      if (normalizedLabel.includes('turn off temporary chat')
+        || normalizedLabel.includes('turn off the temporary chat')
+        || normalizedLabel.includes('disable temporary chat')
+        || label.includes('임시 채팅 끄기')
+        || label.includes('임시 채팅 종료')
+        || label.includes('임시 채팅 비활성화')) return true;
+      if (element && [element.getAttribute('aria-pressed'), element.getAttribute('aria-checked'), element.getAttribute('data-state'), element.getAttribute('data-active'), element.getAttribute('aria-current')]
+        .some(value => value === 'true' || value === 'on' || value === 'page')) return true;
+      if (element && /(?:^|\\s)(?:active|selected|checked)(?:\\s|$)/i.test(String(element.className || ''))) return true;
+      const url = new URL(location.href);
+      return url.searchParams.has('temporary-chat') || /temporary[-_]?chat/i.test(url.pathname);
+    };
     const waitFor = async (find, timeout = 4000) => {
       const deadline = Date.now() + timeout;
       while (Date.now() < deadline) {
@@ -369,32 +389,46 @@ function dispatchTemporaryChatShortcut(event: Electron.Event, input: Electron.In
       }
       return null;
     };
-
-    const temporaryChatButton = findTemporaryChat();
-    const isDefaultScreen = location.pathname === '/' && !location.search.includes('temporary-chat');
-    if (isDefaultScreen && temporaryChatButton) {
-      temporaryChatButton.click();
-      return 'temporary-chat';
-    }
-
-    let newChatButton = findNewChat();
-    if (!newChatButton) {
+    const openSidebarIfNeeded = async (findControl) => {
+      let control = findControl();
+      if (control) return control;
       const sidebarButton = controls().find(element => /sidebar|사이드바/i.test(getLabel(element)));
       if (sidebarButton && sidebarButton.getAttribute('aria-expanded') !== 'true') sidebarButton.click();
-      newChatButton = await waitFor(findNewChat);
-    }
-    if (!newChatButton) return 'new-chat-unavailable';
+      return await waitFor(findControl);
+    };
 
-    newChatButton.click();
-    const nextTemporaryChatButton = await waitFor(findTemporaryChat, 6000);
-    if (!nextTemporaryChatButton) return 'temporary-chat-unavailable';
-    nextTemporaryChatButton.click();
-    return 'new-temporary-chat';
+    let temporaryChatButton = await openSidebarIfNeeded(findTemporaryChat);
+    if (!temporaryChatButton) return 'temporary-chat-unavailable';
+
+    if (isTemporaryChatActive(temporaryChatButton)) {
+      const newChatButton = await openSidebarIfNeeded(findNewChat);
+      if (!newChatButton) return 'new-chat-unavailable';
+      newChatButton.click();
+      const stillTemporary = await waitFor(() => {
+        const button = findTemporaryChat();
+        return isTemporaryChatActive(button) ? button : null;
+      }, 6000);
+      return stillTemporary ? 'new-temporary-chat' : 'temporary-chat-state-lost';
+    }
+
+    // Switch the current GPT or workspace into Temporary Chat before starting
+    // anything else, so ChatGPT can retain that context instead of creating a
+    // regular default chat first.
+    temporaryChatButton.click();
+    const enteredTemporary = await waitFor(() => {
+      const button = findTemporaryChat();
+      return isTemporaryChatActive(button) ? button : null;
+    }, 6000);
+    return enteredTemporary ? 'temporary-chat' : 'temporary-chat-not-confirmed';
   })()`).then((result: string) => {
     if (result !== 'temporary-chat' && result !== 'new-temporary-chat') {
       console.info(`[Just Chat] Temporary Chat shortcut could not start: ${result}`)
     }
-  }).catch(() => undefined)
+  }).catch(() => undefined).finally(() => {
+    setTimeout(() => {
+      if (Date.now() >= preserveChatGPTConversationPathUntil) preserveChatGPTConversationPathUntil = 0
+    }, 10_000)
+  })
   return true
 }
 
@@ -590,7 +624,8 @@ function getProviderView(id: ProviderId) {
     const expandForConversation = () => {
       if (id === 'chatgpt') {
         const conversationPath = chatGPTConversationPath(id, contents.getURL())
-        if (settings.lastChatGPTConversationPath !== conversationPath) {
+        const preservePreviousConversation = !conversationPath && Date.now() < preserveChatGPTConversationPathUntil
+        if (!preservePreviousConversation && settings.lastChatGPTConversationPath !== conversationPath) {
           settings.lastChatGPTConversationPath = conversationPath
           settingsStore.save(settings)
         }
