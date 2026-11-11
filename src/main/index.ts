@@ -11,7 +11,12 @@ import { boundsAnchoredAtBottom, boundsForDisplay, centeredBounds, geometryForCu
 import { chatGPTConversationPath, hasChatGPTConversationRoute, isChatGPTSendKey, isCloseWindowShortcut, isSettingsToggleShortcut, shouldCollapseChatGPTSidebar, shouldHideWindowOnBlur } from '../shared/window-behavior'
 import { SettingsStore } from './settings-store'
 import { clearProviderSessionData } from './provider-session'
-import { temporaryChatAutomationScript } from './temporary-chat-automation'
+import {
+  shouldAttemptTemporaryChatUrlFallback,
+  temporaryChatAutomationScript,
+  temporaryChatFallbackUrl,
+  temporaryChatFallbackVerificationScript
+} from './temporary-chat-automation'
 import { performance } from 'node:perf_hooks'
 
 type ProviderLoadState = 'loading' | 'ready' | 'error'
@@ -357,33 +362,50 @@ function dispatchTemporaryChatShortcut(event: Electron.Event, input: Electron.In
   temporaryChatShortcutInFlight = true
   preserveChatGPTConversationPathUntil = Date.now() + 20_000
   let automationTimeout: NodeJS.Timeout | undefined
+  let fallbackTimeout: NodeJS.Timeout | undefined
   const timeoutResult = new Promise<{ code: string }>((resolve) => {
     automationTimeout = setTimeout(() => resolve({ code: 'automation-timeout' }), 20_000)
   })
-  void Promise.race([view.webContents.executeJavaScript(temporaryChatAutomationScript), timeoutResult]).then((result: {
+  void Promise.race([view.webContents.executeJavaScript(temporaryChatAutomationScript), timeoutResult]).then(async (initialResult: {
     code?: string
     chatMode?: boolean
     temporary?: boolean
     composerFocused?: boolean
     sidebarOpened?: boolean
   }) => {
-    if (result?.code !== 'temporary-chat-started' && result?.code !== 'new-temporary-chat') {
+    let result = initialResult
+    if (shouldAttemptTemporaryChatUrlFallback(result?.code, view.webContents.getURL())) {
+      try {
+        const fallbackLoadTimeout = new Promise<never>((_, reject) => {
+          fallbackTimeout = setTimeout(() => reject(new Error('temporary-chat-fallback-timeout')), 20_000)
+        })
+        await Promise.race([view.webContents.loadURL(temporaryChatFallbackUrl), fallbackLoadTimeout])
+        result = await view.webContents.executeJavaScript(temporaryChatFallbackVerificationScript)
+      } catch (error) {
+        result = { code: error instanceof Error ? error.message : 'temporary-chat-fallback-failed' }
+      }
+    }
+    if (result?.code !== 'temporary-chat-started'
+      && result?.code !== 'new-temporary-chat'
+      && result?.code !== 'temporary-chat-url-fallback') {
       preserveChatGPTConversationPathUntil = 0
       console.info(`[Just Chat] Temporary Chat shortcut could not complete: ${result?.code ?? 'no-result'}`)
-    } else {
-      preserveChatGPTConversationPathUntil = Date.now() + 10_000
-      console.info(`[Just Chat] Temporary Chat shortcut completed: ${JSON.stringify({
-        chatMode: result.chatMode,
-        temporary: result.temporary,
-        composerFocused: result.composerFocused,
-        sidebarOpened: result.sidebarOpened
-      })}`)
+      return
     }
+    preserveChatGPTConversationPathUntil = Date.now() + 10_000
+    console.info(`[Just Chat] Temporary Chat shortcut completed: ${JSON.stringify({
+      chatMode: result.chatMode,
+      temporary: result.temporary,
+      composerFocused: result.composerFocused,
+      sidebarOpened: result.sidebarOpened,
+      method: result.code === 'temporary-chat-url-fallback' ? 'temporary-chat-url' : 'chatgpt-control'
+    })}`)
   }).catch((error: unknown) => {
     preserveChatGPTConversationPathUntil = 0
     console.info(`[Just Chat] Temporary Chat shortcut failed: ${error instanceof Error ? error.name : 'script-error'}`)
   }).finally(() => {
     if (automationTimeout) clearTimeout(automationTimeout)
+    if (fallbackTimeout) clearTimeout(fallbackTimeout)
     temporaryChatShortcutInFlight = false
     setTimeout(() => {
       if (Date.now() >= preserveChatGPTConversationPathUntil) preserveChatGPTConversationPathUntil = 0

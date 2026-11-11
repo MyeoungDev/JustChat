@@ -1,3 +1,34 @@
+export const temporaryChatFallbackUrl = 'https://chatgpt.com/?temporary-chat=true'
+
+export function shouldAttemptTemporaryChatUrlFallback(code: string | undefined, currentUrl: string) {
+  if (code !== 'temporary-chat-control-unavailable'
+    && code !== 'new-chat-control-unavailable'
+    && code !== 'new-chat-transition-not-confirmed'
+    && code !== 'temporary-chat-state-lost') return false
+  try {
+    const url = new URL(currentUrl)
+    return url.hostname === 'chatgpt.com' && !/^\/g(?:\/|$)/i.test(url.pathname)
+  } catch {
+    return false
+  }
+}
+
+export const temporaryChatFallbackVerificationScript = String.raw`(() => {
+  const url = new URL(location.href);
+  const composer = Array.from(document.querySelectorAll('#prompt-textarea, [data-testid="composer"] [contenteditable], [contenteditable]:not([contenteditable="false"]), [role="textbox"], textarea'))
+    .find(element => element instanceof HTMLElement && element.getClientRects().length > 0);
+  if (composer) composer.focus();
+  const composerFocused = Boolean(composer && (document.activeElement === composer || composer.contains(document.activeElement)));
+  const temporary = url.hostname === 'chatgpt.com' && url.searchParams.get('temporary-chat') === 'true';
+  return {
+    code: temporary && composerFocused ? 'temporary-chat-url-fallback' : 'temporary-chat-url-fallback-unconfirmed',
+    chatMode: temporary,
+    temporary,
+    composerFocused,
+    sidebarOpened: false
+  };
+})()`
+
 export const temporaryChatAutomationScript = String.raw`(async () => {
   const labels = element => [
     element.getAttribute('aria-label'),

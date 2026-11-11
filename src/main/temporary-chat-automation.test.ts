@@ -1,6 +1,6 @@
 import { runInNewContext } from 'node:vm'
 import { describe, expect, it } from 'vitest'
-import { temporaryChatAutomationScript } from './temporary-chat-automation'
+import { shouldAttemptTemporaryChatUrlFallback, temporaryChatAutomationScript } from './temporary-chat-automation'
 
 type ControlOptions = {
   label: string
@@ -111,6 +111,13 @@ async function runAutomation(options: {
 }
 
 describe('temporary ChatGPT shortcut automation', () => {
+  it('uses the temporary-chat URL fallback only for supported regular Chat routes', () => {
+    expect(shouldAttemptTemporaryChatUrlFallback('temporary-chat-control-unavailable', 'https://chatgpt.com/c/abc')).toBe(true)
+    expect(shouldAttemptTemporaryChatUrlFallback('new-chat-control-unavailable', 'https://chatgpt.com/')).toBe(true)
+    expect(shouldAttemptTemporaryChatUrlFallback('temporary-chat-control-unavailable', 'https://chatgpt.com/g/custom-gpt')).toBe(false)
+    expect(shouldAttemptTemporaryChatUrlFallback('chat-mode-unavailable', 'https://chatgpt.com/c/abc')).toBe(false)
+  })
+
   it('switches from Work to Chat before starting a temporary chat', async () => {
     const { result, chat, work, sidebarOpened } = await runAutomation({ workMode: true })
 
