@@ -5,7 +5,9 @@
 Open a compact ChatGPT window with a shortcut, ask a question, then keep talking in a larger view. Just Chat is built with Electron for macOS and Windows and uses ChatGPT's website and your ChatGPT account.
 
 <p align="center">
-  <img src="docs/artifacts/readme/quick-chat-demo.gif" alt="A compact Just Chat window accepts a prompt and expands to show the ChatGPT response" width="720" />
+  <a href="docs/artifacts/readme/quick-chat-demo.mp4"><img src="docs/artifacts/readme/quick-chat-demo.gif" alt="Open Just Chat with Option+Space while reading NASA, then get a quick answer" width="720" /></a>
+  <br />
+  <a href="docs/artifacts/readme/quick-chat-demo.mp4">Watch the full-resolution demo (MP4)</a>
 </p>
 
 ## Why I built it
