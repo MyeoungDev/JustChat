@@ -10,6 +10,12 @@ Open a compact ChatGPT window with a shortcut, ask a question, then keep talking
   <a href="docs/artifacts/readme/quick-chat-demo.mp4">Watch the full-resolution demo (MP4)</a>
 </p>
 
+<p align="center">
+  <img src="docs/artifacts/readme/quick-chat-window.jpg" alt="Just Chat Quick Chat open beside a NASA article" width="960" />
+  <br />
+  <sub>Keep the page you're reading in view while you chat.</sub>
+</p>
+
 ## Why I built it
 
 I used GPT Classic for its quick, lightweight chat window. As it became heavier and support was expected to end, I wanted to keep that fast way of reaching ChatGPT and make it available on both macOS and Windows.
