@@ -3,28 +3,39 @@
   "version": "0.1.0",
   "private": true,
   "description": "A minimal desktop shell for chatting with AI providers",
+  "homepage": "https://github.com/MyeoungDev/JustChat",
+  "author": "MyeoungDev",
+  "license": "MIT",
+  "packageManager": "pnpm@11.4.0",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/MyeoungDev/JustChat.git"
+  },
   "main": "out/main/index.js",
   "scripts": {
     "dev": "electron-vite dev",
     "dev:perf": "electron-vite dev -- --just-chat-perf",
     "build": "electron-vite build",
+    "dist:mac": "pnpm build && electron-builder --config electron-builder.config.cjs --mac --arm64 --publish never",
+    "dist:win": "pnpm build && electron-builder --config electron-builder.config.cjs --win --x64 --publish never",
+    "dist:current": "pnpm build && electron-builder --config electron-builder.config.cjs --publish never",
     "preview": "electron-vite preview",
     "typecheck": "tsc --noEmit -p tsconfig.json && tsc --noEmit -p tsconfig.node.json",
     "test": "vitest run",
     "test:watch": "vitest"
   },
-  "dependencies": {
-    "@vitejs/plugin-react": "6.1.2",
-    "electron": "45.2.1",
-    "electron-vite": "6.0.0",
-    "react": "19.3.1",
-    "react-dom": "19.3.1"
-  },
   "devDependencies": {
+    "@electron/fuses": "2.1.3",
     "@types/node": "^24.0.0",
     "@types/react": "^19.0.0",
     "@types/react-dom": "^19.0.0",
+    "@vitejs/plugin-react": "6.1.2",
     "@vitest/coverage-v8": "5.0.5",
+    "electron": "45.2.1",
+    "electron-builder": "26.18.0",
+    "electron-vite": "6.0.0",
+    "react": "19.3.1",
+    "react-dom": "19.3.1",
     "typescript": "7.0.2",
     "vite": "8.3.5",
     "vitest": "5.0.5"

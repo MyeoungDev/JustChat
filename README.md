@@ -35,9 +35,15 @@ I used GPT Classic for its quick, lightweight chat window. As it became heavier 
 
 Only Show or Hide is global by default. Change app shortcuts in Settings. ChatGPT's `Command+K` / `Ctrl+K` search remains ChatGPT's own shortcut and is not remapped by Just Chat.
 
+## Install
+
+No public installer has been published yet. After the first release is published, installers will be available from [GitHub Releases](https://github.com/MyeoungDev/JustChat/releases). Initial build targets are macOS on Apple Silicon and Windows x64. macOS builds use an ad-hoc signature until Developer ID signing and notarization are configured; Windows builds have no publisher signature. The operating system may show an unidentified-developer or unknown-publisher warning. Review the release notes and checksums before installing.
+
+Electron 45 requires macOS 13 or newer and Windows 10 or newer. These are upstream runtime minimums; this project has not yet completed manual installation testing on every supported OS version. See [release and installation notes](docs/RELEASE.md) for current build and verification status.
+
 ## Run from source
 
-Prebuilt installers are not available yet. Run the development app locally:
+To run the development app locally:
 
 ```sh
 git clone https://github.com/MyeoungDev/JustChat.git
@@ -49,8 +55,8 @@ pnpm dev
 ### Requirements
 
 - macOS or Windows
-- Node.js 22.12 or newer
-- pnpm 10 or newer
+- Node.js 22.13 or newer
+- pnpm 11.4.0 (the version pinned by this repository)
 
 ## Settings
 
@@ -69,7 +75,15 @@ The default page zoom is calibrated to the previous full-size ChatGPT view. Temp
 - Just Chat is a desktop window around ChatGPT's website, not a separate ChatGPT client or model API.
 - Sign-in, network challenges, and some interactions depend on ChatGPT and may change with its website.
 - The ChatGPT integration is experimental. The app cannot guarantee that every website change will keep shortcuts and automatic window sizing working.
-- Packaged installers, signing, and automatic updates are not available yet.
+- The release workflow creates draft installers for manual review. Developer ID/Authenticode signing and macOS notarization are not configured yet; macOS packages are ad-hoc signed so Apple Silicon can validate the patched Electron binary.
+- Just Chat does not install updates automatically. Check GitHub Releases and install a newer version manually; app data is kept when the Windows app is uninstalled.
+
+## Support and security
+
+- Read [known release limitations and install guidance](docs/RELEASE.md).
+- Report bugs through [GitHub Issues](https://github.com/MyeoungDev/JustChat/issues). Do not include prompts, replies, cookies, or account details.
+- See [SECURITY.md](SECURITY.md) for private vulnerability reporting and [PRIVACY.md](PRIVACY.md) for local data details.
+- See [CONTRIBUTING.md](CONTRIBUTING.md) before opening a pull request.
 
 ## Privacy
 

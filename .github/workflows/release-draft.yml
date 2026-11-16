@@ -1,0 +1,63 @@
+name: Build draft release
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: draft-release-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  build:
+    name: Build ${{ matrix.platform }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - platform: macos
+            runner: macos-15
+            command: dist:mac
+          - platform: windows
+            runner: windows-2022
+            command: dist:win
+    runs-on: ${{ matrix.runner }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 11.4.0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm run ${{ matrix.command }}
+      - name: Create SHA-256 checksums
+        run: node scripts/write-checksums.mjs release ${{ matrix.platform }}
+      - uses: actions/upload-artifact@v4
+        with:
+          name: just-chat-${{ matrix.platform }}
+          path: release/artifacts-${{ matrix.platform }}/*
+          if-no-files-found: error
+          retention-days: 14
+
+  draft:
+    needs: build
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: just-chat-*
+          path: release
+          merge-multiple: true
+      - name: Create a draft release for manual review
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release create "$GITHUB_REF_NAME" --draft --title "$GITHUB_REF_NAME" --generate-notes release/*
