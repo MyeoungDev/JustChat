@@ -74,9 +74,12 @@ Settings include:
 - System, Light, and Dark themes
 - Always-on-top behavior, opacity, and ChatGPT page zoom
 - Whether to reload ChatGPT after the window has been hidden for a while
+- A generic system notification when a ChatGPT reply finishes while the window is hidden
 - ChatGPT sign out and local website-data clearing
 
 The default page zoom is calibrated to the previous full-size ChatGPT view. Temporary Chat is started through ChatGPT's own control when available.
+
+Hidden-reply notifications are enabled by default and can be disabled in Settings. Notification delivery depends on operating-system permissions and app signing; Just Chat must remain running, and the notification does not include chat content.
 
 ## Limitations
 

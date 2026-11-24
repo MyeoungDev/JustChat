@@ -1,6 +1,6 @@
 # Implementation status audit
 
-Audit date: 2026-11-04
+Audit date: 2026-11-16
 
 “Verified” means covered by a passing automated test/build or directly observed in the local macOS smoke run. It does not imply Provider login or Windows compatibility.
 
@@ -10,7 +10,8 @@ Audit date: 2026-11-04
 |---|---|---|
 | Electron + TypeScript + React + Vite + pnpm | Implemented and verified | Type check and production build pass; local Electron process starts |
 | Test runner | Implemented and verified | Vitest: 8 files, 25 tests pass |
-| macOS/Windows packaging | Not implemented | No installer, signing, notarization or release artifacts |
+| macOS/Windows packaging | Configuration implemented; artifacts need CI/clean-machine verification | electron-builder targets macOS Apple Silicon DMG/ZIP and Windows x64 NSIS. macOS packages use an ad-hoc signature; Windows is unsigned. CI release tags create a draft only; trusted signing, notarization, and Windows runtime checks remain pending. |
+| CI and draft releases | Implemented; first workflow run pending | PR/main workflow runs typecheck, tests, and build; `v*` tags build both platform artifacts, checksums, and a GitHub draft. No tag was pushed and no release was published during implementation. |
 
 ## Runtime and UI
 
@@ -18,7 +19,7 @@ Audit date: 2026-11-04
 |---|---|---|
 | Main process and settings persistence | Implemented and verified | SettingsStore saves atomically; file persistence has unit coverage; Electron callbacks still live in `src/main/index.ts` |
 | Renderer | ChatGPT-first UI implemented; current change requires manual recheck | Removed the separate Just Chat composer and handoff path; startup now opens the retained ChatGPT WebContentsView directly. The in-shell controls are window mode, Settings and Hide. Current manual verification uses an isolated logged-out macOS profile; authenticated flows remain unverified. |
-| Application icon | Artwork and runtime icon wiring implemented; packaged app not verified | Original artwork and PNG, ICNS, and ICO assets are in `assets/`. Electron uses the PNG for the window and macOS Dock; packaging configuration is not yet present to embed the platform files in distributable app bundles. |
+| Application icon | Runtime wiring and packaging configuration implemented; package verification pending | Original artwork and PNG, ICNS, and ICO assets are in `assets/`. Electron uses the PNG at runtime; electron-builder is configured to use ICNS/ICO in the installer/app bundle. |
 | System appearance | Implemented and visually verified on macOS | `prefers-color-scheme` semantic tokens and Electron `nativeTheme` window background match both system appearances; muted hint text measures 4.58:1 in light shell and 6.20:1 in dark surface. See local Orca captures under `.omx/artifacts/ui-theme-verification/` |
 | WebView implementation | Implemented; live account flow unverified | `WebContentsView` uses sandbox/security settings and is visible on startup. The logged-out ChatGPT landing page was observed; login and authenticated conversation behavior remain unverified. |
 | Provider Adapter | Partially implemented | ChatGPT/Claude descriptors are wired and marked Experimental; Gemini/Grok are unavailable |
@@ -38,6 +39,7 @@ Audit date: 2026-11-04
 | Auto-hide / Escape | Implemented but unverified | Auto-hide configurable, default off; Escape configurable, default on; native focus and Provider Escape conflicts need manual checks |
 | Temporary-chat shortcut | Removed from Just Chat | ChatGPT's temporary-chat shortcut behavior is not verified, so Just Chat no longer advertises or sends a shortcut for it. Users can still choose temporary chat through ChatGPT's own UI. The configured conversation-search shortcut remains available while Just Chat is focused in Quick Chat. |
 | Hidden-window conversation reset | Implemented but unverified | Defaults to reloading ChatGPT after 30 minutes hidden; configurable to 15/30/60 minutes or never; requires signed-in manual verification |
+| Hidden ChatGPT completion notifications | Implemented; live delivery and DOM signals unverified | ChatGPT-only WebView observer sends start/completion state without message text; a generic native notification is gated on the window being hidden and the Settings toggle. Generation pauses the hidden reset timer. macOS signing/permission and live ChatGPT completion detection still need a manual smoke check. |
 | Previously active app focus | Implemented but unverified | Uses native hide/show behavior and WebContents focus request; OS focus restoration needs manual verification |
 | Provider chat input focus | Partially implemented | Focuses the WebContents; does not force focus into a site DOM input and makes no reliability claim |
 
@@ -51,6 +53,7 @@ Audit date: 2026-11-04
 | External navigation | Implemented and verified at helper level | Only HTTPS opens externally; non-HTTPS schemes rejected in tests; real click behavior not checked |
 | Permissions | Implemented but unverified | Provider sessions deny permission checks/requests; interactive provider effect not tested |
 | Credential logging / remote native bridge | Implemented but unverified | Raw URL/error logs removed; remote views have no preload; release/package audit remains |
+| Electron fuses | Configured; packaged binary verification pending | Packaging disables RunAsNode, Node options and inspector; enables ASAR integrity and loading only from ASAR; disables extra `file://` privileges. Cookie encryption is intentionally unset to avoid an irreversible change to existing user profiles. |
 
 ## Tests and measured behavior
 
@@ -63,3 +66,9 @@ Audit date: 2026-11-04
 | WebView lifecycle | Implemented and verified at registry level | Generic retained-view test passes; no local mock Electron WebContents integration test |
 | Performance | Partially implemented | Short macOS dev smoke measured 488 ms shell ready, 531 ms unauthenticated ChatGPT page load and ~650 MiB process working set; no warm transitions, logged-in profile, Windows or sustained idle run |
 | Manual authentication / upload | Blocked | Requires a user-controlled account and interactive provider/OS dialogs |
+
+## Public release readiness
+
+- Supported artifact targets: macOS arm64 (DMG and ZIP), Windows x64 (NSIS). Electron 45 upstream minimums are macOS 13 and Windows 10; product-level platform testing remains pending.
+- `SECURITY.md`, `PRIVACY.md`, `CONTRIBUTING.md`, and `docs/RELEASE.md` describe reporting, local data, unsigned drafts, manual updates, and limitations.
+- Signing secrets, notarization, private GitHub vulnerability-reporting setup, clean-machine installs, and the first CI draft run require maintainer/platform follow-up.

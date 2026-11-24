@@ -1,10 +1,10 @@
 # Security review — Alpha
 
-Date: 2026-11-02
+Date: 2026-11-16
 
 ## Scope and result
 
-This is a source review of the Electron shell and remote-content boundary, not a penetration test. Electron 45.2.1, Chromium, dependencies and real Provider login flows must be re-reviewed before release.
+This is a source review of the Electron shell, packaging configuration, and remote-content boundary, not a penetration test. Electron 45.2.1, Chromium, dependencies and real Provider login flows must be re-reviewed before each stable release.
 
 ## Implemented controls
 
@@ -17,6 +17,9 @@ This is a source review of the Electron shell and remote-content boundary, not a
 - Preload exposes a narrow command surface rather than `ipcRenderer` itself. The local shell declares a restrictive CSP.
 - Provider pages remain visible while loading so browser challenges and sign-in screens can render. Errors show a retry banner; raw URLs and error descriptions are not logged.
 - External URL opening rejects non-HTTPS schemes.
+- Packaged builds use ASAR and configure Electron fuses to disable RunAsNode, Node options, and inspector flags; enable embedded ASAR integrity validation and only load app code from ASAR; and disable extra `file://` privileges. Cookie encryption is left unset to avoid an irreversible profile-format change.
+- The package includes compiled `out/` files and the runtime PNG only. Platform artwork is supplied to the packager; source files and source maps are excluded from the app payload.
+- CI uses read-only repository permissions except for the final draft-release job, which receives `contents: write`. The release workflow waits for both platform jobs and creates a draft, not a published release.
 
 ## Remaining findings and release risks
 
@@ -27,7 +30,10 @@ This is a source review of the Electron shell and remote-content boundary, not a
 
 ## Release checks not yet completed
 
-- Verify Electron fuses, signing, update provenance, dependency audit and packaged ASAR contents.
+- Verify configured Electron fuses and packaged ASAR contents in the first native CI build.
+- Configure Apple Developer ID signing/notarization and Windows Authenticode only after credentials and a signing review are available. Set `JUST_CHAT_REQUIRE_SIGNING=1` so signed builds fail closed; never commit credentials.
+- Enable GitHub private vulnerability reporting in repository Security settings; the source file cannot toggle this setting.
+- Verify dependency audit, release artifact hashes, update provenance, GitHub Actions action pins and workflow logs before a stable release.
 - Review provider terms and embedded browser/login policies.
 - Test popup, redirect, permissions and file upload behavior on macOS and Windows.
 - Confirm there is no remote-content preload and no Node integration in every WebContentsView after refactors.

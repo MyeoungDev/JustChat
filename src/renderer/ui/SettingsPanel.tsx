@@ -6,7 +6,7 @@ interface SettingsPanelProps {
   settings: AppSettings
   shortcutFailures: string[]
   platform: string
-  onUpdate: (patch: Partial<Pick<AppSettings, 'shortcuts' | 'alwaysOnTop' | 'autoHidePopover' | 'escapeHidesPopover' | 'opacity' | 'theme' | 'opacityMode' | 'backgroundOpacity' | 'pageZoomPercent' | 'resetAfterMinutes'>>) => Promise<{ ok: boolean; failures?: string[] }>
+  onUpdate: (patch: Partial<Pick<AppSettings, 'shortcuts' | 'alwaysOnTop' | 'autoHidePopover' | 'escapeHidesPopover' | 'opacity' | 'theme' | 'opacityMode' | 'backgroundOpacity' | 'pageZoomPercent' | 'resetAfterMinutes' | 'notifyWhenChatGPTCompletesWhileHidden'>>) => Promise<{ ok: boolean; failures?: string[] }>
   onClearChatGptSession: () => Promise<ClearChatGptSessionResult>
   onClose: () => void
 }
@@ -103,7 +103,8 @@ export function SettingsPanel({ settings, shortcutFailures, platform, onUpdate, 
         opacityMode: defaults.opacityMode,
         backgroundOpacity: defaults.backgroundOpacity,
         pageZoomPercent: defaults.pageZoomPercent,
-        resetAfterMinutes: defaults.resetAfterMinutes
+        resetAfterMinutes: defaults.resetAfterMinutes,
+        notifyWhenChatGPTCompletesWhileHidden: defaults.notifyWhenChatGPTCompletesWhileHidden
       })
       if (result.ok) {
         setConfirmingReset(false)
@@ -193,6 +194,7 @@ export function SettingsPanel({ settings, shortcutFailures, platform, onUpdate, 
             </div>
           </div>
           <label className="setting-row"><span><strong>Reset conversation after hiding</strong><small>Starts a fresh ChatGPT page next time if Just Chat stays hidden for this long.</small></span><select aria-label="Reset conversation after hiding" value={settings.resetAfterMinutes} disabled={saving} onChange={(event) => void update({ resetAfterMinutes: Number(event.target.value) })}><option value={0}>Never</option><option value={15}>15 minutes</option><option value={30}>30 minutes</option><option value={60}>1 hour</option></select></label>
+          <label className="setting-row toggle-row"><span><strong>Notify when ChatGPT replies while hidden</strong><small>Shows a generic system notification when a reply finishes. The prompt and reply are never included. Delivery depends on OS notification access and, on macOS, app signing.</small></span><input aria-label="Notify when ChatGPT replies while hidden" type="checkbox" checked={settings.notifyWhenChatGPTCompletesWhileHidden} disabled={saving} onChange={(event) => void update({ notifyWhenChatGPTCompletesWhileHidden: event.target.checked })} /></label>
           <div className="setting-row">
             <div><strong>Restore settings to defaults</strong><small>Resets shortcuts, appearance, zoom, transparency and window behavior. Window size, ChatGPT sign-in and chats are kept.</small></div>
             {!confirmingReset && <button className="text-button" disabled={saving} onClick={() => setConfirmingReset(true)}>Restore defaults…</button>}

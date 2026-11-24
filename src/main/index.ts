@@ -1,4 +1,4 @@
-import { app, BrowserWindow, globalShortcut, ipcMain, nativeImage, nativeTheme, screen, session, shell, WebContentsView } from 'electron'
+import { app, BrowserWindow, globalShortcut, ipcMain, nativeImage, nativeTheme, Notification, screen, session, shell, WebContentsView } from 'electron'
 import { dirname, join } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 import { classifyProviderPopup, isAllowedProviderNavigation, isSecureProviderRedirect, providers, resolveProviderSelection, type ProviderAdapter, type ProviderId } from '../shared/providers'
@@ -11,6 +11,7 @@ import { boundsAnchoredAtBottom, boundsForDisplay, centeredBounds, geometryForCu
 import { chatGPTConversationPath, hasChatGPTConversationRoute, isChatGPTSendKey, isCloseWindowShortcut, isSettingsToggleShortcut, shouldCollapseChatGPTSidebar, shouldHideWindowOnBlur } from '../shared/window-behavior'
 import { SettingsStore } from './settings-store'
 import { clearProviderSessionData } from './provider-session'
+import { ChatGPTResponseMonitor, shouldNotifyForChatGPTCompletion, type ChatGPTResponseSignal } from './chatgpt-response-monitor'
 import {
   shouldAttemptTemporaryChatUrlFallback,
   temporaryChatAutomationScript,
@@ -20,7 +21,7 @@ import {
 import { performance } from 'node:perf_hooks'
 
 type ProviderLoadState = 'loading' | 'ready' | 'error'
-type UserSettingsPatch = Partial<Pick<AppSettings, 'shortcuts' | 'alwaysOnTop' | 'autoHidePopover' | 'escapeHidesPopover' | 'opacity' | 'theme' | 'opacityMode' | 'backgroundOpacity' | 'pageZoomPercent' | 'resetAfterMinutes'>>
+type UserSettingsPatch = Partial<Pick<AppSettings, 'shortcuts' | 'alwaysOnTop' | 'autoHidePopover' | 'escapeHidesPopover' | 'opacity' | 'theme' | 'opacityMode' | 'backgroundOpacity' | 'pageZoomPercent' | 'resetAfterMinutes' | 'notifyWhenChatGPTCompletesWhileHidden'>>
 
 const currentDir = dirname(fileURLToPath(import.meta.url))
 const rendererFile = join(currentDir, '../renderer/index.html')
@@ -49,6 +50,7 @@ let shortcutFailures: string[] = []
 let saveTimer: NodeJS.Timeout | undefined
 let autoHideTimer: NodeJS.Timeout | undefined
 let chatResetTimer: NodeJS.Timeout | undefined
+const chatGPTResponseMonitor = new ChatGPTResponseMonitor()
 let compactAuthDialogTimer: NodeJS.Timeout | undefined
 let authDialogCheckInFlight = false
 let temporaryChatShortcutInFlight = false
@@ -58,6 +60,7 @@ const providerSwitchStarts = new Map<ProviderId, number>()
 const providerLoadTimeouts = new Map<ProviderId, NodeJS.Timeout>()
 const timedOutProviders = new Set<ProviderId>()
 const composerFocusInFlight = new WeakSet<Electron.WebContents>()
+const composerFocusPending = new WeakSet<Electron.WebContents>()
 
 function shellBackgroundColor() {
   return nativeTheme.shouldUseDarkColors ? '#1c1c1b' : '#f6f6f4'
@@ -139,28 +142,53 @@ function showWindow() {
   syncCompactAuthDialogMonitor()
 }
 
-function hideWindow() {
-  if (!window || window.isDestroyed()) return
+function scheduleChatResetTimer() {
   if (chatResetTimer) clearTimeout(chatResetTimer)
   chatResetTimer = undefined
-  if (settings.resetAfterMinutes > 0 && settings.activeProviderId === 'chatgpt') {
-    chatResetTimer = setTimeout(() => {
-      chatResetTimer = undefined
-      if (!window || window.isDestroyed() || window.isVisible() || settings.activeProviderId !== 'chatgpt') return
-      const view = webViews.get('chatgpt')
-      if (!view || view.webContents.isDestroyed()) return
-      settings.lastChatGPTConversationPath = undefined
-      resetWindowToCompactDefaults()
-      providerLoadStarts.set('chatgpt', performance.now())
-      setProviderState('chatgpt', 'loading')
-      void view.webContents.loadURL(providerFor('chatgpt').url).catch(() => setProviderState('chatgpt', 'error'))
-      sendState()
-    }, settings.resetAfterMinutes * 60_000)
-    chatResetTimer.unref()
+  if (settings.resetAfterMinutes <= 0 || settings.activeProviderId !== 'chatgpt'
+    || chatGPTResponseMonitor.isGenerating || !window || window.isDestroyed() || window.isVisible()) return
+
+  chatResetTimer = setTimeout(() => {
+    chatResetTimer = undefined
+    if (!window || window.isDestroyed() || window.isVisible() || settings.activeProviderId !== 'chatgpt'
+      || chatGPTResponseMonitor.isGenerating) return
+    const view = webViews.get('chatgpt')
+    if (!view || view.webContents.isDestroyed()) return
+    settings.lastChatGPTConversationPath = undefined
+    resetWindowToCompactDefaults()
+    providerLoadStarts.set('chatgpt', performance.now())
+    setProviderState('chatgpt', 'loading')
+    void view.webContents.loadURL(providerFor('chatgpt').url).catch(() => setProviderState('chatgpt', 'error'))
+    sendState()
+  }, settings.resetAfterMinutes * 60_000)
+  chatResetTimer.unref()
+}
+
+function showChatGPTCompletionNotification() {
+  if (!Notification.isSupported()) {
+    console.warn('[Just Chat] Native notifications are not supported on this system')
+    return
   }
+  try {
+    const notification = new Notification({ title: 'ChatGPT response complete', body: 'Your response is ready.' })
+    notification.once('failed', (_event, error) => console.warn(`[Just Chat] Native notification failed: ${error}`))
+    notification.once('click', () => {
+      showWindow()
+      window?.focus()
+    })
+    notification.show()
+  } catch (error) {
+    const reason = error instanceof Error ? error.message : 'unknown error'
+    console.warn(`[Just Chat] Could not show native notification: ${reason}`)
+  }
+}
+
+function hideWindow() {
+  if (!window || window.isDestroyed()) return
   const started = performance.now()
   window.once('hide', () => recordPerformance('popover-hide-ms', { duration: timeSince(started) }))
   window.hide()
+  scheduleChatResetTimer()
   syncCompactAuthDialogMonitor()
 }
 
@@ -199,6 +227,12 @@ function handleEscape(event: Electron.Event, input: Electron.Input): boolean {
   if (settingsVisible) {
     event.preventDefault()
     setSettingsVisibility(false)
+    return true
+  }
+  if (window?.isVisible() && (window.isFullScreen() || mode === 'fullscreen')) {
+    event.preventDefault()
+    if (window.isFullScreen()) window.setFullScreen(false)
+    else setMode(modeBeforeFullscreen)
     return true
   }
   if (!settings.escapeHidesPopover || !window?.isVisible()) return false
@@ -246,6 +280,11 @@ function handleSettingsShortcut(event: Electron.Event, input: Electron.Input): b
 function handleCloseWindowShortcut(event: Electron.Event, input: Electron.Input): boolean {
   if (!isCloseWindowShortcut(input, process.platform) || !window?.isVisible() || !window.isFocused()) return false
   event.preventDefault()
+  if (window.isFullScreen() || mode === 'fullscreen') {
+    if (window.isFullScreen()) window.setFullScreen(false)
+    else setMode(modeBeforeFullscreen)
+    return true
+  }
   hideWindow()
   return true
 }
@@ -516,6 +555,7 @@ function getProviderView(id: ProviderId) {
     const adapter = providerFor(id)
     const view = new WebContentsView({
     webPreferences: {
+      ...(id === 'chatgpt' ? { preload: join(currentDir, '../preload/chatgpt-generation-monitor.js') } : {}),
       partition: adapter.sessionPartition,
       nodeIntegration: false,
       contextIsolation: true,
@@ -565,6 +605,10 @@ function getProviderView(id: ProviderId) {
       return canWriteSanitizedClipboard(permission, details.requestingUrl ?? requestingOrigin, details.isMainFrame, adapter)
     })
     contents.on('did-start-loading', () => {
+      if (id === 'chatgpt') {
+        chatGPTResponseMonitor.consume('reset')
+        scheduleChatResetTimer()
+      }
       let host = 'unknown'
       try { host = new URL(contents.getURL()).hostname } catch { /* URL may not be available yet */ }
       console.info(`[Just Chat] ${id} load started at ${host}`)
@@ -712,15 +756,20 @@ function growCompactWindowForComposer(requiredGrowth: number) {
 
 function savedBoundsForDisplay(targetMode: WindowMode, display: Electron.Display) {
   if (targetMode === 'fullscreen') return display.bounds
+  const area = display.workArea
+  const keepUsableBounds = (bounds: Electron.Rectangle | undefined) => {
+    if (!bounds) return undefined
+    const fillsDisplay = bounds.width >= area.width * 0.95 && bounds.height >= area.height * 0.95
+    return fillsDisplay ? undefined : bounds
+  }
   const legacy = settings.geometry[targetMode]
   const byDisplay = settings.geometryByDisplay[targetMode]?.[String(display.id)]
-  if (byDisplay) return legacy ? { ...byDisplay, width: legacy.width, height: legacy.height } : byDisplay
+  if (byDisplay) return keepUsableBounds(legacy ? { ...byDisplay, width: legacy.width, height: legacy.height } : byDisplay)
   if (!legacy) return undefined
   const legacyDisplay = screen.getDisplayNearestPoint({ x: legacy.x + legacy.width / 2, y: legacy.y + legacy.height / 2 })
-  if (legacyDisplay.id === display.id) return legacy
-  const area = display.workArea
+  if (legacyDisplay.id === display.id) return keepUsableBounds(legacy)
   const fallback = lowerCenteredBounds(targetMode, area)
-  return { ...fallback, width: legacy.width, height: legacy.height }
+  return keepUsableBounds({ ...fallback, width: legacy.width, height: legacy.height })
 }
 
 function positionWindowOnCursorDisplay() {
@@ -992,15 +1041,25 @@ function retryProvider() {
 function focusChatView() {
   if (!window || window.isDestroyed() || settingsVisible) return
   window.focus()
-  focusChatComposer()
+  const focusComposerWhenActive = () => {
+    if (!window || window.isDestroyed() || !window.isVisible() || !window.isFocused()) return
+    setTimeout(focusChatComposer, 120)
+  }
+  if (window.isFocused()) focusComposerWhenActive()
+  else window.once('focus', focusComposerWhenActive)
 }
 
 function focusChatComposer() {
-  if (!window || window.isDestroyed() || settingsVisible) return
-  const view = webViews.get(settings.activeProviderId)
+  if (!window || window.isDestroyed() || !window.isVisible() || !window.isFocused() || settingsVisible) return
+  const id = settings.activeProviderId
+  const view = webViews.get(id)
   if (!view || view.webContents.isDestroyed()) return
   const contents = view.webContents
-  if (contents.isLoadingMainFrame() || composerFocusInFlight.has(contents)) return
+  if (contents.isLoadingMainFrame()) return
+  if (composerFocusInFlight.has(contents)) {
+    composerFocusPending.add(contents)
+    return
+  }
   composerFocusInFlight.add(contents)
   contents.focus()
   void contents.executeJavaScript(`
@@ -1041,7 +1100,15 @@ function focusChatComposer() {
     if (!point || contents.isDestroyed()) return
     contents.sendInputEvent({ type: 'mouseDown', x: point.x, y: point.y, button: 'left' })
     contents.sendInputEvent({ type: 'mouseUp', x: point.x, y: point.y, button: 'left' })
-  }).catch(() => undefined).finally(() => composerFocusInFlight.delete(contents))
+  }).catch(() => undefined).finally(() => {
+    composerFocusInFlight.delete(contents)
+    if (!composerFocusPending.has(contents)) return
+    composerFocusPending.delete(contents)
+    setTimeout(() => {
+      if (window?.isVisible() && window.isFocused() && !settingsVisible
+        && settings.activeProviderId === id && !contents.isDestroyed()) focusChatComposer()
+    }, 100)
+  })
 }
 
 function toggleWindow() {
@@ -1165,6 +1232,12 @@ function createWindow() {
       webSecurity: true
     }
   })
+  // The global shortcut can be invoked from any macOS Space. Keep the popover
+  // available in the active Space instead of sending the user back to the one
+  // where this BrowserWindow was first shown.
+  if (process.platform === 'darwin') {
+    window.setVisibleOnAllWorkspaces(true, { visibleOnFullScreen: false })
+  }
   // Keep the shell (including Settings) at a stable 100% scale on every launch.
   window.webContents.setZoomMode('isolated')
   window.webContents.setZoomFactor(1)
@@ -1278,6 +1351,35 @@ ipcMain.handle('shell:get-state', (event) => {
   }
 })
 
+ipcMain.on('chatgpt:generation-state', (event, signal: ChatGPTResponseSignal) => {
+  const chatGPTContents = webViews.get('chatgpt')?.webContents
+  if (!chatGPTContents || chatGPTContents.isDestroyed() || event.sender !== chatGPTContents
+    || event.senderFrame !== event.sender.mainFrame || !['started', 'completed', 'reset'].includes(signal)) return
+  try {
+    const { hostname, protocol } = new URL(event.senderFrame.url)
+    if (protocol !== 'https:' || !['chatgpt.com', 'www.chatgpt.com'].includes(hostname)) return
+  } catch {
+    return
+  }
+
+  const transition = chatGPTResponseMonitor.consume(signal)
+  if (transition === 'started') {
+    if (chatResetTimer) clearTimeout(chatResetTimer)
+    chatResetTimer = undefined
+    return
+  }
+  if (transition === 'completed') {
+    if (shouldNotifyForChatGPTCompletion({
+      notificationsEnabled: settings.notifyWhenChatGPTCompletesWhileHidden,
+      windowVisible: Boolean(window && !window.isDestroyed() && window.isVisible()),
+      providerId: settings.activeProviderId
+    })) showChatGPTCompletionNotification()
+    scheduleChatResetTimer()
+    return
+  }
+  if (signal === 'reset') scheduleChatResetTimer()
+})
+
 ipcMain.handle('settings:update', (event, patch: UserSettingsPatch) => {
   if (!isTrustedShell(event) || !patch || typeof patch !== 'object') return { ok: false, reason: 'untrusted' }
   const candidate = normalizeSettings({
@@ -1291,12 +1393,16 @@ ipcMain.handle('settings:update', (event, patch: UserSettingsPatch) => {
     backgroundOpacity: typeof patch.backgroundOpacity === 'number' ? patch.backgroundOpacity : settings.backgroundOpacity,
     pageZoomPercent: typeof patch.pageZoomPercent === 'number' ? patch.pageZoomPercent : settings.pageZoomPercent,
     resetAfterMinutes: typeof patch.resetAfterMinutes === 'number' ? patch.resetAfterMinutes : settings.resetAfterMinutes,
+    notifyWhenChatGPTCompletesWhileHidden: typeof patch.notifyWhenChatGPTCompletesWhileHidden === 'boolean'
+      ? patch.notifyWhenChatGPTCompletesWhileHidden
+      : settings.notifyWhenChatGPTCompletesWhileHidden,
     shortcuts: patch.shortcuts ? { ...settings.shortcuts, ...patch.shortcuts, providers: { ...settings.shortcuts.providers, ...patch.shortcuts.providers } } : settings.shortcuts
   }, process.platform)
   const failures = patch.shortcuts ? replaceBindings(candidate) : []
   if (failures.length) return { ok: false, failures }
   settings = candidate
   if (patch.theme) nativeTheme.themeSource = settings.theme
+  if (typeof patch.resetAfterMinutes === 'number') scheduleChatResetTimer()
   if (typeof patch.pageZoomPercent === 'number') {
     for (const provider of providers) {
       const view = webViews.get(provider.id)

@@ -13,6 +13,16 @@ git diff --check
 
 Coverage includes settings normalization and persistence, shortcut registration and conflicts, focused shortcut routing, retained Provider-view reuse, sender/origin checks, navigation policy, and window geometry transitions.
 
+## Packaging and release checks
+
+- [ ] `pnpm install --frozen-lockfile` succeeds on a clean Linux, macOS, and Windows runner with the checked-in pnpm version.
+- [ ] `pnpm dist:mac` produces an arm64 DMG and ZIP; `pnpm dist:win` produces an x64 NSIS installer.
+- [ ] Inspect app ID, product name, platform icons, ASAR contents, and Electron fuse values in each package. Confirm the package does not require the Vite dev server or include source maps/source artwork.
+- [ ] Install and launch the macOS package on macOS 13+ Apple Silicon; install, launch, upgrade, and uninstall the Windows package on Windows 10+ x64. Confirm user data persists on upgrade and uninstall.
+- [ ] Inspect the `v*` tag workflow's draft, asset list, SHA-256 manifests, and logs. Confirm neither platform failure can publish a draft and that no secrets are printed.
+- [ ] Verify signing and notarization before publishing a signed release. Current CI artifacts are unsigned and should not be described as trusted/signed.
+- [ ] Review Electron's supported release lines and update Electron before it leaves upstream support. Verify current provider policies and terms before each stable release.
+
 ## Manual checklist
 
 Keep user credentials and account state under the user's control. Use a temporary app-data directory for unauthenticated smoke checks and never clear or alter the normal profile during verification.
@@ -34,6 +44,8 @@ Keep user credentials and account state under the user's control. Use a temporar
 - [ ] A provider load failure shows Retry and can recover without exposing a blank shell.
 - [ ] Window position and size restore across displays and restarts; test Retina and mixed-DPI displays on both operating systems.
 - [ ] Test app behavior on Windows, including install, first launch, focus restoration, hotkeys, and all window modes.
+- [ ] With a user-controlled ChatGPT session, verify one generic notification after a hidden response completes; verify visible completion and disabled setting produce none. Check cancellation and reset-timer behavior without changing account state.
+- [ ] Confirm native notification delivery on each supported OS/build type; macOS development builds may require code signing, and app-quit delivery is not supported.
 
 ## Current manual run — 2026-11-04
 
@@ -101,3 +113,11 @@ Run context: macOS development build using the existing Just Chat profile. The u
 - [ ] A live DOM fixture suite has not been added. The current DOM readiness probe confirmed composer/main-content presence, but broader home/conversation/sidebar/error fixture coverage remains outstanding.
 
 No app code was changed during this run because the reported blank-screen failure did not reproduce and the plan prohibits speculative retries or focus suppression without evidence. Existing uncommitted source changes were preserved. No commit or push was made.
+
+## Hidden ChatGPT notification implementation — 2026-11-16
+
+- [x] Added a ChatGPT-only isolated preload observer. It reports only `started`, `completed`, or `reset`; it never sends prompt text, answer text, or conversation titles to the main process.
+- [x] Added a default-on Settings toggle. Native notification text is fixed and generic; visible-window completions, disabled notifications, duplicate completion signals, and non-ChatGPT Provider state are filtered out.
+- [x] Hidden-window conversation reset is paused while generation is active and is rescheduled after completion or reset/cancel signals.
+- [x] Settings normalization, generation transition, and notification policy tests pass; typecheck and production build pass.
+- [ ] Live ChatGPT DOM completion detection and Notification Center delivery were not exercised in this implementation run. Delivery still depends on OS permissions and, on macOS, the signing state of the running app. A response is not monitored after the app quits.

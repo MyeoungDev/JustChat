@@ -24,6 +24,7 @@ export interface AppSettings {
   backgroundOpacity: number
   pageZoomPercent: number
   pageZoomScaleVersion: number
+  notifyWhenChatGPTCompletesWhileHidden: boolean
   lastChatGPTConversationPath?: string
   resetAfterMinutes: number
   geometry: WindowGeometry
@@ -52,6 +53,7 @@ export function defaultSettings(platform: string): AppSettings {
     backgroundOpacity: 0.9,
     pageZoomPercent: 100,
     pageZoomScaleVersion: 3,
+    notifyWhenChatGPTCompletesWhileHidden: true,
     resetAfterMinutes: 30,
     geometry: {},
     geometryByDisplay: {}
@@ -121,6 +123,9 @@ export function normalizeSettings(value: unknown, platform: string): AppSettings
           : (input.pageZoomPercent === 91 ? 83 : input.pageZoomPercent) * 100 / 99.6)))
       : defaults.pageZoomPercent,
     pageZoomScaleVersion: 3,
+    notifyWhenChatGPTCompletesWhileHidden: typeof input.notifyWhenChatGPTCompletesWhileHidden === 'boolean'
+      ? input.notifyWhenChatGPTCompletesWhileHidden
+      : defaults.notifyWhenChatGPTCompletesWhileHidden,
     lastChatGPTConversationPath,
     resetAfterMinutes: [0, 15, 30, 60].includes(input.resetAfterMinutes ?? -1) ? input.resetAfterMinutes! : defaults.resetAfterMinutes,
     geometry,

@@ -8,7 +8,15 @@ export default defineConfig({
     resolve: { alias: { '@main': resolve('src/main'), '@shared': resolve('src/shared') } }
   },
   preload: {
-    build: { externalizeDeps: false },
+    build: {
+      externalizeDeps: false,
+      rollupOptions: {
+        input: {
+          index: resolve('src/preload/index.ts'),
+          'chatgpt-generation-monitor': resolve('src/preload/chatgpt-generation-monitor.ts')
+        }
+      }
+    },
     resolve: { alias: { '@shared': resolve('src/shared') } }
   },
   renderer: {

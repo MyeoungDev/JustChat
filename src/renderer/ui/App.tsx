@@ -16,6 +16,7 @@ const initialSettings: AppSettings = {
   backgroundOpacity: 0.9,
   pageZoomPercent: 100,
   pageZoomScaleVersion: 3,
+  notifyWhenChatGPTCompletesWhileHidden: true,
   resetAfterMinutes: 30,
   geometry: {},
   geometryByDisplay: {}

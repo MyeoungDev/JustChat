@@ -9,6 +9,7 @@ describe('settings', () => {
     expect(defaultSettings('win32').shortcuts.toggleFullscreen).toBe('Control+Shift+F')
     expect(defaultSettings('win32').shortcuts).not.toHaveProperty('chatHistory')
     expect(defaultSettings('darwin').resetAfterMinutes).toBe(30)
+    expect(defaultSettings('darwin').notifyWhenChatGPTCompletesWhileHidden).toBe(true)
     expect(defaultSettings('darwin').pageZoomPercent).toBe(100)
     expect(pageZoomFactor(100)).toBeCloseTo(0.996)
   })
@@ -59,6 +60,12 @@ describe('settings', () => {
   it('accepts disabling the idle reset timer and falls back for unsupported values', () => {
     expect(normalizeSettings({ resetAfterMinutes: 0 }, 'darwin').resetAfterMinutes).toBe(0)
     expect(normalizeSettings({ resetAfterMinutes: 45 }, 'darwin').resetAfterMinutes).toBe(30)
+  })
+
+  it('defaults hidden ChatGPT notifications on and preserves an explicit opt-out', () => {
+    expect(normalizeSettings({}, 'darwin').notifyWhenChatGPTCompletesWhileHidden).toBe(true)
+    expect(normalizeSettings({ notifyWhenChatGPTCompletesWhileHidden: false }, 'darwin').notifyWhenChatGPTCompletesWhileHidden).toBe(false)
+    expect(normalizeSettings({ notifyWhenChatGPTCompletesWhileHidden: 'yes' }, 'darwin').notifyWhenChatGPTCompletesWhileHidden).toBe(true)
   })
 
   it('keeps whole-window opacity and experimental background opacity independently', () => {
