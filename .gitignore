@@ -1,7 +1,9 @@
 node_modules/
+target/
 .omx/
 out/
 dist/
+dist-tauri/
 release/
 coverage/
 .DS_Store

@@ -10,7 +10,9 @@ declare global {
       collapse: () => void
       compact: () => void
       toggleFullscreen: () => void
+      dispatchShortcut: (chord: string) => Promise<boolean>
       hide: () => void
+      startDragging?: () => void
       showSettings: (visible: boolean) => void
       retryProvider: () => void
       selectProvider: (provider: ProviderId) => void

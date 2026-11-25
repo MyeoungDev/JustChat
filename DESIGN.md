@@ -85,10 +85,10 @@
 - Microcopy rules: Explain what is unavailable without marketing claims or blame
 
 ## Implementation constraints
-- Framework/styling system: Electron, React, TypeScript, plain CSS
+- Framework/styling system: Electron and Tauri hosts with shared React, TypeScript, and plain CSS; Electron remains the reference implementation during migration
 - Design-token constraints: Extend current neutrals into light/dark semantic CSS variables; derive the shell appearance from the OS preference; avoid introducing a component library
 - Performance constraints: Keep Provider WebContentsView instances to preserve state; measure before eviction
-- Compatibility constraints: Electron APIs may still differ in window management by OS; verify each platform
+- Compatibility constraints: Electron and Tauri window APIs differ by OS; keep window semantics aligned and verify macOS behavior before treating the Tauri host as a replacement
 - Test/screenshot expectations: Test state logic and controls; capture OS-specific visuals during manual platform verification
 
 ## Open questions

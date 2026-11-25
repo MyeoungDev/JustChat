@@ -1,0 +1,1 @@
+{"shell":{"identifier":"shell","description":"Permissions for Just Chat's local React shell.","local":true,"webviews":["shell"],"permissions":["core:default","global-shortcut:allow-register","global-shortcut:allow-unregister"]}}

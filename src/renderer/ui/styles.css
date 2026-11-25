@@ -55,14 +55,72 @@
     --shadow: #0008;
   }
 }
+:root[data-theme="light"] {
+  color-scheme: light;
+  --shell-bg: #f6f6f4;
+  --surface: #fff;
+  --text: #262521;
+  --text-secondary: #74726d;
+  --text-muted: #72706a;
+  --border: #e5e4df;
+  --border-soft: #ecebe7;
+  --control-bg: #e9e8e3;
+  --control-bg-soft: #eeede9;
+  --notice-bg: #fff;
+  --notice-text: #45433d;
+  --warning-bg: #fff9e9;
+  --warning-border: #ead8aa;
+  --warning-text: #514331;
+  --feedback-text: #785b35;
+  --error-text: #8a4b3e;
+  --danger-text: #a33f32;
+  --focus-bg: #f0f3ff;
+  --focus-border: #91a5e3;
+  --focus-text: #3154b6;
+  --spinner-border: #d7d6d0;
+  --spinner-top: #74726d;
+  --accent: #34332f;
+  --accent-hover: #4c4a45;
+  --shadow: #25231d18;
+}
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --shell-bg: #1c1c1b;
+  --surface: #282827;
+  --text: #ecebe7;
+  --text-secondary: #b2b0a9;
+  --text-muted: #aaa8a0;
+  --border: #3c3b38;
+  --border-soft: #343330;
+  --control-bg: #3a3936;
+  --control-bg-soft: #302f2d;
+  --notice-bg: #2b2a28;
+  --notice-text: #e3e1da;
+  --warning-bg: #342d20;
+  --warning-border: #62502d;
+  --warning-text: #ead8b3;
+  --feedback-text: #e0c99f;
+  --error-text: #edaaa0;
+  --danger-text: #f09c90;
+  --focus-bg: #282c39;
+  --focus-border: #6579b0;
+  --focus-text: #c1cff7;
+  --spinner-border: #4c4b47;
+  --spinner-top: #cfcdc5;
+  --accent: #d7d5ce;
+  --accent-hover: #f0eee7;
+  --shadow: #0008;
+}
 * { box-sizing: border-box; }
 html, body, #root { width: 100%; height: 100%; margin: 0; overflow: hidden; }
 body { color: var(--text); background: var(--shell-bg); font: 13px/1.45 Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; }
 body[data-background-opacity="true"] { background: transparent; }
+html[data-tauri-shell] body { background: transparent; }
 button, input { color: inherit; font: inherit; }
 button { cursor: pointer; }
 button:focus-visible, input:focus-visible { outline: 2px solid #5878d6; outline-offset: 2px; }
 .shell-header { position: relative; z-index: 3; height: 48px; padding: 6px 14px 0; background: var(--shell-bg); border-bottom: 1px solid var(--border); user-select: none; -webkit-app-region: drag; }
+html[data-tauri-shell] .shell-header { border-radius: 14px 14px 0 0; }
 .brand-row { height: 35px; display: flex; align-items: center; justify-content: flex-end; }
 .window-actions { display: flex; gap: 5px; -webkit-app-region: no-drag; }
 .icon-button { width: 26px; height: 25px; border: 0; border-radius: 7px; background: transparent; font-size: 16px; line-height: 1; }

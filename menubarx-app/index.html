@@ -1,0 +1,51 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Just Browse</title>
+    <link rel="stylesheet" href="design-tokens.css" />
+    <link rel="stylesheet" href="style.css" />
+  </head>
+  <body>
+    <header class="toolbar">
+      <div class="nav-actions">
+        <button id="back" title="Back" aria-label="Back">‹</button>
+        <button id="forward" title="Forward" aria-label="Forward">›</button>
+        <button id="home-button" title="Start page" aria-label="Start page">⌂</button>
+        <button id="reload" title="Reload" aria-label="Reload">↻</button>
+      </div>
+      <form id="address-form">
+        <input id="address" aria-label="Address or search" placeholder="Search or enter address" autocomplete="off" spellcheck="false" />
+      </form>
+      <button id="bookmark" title="Bookmark this page" aria-label="Bookmark this page">☆</button>
+      <button id="mute" title="Mute website audio" aria-label="Mute website audio">◖</button>
+      <button id="pin" title="Keep window on top" aria-label="Keep window on top">⌖</button>
+      <button id="menu-button" title="Browser menu" aria-label="Browser menu">⋯</button>
+      <button id="hide" title="Hide window" aria-label="Hide window">×</button>
+    </header>
+    <div class="tab-strip">
+      <nav class="tabs" id="tabs" role="group" aria-label="Browser tabs"></nav>
+      <button id="new-tab" class="new-tab" type="button" title="New tab (⌘N)" aria-label="New tab">+</button>
+    </div>
+    <div id="notice" class="notice" role="status" aria-live="polite" hidden></div>
+    <main id="home" class="home" hidden>
+      <div class="home-inner">
+        <div class="brand-mark">J</div>
+        <h1>Web, close at hand.</h1>
+        <form id="home-form" class="home-search"><input id="home-address" aria-label="Search or enter address" placeholder="Search or enter address" autocomplete="off" /><button>Go</button></form>
+        <section class="bookmark-section"><div class="section-heading"><h2>Favorites</h2><button id="add-favorite" class="text-button" type="button">＋ Add site</button></div><div id="bookmarks" class="bookmarks"></div></section>
+      </div>
+    </main>
+    <dialog id="bookmark-editor" class="bookmark-dialog">
+      <form id="bookmark-form">
+        <h2 id="bookmark-dialog-title">Edit favorite</h2>
+        <label>Site name<input id="favorite-title" name="title" maxlength="80" required /></label>
+        <label>Website address<input id="favorite-url" name="url" type="url" placeholder="https://example.com" required /></label>
+        <label>Tile icon (emoji or letter)<input id="favorite-icon" name="icon" maxlength="8" placeholder="A" /></label>
+        <div class="dialog-actions"><button id="cancel-favorite" type="button">Cancel</button><button class="primary" type="submit">Save favorite</button></div>
+      </form>
+    </dialog>
+    <script src="renderer.js"></script>
+  </body>
+</html>

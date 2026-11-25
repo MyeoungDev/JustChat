@@ -1,0 +1,139 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Just Browse Settings</title>
+    <link rel="stylesheet" href="design-tokens.css" />
+    <link rel="stylesheet" href="settings.css" />
+  </head>
+  <body>
+    <header class="settings-header">
+      <div class="eyebrow">JUST BROWSE</div>
+      <h1>Settings</h1>
+      <p>Customize how the browser opens and behaves.</p>
+    </header>
+
+    <form id="settings-form">
+      <section class="settings-section">
+        <h2>General</h2>
+        <label class="setting-row">
+          <span><strong>Show as</strong><small>Choose a compact menu bar panel or a standard app window in the Dock or taskbar.</small></span>
+          <select name="presentation">
+            <option value="panel">Menu bar panel</option>
+            <option value="window">Standard app window</option>
+          </select>
+        </label>
+        <label class="setting-row">
+          <span><strong>Search engine</strong><small>Used when you enter words instead of a web address.</small></span>
+          <select name="searchEngine">
+            <option value="google">Google</option>
+            <option value="duckduckgo">DuckDuckGo</option>
+            <option value="bing">Bing</option>
+          </select>
+        </label>
+        <label class="setting-block">
+          <span><strong>Homepage</strong><small>Leave blank to use the built-in favorites page. New tabs use this address.</small></span>
+          <input name="homepage" type="url" placeholder="https://example.com" autocomplete="url" />
+        </label>
+      </section>
+
+      <section class="settings-section">
+        <h2>Browsing</h2>
+        <label class="setting-row">
+          <span><strong>Default User-Agent</strong><small>Applied to new tabs. Existing tabs can be changed from the browser menu.</small></span>
+          <select name="userAgentProfile">
+            <option value="default">Default (Chromium)</option>
+            <option value="chrome">Desktop (Chrome)</option>
+            <option value="mac-safari">Desktop (macOS Safari)</option>
+            <option value="ios-safari">Mobile (iOS Safari)</option>
+            <option value="android-chrome">Mobile (Android Chrome)</option>
+            <option value="custom">Custom User-Agent</option>
+          </select>
+        </label>
+        <label class="setting-block" id="custom-ua-row" hidden>
+          <span><strong>Custom User-Agent string</strong><small>Sent with new tabs that use the Custom profile.</small></span>
+          <textarea name="userAgentCustom" rows="3" maxlength="512" placeholder="Mozilla/5.0 …"></textarea>
+        </label>
+        <label class="setting-row">
+          <span><strong>New tab auto-refresh</strong><small>Per-tab refresh can be changed from the browser menu.</small></span>
+          <select name="defaultRefreshSeconds">
+            <option value="0">Off</option>
+            <option value="15">15 seconds</option>
+            <option value="30">30 seconds</option>
+            <option value="60">1 minute</option>
+            <option value="300">5 minutes</option>
+          </select>
+        </label>
+        <label class="setting-row">
+          <span><strong>Default page zoom</strong><small>Applied to new tabs. Keyboard zoom changes remain per-tab.</small></span>
+          <select name="defaultZoomLevel">
+            <option value="-2">70%</option>
+            <option value="-1">83%</option>
+            <option value="0">100%</option>
+            <option value="1">120%</option>
+            <option value="2">144%</option>
+          </select>
+        </label>
+        <label class="setting-row">
+          <span><strong>Default device viewport</strong><small>New tabs use this emulated screen size. Change individual tabs from the browser menu.</small></span>
+          <select name="defaultViewportProfile">
+            <option value="desktop">Desktop</option>
+            <option value="iphone-se">iPhone SE</option>
+            <option value="iphone-16">iPhone 16</option>
+            <option value="ipad">iPad</option>
+            <option value="pixel-9">Pixel 9</option>
+          </select>
+        </label>
+        <label class="setting-row">
+          <span><strong>Maximum open tabs</strong><small>Limits how many website views may stay open at once.</small></span>
+          <select name="maxTabs">
+            <option value="5">5 tabs</option><option value="10">10 tabs</option><option value="15">15 tabs</option><option value="20">20 tabs</option><option value="30">30 tabs</option>
+          </select>
+        </label>
+        <label class="setting-row">
+          <span><strong>Discard inactive tabs</strong><small>Unloaded tabs reopen at their last address but lose page history and unsaved form state.</small></span>
+          <select name="discardIdleMinutes">
+            <option value="0">Never</option><option value="5">After 5 minutes</option><option value="10">After 10 minutes</option><option value="30">After 30 minutes</option>
+          </select>
+        </label>
+        <label class="setting-toggle">
+          <span><strong>Restore tabs at launch</strong><small>Reopen the tabs from your last session.</small></span>
+          <input name="restoreTabs" type="checkbox" />
+        </label>
+        <label class="setting-toggle">
+          <span><strong>Hide panel when it loses focus</strong><small>Turn this off to keep the panel open while using other apps.</small></span>
+          <input name="closeOnBlur" type="checkbox" />
+        </label>
+      </section>
+
+      <section class="settings-section">
+        <h2>Downloads</h2>
+        <div class="setting-row download-row">
+          <span><strong>Download location</strong><small id="download-location"></small></span>
+          <button id="choose-folder" class="secondary" type="button">Choose…</button>
+        </div>
+      </section>
+
+      <section class="settings-section">
+        <h2>Site permissions</h2>
+        <p class="section-note">Notifications, location, camera, and microphone start blocked. A site must ask and you must approve it. Camera and microphone access also require macOS approval. Screen sharing remains blocked.</p>
+        <div id="site-permissions" class="permission-list" aria-live="polite"></div>
+      </section>
+
+      <section class="settings-section">
+        <h2>Shortcuts</h2>
+        <p class="section-note">Select a shortcut and press the new key combination. Clear removes an optional shortcut. The global shortcut works while another app is active.</p>
+        <div id="shortcut-list" class="shortcut-list"></div>
+      </section>
+
+      <footer class="settings-footer">
+        <button id="close-settings" class="secondary" type="button">Back to Browser</button>
+        <button id="reset-settings" class="secondary" type="button">Restore Defaults</button>
+        <span id="status" role="status" aria-live="polite"></span>
+        <button class="primary" type="submit">Save Changes</button>
+      </footer>
+    </form>
+    <script src="settings.js"></script>
+  </body>
+</html>

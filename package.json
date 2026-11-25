@@ -15,17 +15,30 @@
   "scripts": {
     "dev": "electron-vite dev",
     "dev:perf": "electron-vite dev -- --just-chat-perf",
+    "justbrowse:dev": "electron menubarx-app/main.cjs",
+    "menubarx:dev": "pnpm justbrowse:dev",
     "build": "electron-vite build",
     "dist:mac": "pnpm build && electron-builder --config electron-builder.config.cjs --mac --arm64 --publish never",
     "dist:win": "pnpm build && electron-builder --config electron-builder.config.cjs --win --x64 --publish never",
     "dist:current": "pnpm build && electron-builder --config electron-builder.config.cjs --publish never",
+    "tauri:dev-frontend": "vite --config vite.config.tauri.mts --host 127.0.0.1",
+    "tauri:build-frontend": "vite build --config vite.config.tauri.mts",
+    "tauri:dev": "tauri dev",
+    "tauri:build": "tauri build",
     "preview": "electron-vite preview",
     "typecheck": "tsc --noEmit -p tsconfig.json && tsc --noEmit -p tsconfig.node.json",
     "test": "vitest run",
-    "test:watch": "vitest"
+    "test:watch": "vitest",
+    "justbrowse:dist:mac": "electron-builder --config menubarx-app/electron-builder.config.cjs --mac --arm64 --publish never",
+    "justbrowse:dist:win": "electron-builder --config menubarx-app/electron-builder.config.cjs --win --x64 --publish never",
+    "justbrowse:pack:mac": "electron-builder --config menubarx-app/electron-builder.config.cjs --mac --arm64 --dir --publish never",
+    "menubarx:dist:mac": "pnpm justbrowse:dist:mac",
+    "menubarx:dist:win": "pnpm justbrowse:dist:win",
+    "menubarx:pack:mac": "pnpm justbrowse:pack:mac"
   },
   "devDependencies": {
     "@electron/fuses": "2.1.3",
+    "@tauri-apps/cli": "^2.12.6",
     "@types/node": "^24.0.0",
     "@types/react": "^19.0.0",
     "@types/react-dom": "^19.0.0",
@@ -39,5 +52,9 @@
     "typescript": "7.0.2",
     "vite": "8.3.5",
     "vitest": "5.0.5"
+  },
+  "dependencies": {
+    "@tauri-apps/api": "^2.12.5",
+    "@tauri-apps/plugin-global-shortcut": "^2.4.1"
   }
 }

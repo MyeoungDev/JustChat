@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import type { AppSettings } from '../../shared/settings'
 import type { ShellState } from '../../preload'
+import { acceleratorFromKeyChord } from '../../shared/settings'
 import { SettingsPanel } from './SettingsPanel'
 import './styles.css'
 
@@ -70,6 +71,42 @@ export function App() {
     document.body.dataset.backgroundOpacity = selective ? 'true' : 'false'
   }, [settings.opacityMode, settings.activeProviderId])
 
+  useEffect(() => {
+    document.documentElement.dataset.theme = settings.theme
+    document.documentElement.style.colorScheme = settings.theme
+  }, [settings.theme])
+
+  useEffect(() => {
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.defaultPrevented || event.repeat || event.isComposing) return
+      const target = event.target instanceof HTMLElement ? event.target : null
+      const editing = Boolean(target?.closest('input, textarea, select, [contenteditable="true"]'))
+      if (editing && event.key !== 'Escape') return
+      const zoomModifier = platform === 'darwin' ? event.metaKey && !event.ctrlKey : event.ctrlKey && !event.metaKey
+      const zoomKey = ['Digit0', 'Numpad0', 'Minus', 'NumpadSubtract', 'Equal', 'NumpadAdd'].includes(event.code)
+        || ['-', '_', '+', '='].includes(event.key)
+      if (zoomModifier && !event.altKey && zoomKey) {
+        event.preventDefault()
+        event.stopPropagation()
+        return
+      }
+      const chord = event.key === 'Escape' && !event.altKey && !event.ctrlKey && !event.metaKey && !event.shiftKey
+        ? 'Escape'
+        : acceleratorFromKeyChord({ key: event.code === 'Comma' ? 'Comma' : event.code === 'Period' ? 'Period' : event.key, code: event.code, altKey: event.altKey, ctrlKey: event.ctrlKey, metaKey: event.metaKey, shiftKey: event.shiftKey }, platform)
+      if (!chord) return
+      const settingsBinding = platform === 'darwin' ? 'Command+Comma' : 'Control+Comma'
+      const bindings = [settingsBinding, 'Escape',
+        settings.shortcuts.toggleSize, settings.shortcuts.toggleFullscreen, settings.shortcuts.temporaryChat]
+      if (!bindings.includes(chord)) return
+      if (chord === 'Escape' && !state?.settingsVisible && state?.mode !== 'fullscreen' && !settings.escapeHidesPopover) return
+      event.preventDefault()
+      event.stopPropagation()
+      void window.justChat.dispatchShortcut(chord)
+    }
+    window.addEventListener('keydown', onKeyDown, true)
+    return () => window.removeEventListener('keydown', onKeyDown, true)
+  }, [platform, settings.escapeHidesPopover, settings.shortcuts.toggleSize, settings.shortcuts.toggleFullscreen, settings.shortcuts.temporaryChat, state?.settingsVisible, state?.mode])
+
   async function updateSettings(patch: Parameters<typeof window.justChat.updateSettings>[0]) {
     const result = await window.justChat.updateSettings(patch)
     if (result.ok && result.settings) setSettings(result.settings)
@@ -78,7 +115,9 @@ export function App() {
 
   return (
     <>
-      <header className="shell-header">
+      <header className="shell-header" onMouseDown={(event) => {
+        if (event.button === 0 && !(event.target as HTMLElement).closest('button')) window.justChat.startDragging?.()
+      }}>
         <div className="brand-row">
           <div className="window-actions">
             <button className={`icon-button size-button ${state?.mode === 'expanded' ? 'selected' : ''}`} aria-label={state?.mode === 'expanded' ? `Switch to Quick Chat, ${sizeShortcut}` : `Expand chat, ${sizeShortcut}`} aria-describedby="size-action-tooltip" aria-pressed={state?.mode === 'expanded'} onClick={() => state?.mode === 'expanded' ? window.justChat.compact() : window.justChat.expand()}>

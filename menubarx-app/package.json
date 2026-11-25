@@ -1,0 +1,11 @@
+{
+  "name": "just-browse-app",
+  "version": "0.1.0",
+  "private": true,
+  "description": "A quick-access browser for your favorite websites",
+  "main": "main.cjs",
+  "scripts": {
+    "start": "electron ."
+  },
+  "author": "Just Chat"
+}
