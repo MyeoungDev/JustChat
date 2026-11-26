@@ -120,7 +120,7 @@ const TAB_DISCARD_CHOICES = [0, 5, 10, 30]
 const DEFAULT_SETTINGS = {
   searchEngine: 'google', homepage: '', userAgentProfile: 'default', userAgentCustom: '',
   defaultRefreshSeconds: 0, defaultZoomLevel: 0, downloadDirectory: '',
-  shortcuts: DEFAULT_SHORTCUTS, panelShortcut: 'Alt+G', restoreTabs: true, closeOnBlur: false, presentation: 'window', followSpaces: true, opacity: 1,
+  shortcuts: DEFAULT_SHORTCUTS, panelShortcut: 'Alt+G', globalShortcutsEnabled: true, restoreTabs: true, closeOnBlur: false, presentation: 'window', followSpaces: true, opacity: 1,
   defaultViewportProfile: 'desktop', maxTabs: 15, discardIdleMinutes: 10, mediaVolume: 1, mediaMuted: false,
   windowPresets: Array.from({ length: 5 }, (_, index) => ({ name: ['Top Left', 'Top Right', 'Bottom Left', 'Bottom Right', 'Center'][index], bounds: null }))
 }
@@ -138,6 +138,7 @@ const emulatedViews = new WeakSet()
 const detachedWindows = new Map()
 const websiteAppWindows = new Set()
 const idleDiscardTimers = new Map()
+const registeredGlobalShortcuts = new Map()
 let pinned = false
 let cleanMode = false
 let clickThrough = false
@@ -213,6 +214,7 @@ function loadStore() {
     defaultRefreshSeconds: REFRESH_INTERVALS.includes(savedSettings.defaultRefreshSeconds) ? savedSettings.defaultRefreshSeconds : 0,
     defaultZoomLevel: [-2, -1, 0, 1, 2].includes(savedSettings.defaultZoomLevel) ? savedSettings.defaultZoomLevel : 0,
     panelShortcut: shortcuts.togglePanel,
+    globalShortcutsEnabled: typeof savedSettings.globalShortcutsEnabled === 'boolean' ? savedSettings.globalShortcutsEnabled : true,
     restoreTabs: typeof savedSettings.restoreTabs === 'boolean' ? savedSettings.restoreTabs : true,
     closeOnBlur: typeof savedSettings.closeOnBlur === 'boolean' ? savedSettings.closeOnBlur : true,
     presentation: 'window',
@@ -347,10 +349,10 @@ function normalizeAccelerator(value) {
   if (typeof value !== 'string') return null
   const parts = value.split('+').map((part) => part.trim()).filter(Boolean)
   if (parts.length < 2) return null
-  const keyAliases = { comma: ',', period: '.', slash: '/', minus: '-', plus: 'Plus', space: 'Space', escape: 'Escape', esc: 'Escape', left: 'Left', right: 'Right', up: 'Up', down: 'Down', pageup: 'PageUp', pagedown: 'PageDown', enter: 'Enter', return: 'Enter' }
+  const keyAliases = { comma: ',', period: '.', slash: '/', minus: '-', plus: 'Plus', space: 'Space', tab: 'Tab', escape: 'Escape', esc: 'Escape', left: 'Left', right: 'Right', up: 'Up', down: 'Down', pageup: 'PageUp', pagedown: 'PageDown', enter: 'Enter', return: 'Enter' }
   const modifiers = new Map([['commandorcontrol', 'CommandOrControl'], ['cmdorctrl', 'CommandOrControl'], ['command', 'Command'], ['cmd', 'Command'], ['control', 'Control'], ['ctrl', 'Control'], ['alt', 'Alt'], ['option', 'Alt'], ['shift', 'Shift'], ['super', 'Super'], ['meta', 'Super']])
   const key = keyAliases[parts.at(-1).toLowerCase()] || parts.at(-1)
-  const validKey = /^[A-Z0-9]$/i.test(key) || /^F([1-9]|1[0-9]|2[0-4])$/i.test(key) || [',', '.', '/', '-', 'Plus', 'Space', 'Escape', 'Left', 'Right', 'Up', 'Down', 'PageUp', 'PageDown', 'Enter', '[', ']', '~', '`', '=', ';', "'", '\\'].includes(key)
+  const validKey = /^[A-Z0-9]$/i.test(key) || /^F([1-9]|1[0-9]|2[0-4])$/i.test(key) || [',', '.', '/', '-', 'Plus', 'Space', 'Tab', 'Escape', 'Left', 'Right', 'Up', 'Down', 'PageUp', 'PageDown', 'Enter', '[', ']', '~', '`', '=', ';', "'", '\\'].includes(key)
   if (!validKey) return null
   const normalizedModifiers = []
   for (const part of parts.slice(0, -1)) {
@@ -376,7 +378,7 @@ function shortcutMatches(input, accelerator) {
   const superKey = modifiers.has('Super')
   const shift = modifiers.has('Shift') || key === 'Plus'
   if (Boolean(input.meta) !== (command || superKey) || Boolean(input.control) !== control || Boolean(input.alt) !== alt || Boolean(input.shift) !== shift) return false
-  const keyAliases = { ArrowLeft: 'Left', ArrowRight: 'Right', ArrowUp: 'Up', ArrowDown: 'Down', ' ': 'Space', Escape: 'Escape', Enter: 'Enter', ',': 'Comma', '.': 'Period', '+': 'Plus', '?': '/' }
+  const keyAliases = { ArrowLeft: 'Left', ArrowRight: 'Right', ArrowUp: 'Up', ArrowDown: 'Down', ' ': 'Space', Escape: 'Escape', Enter: 'Enter', ',': ',', '.': '.', '+': 'Plus', '?': '/' }
   const eventKey = keyAliases[input.key] || (input.key?.length === 1 ? input.key.toUpperCase() : input.key)
   return eventKey === key || (key === 'Plus' && input.code === 'Equal' && input.shift)
 }
@@ -1404,7 +1406,7 @@ function showBrowserMenu() {
     { label: 'Keep on Top', type: 'checkbox', checked: pinned, click: () => { pinned = !pinned; window.setAlwaysOnTop(pinned, 'screen-saver'); sendState() } },
     { label: 'Follow Across Spaces', type: 'checkbox', checked: settings.followSpaces, accelerator: settings.shortcuts.followSpaces || undefined, click: () => runShortcut('followSpaces') },
     { label: cleanMode ? 'Show Browser Controls' : 'Clean Mode', type: 'checkbox', checked: cleanMode, accelerator: settings.shortcuts.cleanMode || undefined, click: () => runShortcut('cleanMode') },
-    { label: 'Click-through', type: 'checkbox', checked: clickThrough, accelerator: settings.shortcuts.clickThrough || undefined, click: toggleClickThrough },
+    { label: 'Click-through', type: 'checkbox', checked: clickThrough, enabled: clickThrough || isGlobalShortcutRegistered('clickThrough'), accelerator: settings.shortcuts.clickThrough || undefined, click: toggleClickThrough },
     { label: 'Window Opacity', submenu: [
       { label: 'Decrease opacity', accelerator: settings.shortcuts.opacityDown || undefined, click: () => changeOpacity(-0.05) },
       { label: `Current: ${Math.round(settings.opacity * 100)}%`, enabled: false },
@@ -1533,18 +1535,18 @@ function openWebsiteApp(rawUrl, displayTitle = '') {
 }
 
 function registerPanelShortcut(shortcut, allowFallback = false) {
-  if (panelShortcut) globalShortcut.unregister(panelShortcut)
-  if (tryRegisterGlobalShortcut(shortcut, showPanel)) {
+  if (panelShortcut) unregisterGlobalShortcut(panelShortcut)
+  if (tryRegisterGlobalShortcut(shortcut, showPanel, 'togglePanel')) {
     panelShortcut = shortcut
     console.info(`[Floa] Registered global shortcut: ${shortcut}`)
     const fallback = 'CommandOrControl+Shift+Space'
-    const fallbackRegistered = allowFallback && shortcut !== fallback && tryRegisterGlobalShortcut(fallback, showPanel)
+    const fallbackRegistered = allowFallback && shortcut !== fallback && tryRegisterGlobalShortcut(fallback, showPanel, 'togglePanel')
     if (fallbackRegistered) console.info(`[Floa] Registered backup global shortcut: ${fallback}`)
     return true
   }
   console.error(`[Floa] Could not register global shortcut: ${shortcut}`)
   const fallback = 'CommandOrControl+Shift+Space'
-  if (allowFallback && shortcut !== fallback && tryRegisterGlobalShortcut(fallback, showPanel)) {
+  if (allowFallback && shortcut !== fallback && tryRegisterGlobalShortcut(fallback, showPanel, 'togglePanel')) {
     panelShortcut = fallback
     settings.shortcuts.togglePanel = fallback
     settings.panelShortcut = fallback
@@ -1552,12 +1554,16 @@ function registerPanelShortcut(shortcut, allowFallback = false) {
     console.warn(`[Floa] Using fallback global shortcut: ${fallback}`)
     return true
   }
-  if (panelShortcut) tryRegisterGlobalShortcut(panelShortcut, showPanel)
+  if (panelShortcut) tryRegisterGlobalShortcut(panelShortcut, showPanel, 'togglePanel')
   return false
 }
 
-function tryRegisterGlobalShortcut(shortcut, callback) {
-  try { return globalShortcut.register(shortcut, callback) } catch (error) {
+function tryRegisterGlobalShortcut(shortcut, callback, id) {
+  try {
+    const registered = globalShortcut.register(shortcut, callback)
+    if (registered) registeredGlobalShortcuts.set(shortcut, { callback, id })
+    return registered
+  } catch (error) {
     console.error(`[Floa] Invalid global shortcut ${shortcut}: ${error.message}`)
     return false
   }
@@ -1580,6 +1586,10 @@ function changeOpacity(delta) {
 }
 
 function toggleClickThrough() {
+  if (!clickThrough && !isGlobalShortcutRegistered('clickThrough')) {
+    window?.webContents.send('app:download-status', 'Enable the Click-through global shortcut in Settings to use Click-through.')
+    return false
+  }
   clickThrough = !clickThrough
   if (window && !window.isDestroyed()) window.setIgnoreMouseEvents(clickThrough, { forward: true })
   sendState()
@@ -1724,31 +1734,91 @@ function moveWindow(dx, dy) {
 
 function registerActionShortcut(id, shortcut) {
   const previous = settings.shortcuts[id]
-  if (previous) globalShortcut.unregister(previous)
+  if (previous) unregisterGlobalShortcut(previous)
   if (!shortcut) return true
-  if (tryRegisterGlobalShortcut(shortcut, () => runShortcut(id))) {
+  if (tryRegisterGlobalShortcut(shortcut, () => runShortcut(id), id)) {
     console.info(`[Floa] Registered global shortcut: ${shortcut}`)
     return true
   }
   console.error(`[Floa] Could not register global shortcut: ${shortcut}`)
-  if (previous) tryRegisterGlobalShortcut(previous, () => runShortcut(id))
+  if (previous) tryRegisterGlobalShortcut(previous, () => runShortcut(id), id)
   return false
 }
 
 function registerFollowSpacesShortcut(shortcut) {
   const previous = settings.shortcuts.followSpaces
-  if (previous) globalShortcut.unregister(previous)
+  if (previous) unregisterGlobalShortcut(previous)
   if (!shortcut) {
     console.info('[Floa] Follow across Spaces shortcut disabled')
     return true
   }
-  if (tryRegisterGlobalShortcut(shortcut, () => runShortcut('followSpaces'))) {
+  if (tryRegisterGlobalShortcut(shortcut, () => runShortcut('followSpaces'), 'followSpaces')) {
     console.info(`[Floa] Registered global shortcut: ${shortcut}`)
     return true
   }
   console.error(`[Floa] Could not register global shortcut: ${shortcut}`)
-  if (previous) tryRegisterGlobalShortcut(previous, () => runShortcut('followSpaces'))
+  if (previous) tryRegisterGlobalShortcut(previous, () => runShortcut('followSpaces'), 'followSpaces')
   return false
+}
+
+function unregisterGlobalShortcut(shortcut) {
+  if (!shortcut) return
+  globalShortcut.unregister(shortcut)
+  registeredGlobalShortcuts.delete(shortcut)
+}
+
+function unregisterGlobalShortcuts() {
+  for (const shortcut of [...registeredGlobalShortcuts.keys()]) unregisterGlobalShortcut(shortcut)
+}
+
+function isGlobalShortcutRegistered(id) {
+  const shortcut = settings.shortcuts[id]
+  return Boolean(settings.globalShortcutsEnabled && shortcut && registeredGlobalShortcuts.get(shortcut)?.id === id)
+}
+
+function disableClickThrough(message) {
+  if (!clickThrough) return
+  clickThrough = false
+  window?.setIgnoreMouseEvents(false)
+  if (message) window?.webContents.send('app:download-status', message)
+  sendState()
+}
+
+function registerGlobalShortcuts(shortcuts) {
+  for (const definition of SHORTCUT_DEFINITIONS) {
+    if (!definition.global) continue
+    const accelerator = shortcuts[definition.id]
+    if (!accelerator) continue
+    const callback = definition.id === 'togglePanel' ? showPanel : () => runShortcut(definition.id)
+    if (!tryRegisterGlobalShortcut(accelerator, callback, definition.id)) {
+      unregisterGlobalShortcuts()
+      return false
+    }
+  }
+  const fallback = 'CommandOrControl+Shift+Space'
+  if (!Object.values(shortcuts).includes(fallback)) tryRegisterGlobalShortcut(fallback, showPanel, 'togglePanel')
+  panelShortcut = shortcuts.togglePanel
+  return true
+}
+
+function replaceGlobalShortcuts(shortcuts) {
+  const previousRegistrations = new Map(registeredGlobalShortcuts)
+  const previousPanelShortcut = panelShortcut
+  unregisterGlobalShortcuts()
+  if (registerGlobalShortcuts(shortcuts)) return { applied: true }
+  unregisterGlobalShortcuts()
+  let restored = true
+  for (const [shortcut, registration] of previousRegistrations) {
+    if (!tryRegisterGlobalShortcut(shortcut, registration.callback, registration.id)) { restored = false; break }
+  }
+  if (!restored) unregisterGlobalShortcuts()
+  panelShortcut = previousPanelShortcut
+  if (restored) return { applied: false, previousRestored: true }
+  settings.globalShortcutsEnabled = false
+  disableClickThrough('Click-through turned off because its global exit shortcut could not be restored.')
+  saveSoon()
+  sendState()
+  return { applied: false, previousRestored: false }
 }
 
 function publicSettings() {
@@ -1831,25 +1901,22 @@ function saveSettings(input = {}) {
     closeOnBlur: typeof input.closeOnBlur === 'boolean' ? input.closeOnBlur : settings.closeOnBlur,
     presentation: 'window',
     followSpaces: typeof input.followSpaces === 'boolean' ? input.followSpaces : settings.followSpaces,
+    globalShortcutsEnabled: typeof input.globalShortcutsEnabled === 'boolean' ? input.globalShortcutsEnabled : settings.globalShortcutsEnabled,
     panelShortcut: shortcuts.togglePanel
   }
   const maxTabs = MAX_TAB_CHOICES.includes(Number(input.maxTabs)) ? Number(input.maxTabs) : settings.maxTabs
   if (maxTabs > 0 && maxTabs < tabs.length) return { error: `Close tabs until ${tabs.length} or fewer are open before lowering the tab limit.` }
-  if (shortcuts.togglePanel !== panelShortcut && !registerPanelShortcut(shortcuts.togglePanel)) return { error: 'The global shortcut is already being used by macOS or another app.' }
-  if (shortcuts.followSpaces !== settings.shortcuts.followSpaces && !registerFollowSpacesShortcut(shortcuts.followSpaces)) {
-    if (shortcuts.togglePanel !== panelShortcut) registerPanelShortcut(panelShortcut)
-    return { error: 'The Follow Spaces shortcut is already being used by macOS or another app.' }
-  }
-  const updatedGlobalActions = []
-  for (const definition of SHORTCUT_DEFINITIONS.filter((item) => item.global && !['togglePanel', 'followSpaces'].includes(item.id))) {
-    if (shortcuts[definition.id] === settings.shortcuts[definition.id]) continue
-    if (!registerActionShortcut(definition.id, shortcuts[definition.id])) {
-      for (const id of updatedGlobalActions.reverse()) registerActionShortcut(id, settings.shortcuts[id])
-      if (shortcuts.togglePanel !== panelShortcut) registerPanelShortcut(panelShortcut)
-      if (shortcuts.followSpaces !== settings.shortcuts.followSpaces) registerFollowSpacesShortcut(settings.shortcuts.followSpaces)
-      return { error: `The ${definition.label} shortcut is already being used by macOS or another app.` }
-    }
-    updatedGlobalActions.push(definition.id)
+  const wasGlobalShortcutsEnabled = settings.globalShortcutsEnabled
+  if (wasGlobalShortcutsEnabled && !next.globalShortcutsEnabled) {
+    unregisterGlobalShortcuts()
+    disableClickThrough('Click-through turned off because global shortcuts were disabled.')
+  } else if (!wasGlobalShortcutsEnabled && next.globalShortcutsEnabled) {
+    if (!registerGlobalShortcuts(shortcuts)) return { error: 'A global shortcut is already being used by macOS or another app. Change the conflicting shortcut and try again.' }
+  } else if (next.globalShortcutsEnabled && SHORTCUT_DEFINITIONS.some((definition) => definition.global && shortcuts[definition.id] !== settings.shortcuts[definition.id])) {
+    const result = replaceGlobalShortcuts(shortcuts)
+    if (!result.applied) return { error: result.previousRestored
+      ? 'A global shortcut is already being used by macOS or another app. The previously active shortcuts were restored.'
+      : 'A global shortcut is already being used by macOS or another app. The saved assignments remain, but global shortcuts were turned off.' }
   }
   const presentationChanged = settings.presentation !== next.presentation
   const discardPolicyChanged = settings.discardIdleMinutes !== next.discardIdleMinutes
@@ -2119,9 +2186,11 @@ app.whenReady().then(() => {
     if (restored) item.resume()
   })
   createPanel()
-  registerPanelShortcut(panelShortcut, true)
-  registerFollowSpacesShortcut(settings.shortcuts.followSpaces)
-  for (const definition of SHORTCUT_DEFINITIONS.filter((item) => item.global && !['togglePanel', 'followSpaces'].includes(item.id))) registerActionShortcut(definition.id, settings.shortcuts[definition.id])
+  if (settings.globalShortcutsEnabled) {
+    registerPanelShortcut(panelShortcut, true)
+    registerFollowSpacesShortcut(settings.shortcuts.followSpaces)
+    for (const definition of SHORTCUT_DEFINITIONS.filter((item) => item.global && !['togglePanel', 'followSpaces'].includes(item.id))) registerActionShortcut(definition.id, settings.shortcuts[definition.id])
+  }
   activateTab(activeTabId)
   if (settings.presentation === 'window') { window.show(); window.focus() }
   for (const argument of process.argv.slice(1)) if (/^(justbrowse|menubrowser):\/\//.test(argument)) handleDeepLink(argument)
@@ -2463,6 +2532,7 @@ ipcMain.handle('downloads:action', async (event, id, action) => {
 
 app.on('will-quit', (event) => {
   globalShortcut.unregisterAll()
+  registeredGlobalShortcuts.clear()
   interactiveMirrorSourceIds.clear()
   const releasePending = [...heldMirrorInputSources()]
   if (releasePending.length) {

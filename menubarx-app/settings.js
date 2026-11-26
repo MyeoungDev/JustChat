@@ -25,7 +25,7 @@ function formatShortcut(value) {
   }
   return parts.map((part) => ({
     CommandOrControl: mac ? '⌘' : 'Ctrl', Command: '⌘', Control: 'Ctrl', Alt: mac ? '⌥' : 'Alt',
-    Shift: mac ? '⇧' : 'Shift', Super: '⊞', Comma: ',', Period: '.', ',': ',', '.': '.', Plus: '+', Space: 'Space',
+    Shift: mac ? '⇧' : 'Shift', Super: '⊞', Comma: ',', Period: '.', ',': ',', '.': '.', Plus: '+', Space: 'Space', Tab: '⇥',
     Left: '←', Right: '→', Up: '↑', Down: '↓', PageUp: '⇞', PageDown: '⇟', Enter: '↵'
   })[part] || part).join(mac ? '' : '+')
 }
@@ -79,7 +79,7 @@ function keyCombination(event) {
   const keys = { ' ': 'Space', ',': 'Comma', '.': 'Period', '+': 'Plus', '-': '-', '/': '/', '?': '/', '[': '[', ']': ']', '`': '`', '=': '=', ';': ';', "'": "'", '\\': '\\', ArrowLeft: 'Left', ArrowRight: 'Right', ArrowUp: 'Up', ArrowDown: 'Down', Enter: 'Enter' }
   let key = keys[event.key] || event.key
   if (/^[a-z]$/.test(key)) key = key.toUpperCase()
-  if (!/^[A-Z0-9]$/.test(key) && !/^F([1-9]|1[0-9]|2[0-4])$/.test(key) && !['Comma', 'Period', '/', '-', 'Plus', 'Space', 'Left', 'Right', 'Up', 'Down', 'PageUp', 'PageDown', 'Enter', '[', ']', '`', '=', ';', "'", '\\'].includes(key)) return ''
+  if (!/^[A-Z0-9]$/.test(key) && !/^F([1-9]|1[0-9]|2[0-4])$/.test(key) && !['Comma', 'Period', '/', '-', 'Plus', 'Space', 'Tab', 'Left', 'Right', 'Up', 'Down', 'PageUp', 'PageDown', 'Enter', '[', ']', '`', '=', ';', "'", '\\'].includes(key)) return ''
   if (!modifiers.length) return ''
   if (key === 'Plus') modifiers.push('Shift')
   const canonical = ['CommandOrControl', 'Alt', 'Shift'].filter((item) => modifiers.includes(item))
@@ -172,6 +172,7 @@ function formValues() {
   values.shortcuts = { ...shortcuts }
   values.restoreTabs = form.elements.restoreTabs.checked
   values.followSpaces = form.elements.followSpaces.checked
+  values.globalShortcutsEnabled = form.elements.globalShortcutsEnabled.checked
   values.opacity = Number(form.elements.opacity.value)
   values.mediaVolume = Number(form.elements.mediaVolume.value)
   return values
@@ -186,7 +187,12 @@ mediaVolumeInput.addEventListener('input', () => { mediaVolumeValue.value = `${M
 form.addEventListener('submit', async (event) => {
   event.preventDefault()
   const result = await api.save(formValues())
-  if (result?.error) { showStatus(result.error, true); return }
+  if (result?.error) {
+    const current = await api.get()
+    if (typeof current?.globalShortcutsEnabled === 'boolean') form.elements.globalShortcutsEnabled.checked = current.globalShortcutsEnabled
+    showStatus(result.error, true)
+    return
+  }
   fillSettings(result.settings)
   showStatus('Settings saved.')
 })

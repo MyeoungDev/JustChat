@@ -90,6 +90,19 @@ Glaso는 메뉴 막대 드롭다운 브라우저가 아니라, 다른 앱 위에
 
 ## Just Browse 구현 진행 기록 — 2026-11-26
 
+### 시스템 전역 단축키 전체 켜기/끄기
+
+- Glaso의 공개 자료는 전역 키를 설정하고 개별 조합을 바꿀 수 있다고 설명한다. Just Browse 방향에서는 이를 더 명확히 제어할 수 있도록 Settings에 **Enable global shortcuts** 마스터 스위치를 두었다.
+- 비활성화하면 Floa가 등록한 시스템 전역 키와 보조 표시/숨김 키를 해제한다. Floa 창이 포커스된 동안 사용하는 앱 내부 키와 저장한 조합은 유지된다. 기존 프로필에 새 설정 필드가 없으면 기존 동작대로 활성화 상태로 읽는다.
+- 켜기 시 저장된 조합을 다시 등록하고, 다른 앱 또는 macOS와 충돌하면 등록을 롤백해 비활성 상태를 유지하며 오류를 표시한다. 설정과 사용자 안내는 `menubarx-app/settings.html`, `settings.js`, `README.md`에 반영한다.
+
+### 설치된 Glaso 앱의 REA 확인
+
+- 사용자가 제공한 로컬 타깃 `/Applications/Glaso.app`을 열었다. 실행 파일은 arm64 slice가 선택된 Mach-O universal이며 SHA-256은 `6b0acb0291aca23a82c89b734d024a8428785a56f49e8db262db032fbafd1807`이다. REA `inspect_macho` Evidence `ev_3885592b34f353d1cf5d1eb77a3739f01f9b5a69a23419cfc104be9aeaf1fa9e`; 요약 view `ev_76c55e5e791fa9661b6ac01e159ddf9b9beac7441f448b3a9ec036f971d2d0cf`.
+- 설치 패키지의 `Contents/Resources/Tutorial/tutorial_v2.json`은 윈도우 호출, 불투명도, Spaces 따라가기, 위치 프리셋, Clean Mode, Click-through 및 각각의 키 캡을 설명한다. `ko.lproj/Localizable.strings`의 UI 문구는 개별 전역 단축키 체크 상태와, 해제한 키는 Glaso가 전면에 있을 때만 작동한다는 정책을 설명한다. 이는 패키지에 포함된 안내/로컬라이즈 문구의 관찰이지 실제 앱 런타임 동작을 독립 확인한 증거는 아니다.
+- 이 방향을 우리 설정에 반영할 때 전체 전역 단축키 master switch와 저장된 개별 단축키를 함께 유지한다. 비활성화는 전역 등록을 해제하고 창이 포커스됐을 때 동작하는 앱 내부 단축키를 남긴다.
+- REA native procedure/string 검색은 Ghidra, Hopper, IDA, Kuna provider 미설정으로 `provider_unavailable`을 반환했다. 따라서 native 구현 세부는 미확인이다. 공개 튜토리얼/지원 자료와 설치본의 명시적 도움말만 제품 요구 근거로 사용한다.
+
 ### Glaso 시각 방향 적용 및 런타임 조작 확인
 
 - 초기 시각 구현은 공개 투어를 참고했지만, 이후 사용자 요청에 따라 전체 앱 팔레트를 Chrome의 중성 회색·Google 파랑 체계로 정리했다. 브라우저 상단은 라이트에서 흰 툴바와 `#dee1e6` 탭 바, 다크에서 `#202124` 툴바·탭 바와 `#35363a` 활성 탭을 쓴다. 설정·History·Downloads·Notes·Reader·Mirror·미디어 창은 같은 의미 토큰을 공유하며 사이트 콘텐츠는 앱 테마에 덮어쓰지 않는다.
