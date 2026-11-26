@@ -36,7 +36,16 @@ function escapeHtml(text) {
 function renderLibrary() {
   const query = els['library-search'].value.trim().toLocaleLowerCase()
   els.library.replaceChildren()
-  const matches = documents.filter((item) => item.title.toLocaleLowerCase().includes(query) || item.type.toLocaleLowerCase().includes(query))
+  const matches = documents.filter((item) => {
+    if (!query) return true
+    const searchableText = [
+      item.title,
+      item.type,
+      ...(item.bookmarks || []).flatMap((entry) => [entry?.label, entry?.text]),
+      ...(item.highlights || []).map((entry) => entry?.text)
+    ].filter((value) => typeof value === 'string').join('\n').toLocaleLowerCase()
+    return searchableText.includes(query)
+  })
   for (const item of matches) {
     const button = document.createElement('button')
     button.className = 'library-item'
