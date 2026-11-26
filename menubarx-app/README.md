@@ -25,7 +25,7 @@ Floa is a floating browser window shown above other apps and available from the 
 - Editable and reorderable start page favorites with named folders and folder filtering
 - Per-tab User-Agent, viewport profiles (Desktop, iPhone SE, iPhone 16, iPad, Pixel 9), auto-refresh and zoom
 - Configurable tab limit and idle WebContents discard policy
-- Detachable tabs and a dedicated website app window
+- Detachable tabs that remember each detached window's size and position, plus a dedicated website app window
 - Download history with pause, cancel, resume attempts, progress and reveal-in-Finder actions
 - Floating local video player with playback position restore, saved volume, global mute/volume shortcuts (`Option+Command+O`, `Option+Command+M`, `Option+Command+-`, `Option+Command+=`), and display-sleep prevention while playing
 - Experimental Window Mirror with user-selected live previews, per-window stop controls, a stop-all action, and macOS opt-in Interact mode for pointer, scroll, and keyboard input; `⌘T` adds a source, `⌘W` stops the active mirror, Screen Recording is used for capture, and Accessibility is checked only when Interact or Open Original is requested. The native helper is placed in `Contents/Helpers` so macOS signing tools can identify it as nested helper code.

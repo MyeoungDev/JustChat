@@ -272,6 +272,7 @@ function loadStore() {
     userAgentProfile: USER_AGENT_PROFILES.some((profile) => profile.id === tab.userAgentProfile) ? tab.userAgentProfile : settings.userAgentProfile,
     userAgentCustom: typeof tab.userAgentCustom === 'string' ? tab.userAgentCustom.slice(0, 512) : '',
     viewportProfile: VIEWPORT_PROFILES.some((profile) => profile.id === tab.viewportProfile) ? tab.viewportProfile : settings.defaultViewportProfile,
+    detachedBounds: normalizeDetachedBounds(tab.detachedBounds),
     discarded: false,
     muted: Boolean(tab.muted)
   }))
@@ -317,7 +318,7 @@ function migrateLegacyUserData() {
 }
 
 function newTabRecord(url = settings.homepage) {
-  return { id: crypto.randomUUID(), url, title: url ? safeHost(url) : 'New Tab', refreshSeconds: settings.defaultRefreshSeconds, zoomLevel: settings.defaultZoomLevel, userAgentProfile: settings.userAgentProfile, userAgentCustom: '', viewportProfile: settings.defaultViewportProfile, discarded: false, muted: false }
+  return { id: crypto.randomUUID(), url, title: url ? safeHost(url) : 'New Tab', refreshSeconds: settings.defaultRefreshSeconds, zoomLevel: settings.defaultZoomLevel, userAgentProfile: settings.userAgentProfile, userAgentCustom: '', viewportProfile: settings.defaultViewportProfile, detachedBounds: null, discarded: false, muted: false }
 }
 
 function normalizeStoredUrl(url) {
@@ -1239,6 +1240,9 @@ function reattachTab(id, focus = true) {
   const detachedWindow = detachedWindows.get(id)
   const view = views.get(id)
   if (!detachedWindow || !view) return
+  const record = tabs.find((tab) => tab.id === id)
+  if (record && !detachedWindow.isDestroyed()) record.detachedBounds = normalizeDetachedBounds(detachedWindow.getNormalBounds())
+  saveSoon()
   if (!window || window.isDestroyed()) createPanel()
   detachedWindows.delete(id)
   detachedWindow._menuBrowserClosing = true
@@ -1255,8 +1259,10 @@ function detachActiveTab() {
   window.contentView.removeChildView(view)
   activeView = undefined
 
+  const savedBounds = record.detachedBounds
+  const restoredBounds = savedBounds ? boundsWithinWorkArea(savedBounds, savedBounds.width, savedBounds.height) : null
   const detachedWindow = new BrowserWindow({
-    width: PANEL_WIDTH, height: PANEL_HEIGHT, minWidth: 420, minHeight: 320,
+    ...(restoredBounds || { width: PANEL_WIDTH, height: PANEL_HEIGHT }), minWidth: 420, minHeight: 320,
     show: false, title: record.title || safeHost(record.url), backgroundColor: '#fff',
     webPreferences: { contextIsolation: true, nodeIntegration: false, sandbox: true }
   })
@@ -1264,12 +1270,17 @@ function detachActiveTab() {
   detachedWindow.contentView.addChildView(view)
   const updateDetachedBounds = () => {
     if (detachedWindow.isDestroyed() || view.webContents.isDestroyed()) return
+    record.detachedBounds = normalizeDetachedBounds(detachedWindow.getNormalBounds())
     const [width, height] = detachedWindow.getContentSize()
     view.setBounds({ x: 0, y: 0, width, height })
+    saveSoon()
   }
   detachedWindow.on('resize', updateDetachedBounds)
+  detachedWindow.on('move', updateDetachedBounds)
   detachedWindow.on('close', (event) => {
-    if (!detachedWindow._menuBrowserClosing) { event.preventDefault(); reattachTab(record.id) }
+    if (record) record.detachedBounds = normalizeDetachedBounds(detachedWindow.getNormalBounds())
+    saveSoon()
+    if (!detachedWindow._menuBrowserClosing && !isQuitting) { event.preventDefault(); reattachTab(record.id) }
   })
   view.webContents.on('page-title-updated', (_event, title) => {
     if (!detachedWindow.isDestroyed()) detachedWindow.setTitle(title || record.title || safeHost(record.url))
@@ -1280,7 +1291,7 @@ function detachActiveTab() {
   detachedWindow.focus()
 
   let replacement = tabs.find((tab) => tab.id !== record.id && !detachedWindows.has(tab.id))
-  if (!replacement && tabs.length < settings.maxTabs) { replacement = newTabRecord(); tabs.push(replacement) }
+  if (!replacement && (settings.maxTabs === 0 || tabs.length < settings.maxTabs)) { replacement = newTabRecord(); tabs.push(replacement) }
   if (replacement) activateTab(replacement.id)
   else { reattachTab(record.id, true); window?.webContents.send('app:download-status', 'Tab limit reached. Close a tab before detaching this one.') }
 }
@@ -2019,6 +2030,12 @@ function cycleWorkspace() {
 function isScreenFilled() {
   if (!window || window.isDestroyed()) return false
   return settings.presentation === 'window' ? window.isFullScreen() : Boolean(panelScreenRestoreBounds)
+}
+
+function normalizeDetachedBounds(bounds) {
+  if (!bounds || !['x', 'y', 'width', 'height'].every((key) => Number.isFinite(bounds[key]))) return null
+  if (Math.abs(bounds.x) > 100000 || Math.abs(bounds.y) > 100000 || bounds.width < 420 || bounds.width > 10000 || bounds.height < 320 || bounds.height > 10000) return null
+  return { x: Math.round(bounds.x), y: Math.round(bounds.y), width: Math.round(bounds.width), height: Math.round(bounds.height) }
 }
 
 function boundsWithinWorkArea(bounds, width, height) {
