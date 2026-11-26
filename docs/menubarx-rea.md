@@ -1,5 +1,7 @@
 # MenubarX REA (Reverse Engineering Analysis)
 
+> **현재 구현 기준:** 이 문서는 MenubarX를 조사한 이전 REA 기록이다. Just Browse의 제품 목표는 2026-11-26부터 Glaso의 공개 기능·가이드 영상·단축키 자료를 기준으로 한 macOS 플로팅 브라우저다. 현재 기능 매핑과 다음 작업은 [`docs/artifacts/glaso/analysis.md`](artifacts/glaso/analysis.md)를 기준으로 한다. Glaso 앱은 내려받거나 설치하지 않는다.
+
 ## 목적과 범위
 
 이 문서는 [REA (Reverse Engineer Anything)](https://github.com/morluto/rea)로 조사한 MenubarX의 산출 근거와, 이를 바탕으로 이 저장소에 별도 앱을 구현하는 요구사항을 기록한다. 비공개 구현이나 내부 데이터 모델을 추정해 사실처럼 서술하지 않는다.
@@ -177,6 +179,17 @@ MenubarX는 메뉴 막대 아이콘에서 열리는 웹 앱 런처이자 브라�
 - [x] 오리지널 앱 아이콘, macOS DMG/ZIP 및 Windows NSIS 패키징 설정, 카메라/마이크 설명문과 signing/notarization 환경 변수 구성을 추가했다.
 - [ ] 실제 MenubarX UI 런타임 비교는 완료되지 않았다. REA 네이티브 UI 관찰 도구가 안정적인 프로세스/창 식별을 지원하지 않았고, OS 접근성 권한도 허용되지 않았다.
 - 새 창은 차단한다. HTTPS 페이지가 명시적으로 요청한 팝업 URL만 기본 브라우저에서 연다. 알림·위치 권한은 사이트별 저장 및 취소를 지원하며, 카메라/마이크는 기본 거부한다.
+
+## 런타임 회귀와 검증 — 2026-11-26
+
+- 메뉴 막대 패널 모드에서 시작한 직후 Electron 프로세스가 종료되는 회귀를 조사했다. 임시 진단 실행에서 탭 생성과 WebContentsView 부착은 통과했지만 첫 `updateBounds()` 안에서 아직 에뮬레이션이 활성화되지 않은 뷰에 `disableDeviceEmulation()`을 무조건 호출하던 지점에서 SIGSEGV가 재현됐다.
+- `main.cjs`는 앱이 실제 기기 프로필 에뮬레이션을 켠 WebContentsView에만 해제 API를 호출하도록 바뀌었다. `WeakSet`에 활성화한 뷰를 기록하고, 해당 뷰가 Desktop 프로필로 돌아갈 때 기록을 지운다. 기본 Desktop 탭의 불필요한 네이티브 호출을 제거했다.
+- 수정 뒤 arm64 macOS 배포 디렉터리를 다시 패키징하고 그 안의 `Just Browse.app`을 실행했다. Orca 접근성 트리에서 표준 창, 주소 입력, 탭과 이름이 표시된 툴바 버튼 7개가 발견됐다.
+- `tools/justbrowse-ui-smoke.py`를 통해 Pin, Mute, Maximize/Restore, Fill screen/Restore screen을 각각 양방향으로 토글하고 접근성 상태 라벨이 바뀌는 것을 확인했다. 마지막 상태가 시작 상태로 복구되는 것도 확인했다.
+- Option+X 입력으로 열린 표준 창을 숨기는 경로도 확인했다. macOS에서 숨겨진 창이 없는 상태로 Orca가 키 입력 대상을 찾을 수 없어, 이 환경에서는 숨김 패널을 Option+X로 다시 여는 입력은 별도로 자동 관찰하지 못했다. 새 패키지 실행, 패널 생성 후의 재오픈 검증은 실기 사용자 키보드가 추가 증거가 된다.
+- 사용자 캡처에서 `activeView?.isVisible is not a function` 예외가 확인됐다. `WebContentsView`는 `View`를 상속하므로 `isVisible()` 대신 공식 `view.getVisible()` API를 써야 한다. [Electron View API](https://www.electronjs.org/docs/latest/api/view). 두 포커스 분기 호출을 `getVisible()`로 수정하고 재패키징했다. 새 `app.asar`에서 두 호출을 직접 추출해 확인했으며, 표준 창 모드 UI smoke 8개 양방향 상태 전환과 복구도 다시 통과했다.
+- 빌드/검증 범위는 macOS arm64 패키지와 로컬 UI smoke이며, 서명은 유효한 Developer ID가 없어 적용되지 않았다. Windows 실행과 MenubarX 런타임 비교는 이 회차 범위 밖이다.
+- 재현 빌드 산출물: `release/just-browse/mac-arm64/Just Browse.app`; `app.asar` SHA-256 `6e9b11294c9394694a5585a08083e8c5d089cbfe9a2ad47faa61e41dbdfc1f5c`. 원래 패널 모드와 Option+X 설정을 복구했고, 확인 당시 패키지 프로세스가 메뉴 막대 앱으로 실행 중이었다.
 
 ## 알려진 후속 작업
 

@@ -1,0 +1,46 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self' data: blob:; img-src 'self' data: blob:; font-src 'self' data:; style-src 'self' 'unsafe-inline'; script-src 'self'; worker-src 'self' blob:; connect-src 'self' data: blob:" />
+    <title>Floa Reader</title>
+    <link rel="stylesheet" href="design-tokens.css" />
+    <link rel="stylesheet" href="reader.css" />
+  </head>
+  <body>
+    <aside class="sidebar">
+      <header><div><span class="eyebrow">FLOA</span><h1>Reader</h1></div><button id="import" class="primary" title="Import · ⌘O">＋ Import</button></header>
+      <label class="library-search"><span>⌕</span><input id="library-search" type="search" placeholder="Search library" aria-label="Search library" /></label>
+      <nav id="library" aria-label="Book and document library"></nav>
+      <section class="sidebar-section"><h2>Bookmarks</h2><div id="bookmarks" class="sidebar-list"></div></section>
+      <section class="sidebar-section"><h2>Highlights</h2><div id="highlights" class="sidebar-list"></div></section>
+      <footer>Documents are stored on this Mac.</footer>
+    </aside>
+    <main class="reader">
+      <header class="reader-toolbar">
+        <button id="previous" aria-label="Previous page" title="Previous page · ←">‹</button>
+        <button id="next" aria-label="Next page" title="Next page · →">›</button>
+        <div class="document-heading"><strong id="document-title">Your library</strong><small id="document-meta">Import a PDF, EPUB, or text document to begin.</small></div>
+        <form id="search-form" role="search"><input id="search-query" type="search" placeholder="Find in book" aria-label="Find in book" /><button aria-label="Search">⌕</button></form>
+        <span id="search-count" role="status" aria-live="polite"></span>
+        <label class="zoom-control" title="Reading size"><span>A</span><input id="zoom" type="range" min="0.6" max="2.5" step="0.1" value="1" aria-label="Reading size" /></label>
+        <button id="mode" aria-label="Toggle reading mode" title="Switch reading mode">Paged</button>
+        <button id="bookmark" aria-label="Bookmark this position" title="Bookmark this position · ⌘D">☆</button>
+        <button id="highlight" aria-label="Highlight selected text" title="Highlight selection">▰</button>
+        <button id="remove-document" aria-label="Remove document from library" title="Remove from library">⋯</button>
+      </header>
+      <div id="empty" class="empty-state"><div class="book-mark">▤</div><h2>Your reading library</h2><p>Import a PDF, EPUB, or text document. Your place, bookmarks, and highlights stay on this Mac.</p><button class="primary" id="empty-import">Choose a document</button></div>
+      <div id="loading" class="loading" hidden>Opening document…</div>
+      <div id="reader-viewport" class="reader-viewport" hidden>
+        <div id="pdf-pages" class="pdf-pages" hidden></div>
+        <div id="epub-viewer" class="epub-viewer" hidden></div>
+        <article id="text-viewer" class="text-viewer" hidden></article>
+      </div>
+      <div id="message" class="message" role="status" aria-live="polite"></div>
+    </main>
+    <script src="./node_modules/jszip/dist/jszip.min.js"></script>
+    <script src="./node_modules/epubjs/dist/epub.min.js"></script>
+    <script type="module" src="reader.js"></script>
+  </body>
+</html>

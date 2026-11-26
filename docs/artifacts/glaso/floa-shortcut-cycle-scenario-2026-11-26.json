@@ -1,0 +1,29 @@
+{
+  "scenario": "Floa global browser tab cycling",
+  "date": "2026-11-26",
+  "evidence": "Glaso public shortcut documentation captured in analysis.md specifies Option+Command+Tab for global browser tab cycling.",
+  "implementation": {
+    "next": {
+      "accelerator": "Alt+Command+Tab",
+      "definition": "SHORTCUT_DEFINITIONS.nextTabGlobal",
+      "action": "Show the browser workspace and select the next tab, wrapping at the end."
+    },
+    "previous": {
+      "accelerator": "Alt+Shift+Command+Tab",
+      "definition": "SHORTCUT_DEFINITIONS.previousTabGlobal",
+      "action": "Show the browser workspace and select the previous tab, wrapping at the beginning.",
+      "note": "Reverse-direction Shift variant is a Floa usability addition; Glaso's cited key table lists only the forward shortcut."
+    },
+    "existingInWindow": [
+      "CommandOrControl+Shift+Right",
+      "CommandOrControl+Shift+Left"
+    ],
+    "customizable": true
+  },
+  "validation": {
+    "nodeSyntaxCheck": "passed",
+    "gitDiffCheck": "passed",
+    "globalRegistrationRuntime": "not run; app was not focused or launched during this turn",
+    "manualSwitchScenario": "not run to preserve the user's active window focus"
+  }
+}

@@ -1,0 +1,56 @@
+{
+  "scenario": "Floa Window Mirror interaction gap audit",
+  "date": "2026-11-26",
+  "referenceEvidence": {
+    "artifact": "rea-tour-full-playback-v2.json",
+    "observedTutorialActions": [
+      "Choose a window",
+      "View a live preview",
+      "Add a second window",
+      "Open the original window"
+    ],
+    "distributionNote": "Glaso's public materials distinguish App Store read-only mirroring from an Interact capability described for direct distribution. The direct app binary was not available for REA inspection."
+  },
+  "currentFloaImplementation": {
+    "surface": "Window Mirror preview window",
+    "capture": "desktopCapturer source selected and captured with getUserMedia",
+    "multiWindowPreview": true,
+    "openOriginalAction": "implemented through selected window id, process owner metadata, and Accessibility raise action",
+    "inputForwarding": "implemented as explicit macOS Interact mode for pointer, drag, right-click, scroll, and mapped keyboard events",
+    "targetRestriction": "input IPC accepts only the selected source id after mirror authorization; interaction authorization is cleared when that source is revoked",
+    "failureHandling": "native input errors release tracked mouse buttons and keys, then revoke per-source Interact authorization; source switches and opt-out also release held inputs",
+    "eventOrdering": "mirror input, authorization, source switching, interaction toggles, and revocation use a serialized main-process queue so a transition cannot race ahead of a pending key/button event",
+    "uiLabel": "Preview only by default; Interact is opt-in",
+    "nativeImplementation": "menubarx-app/FloaMirrorInput.swift, compiled as a packaged arm64 helper"
+  },
+  "technicalFeasibilityResearch": {
+    "windowMetadata": "Apple CGWindowListCopyWindowInfo provides window IDs, bounds, and ownership metadata.",
+    "targetedEvents": "Apple CGEvent supports posting Quartz events to a target PID.",
+    "raiseWindow": "AppKit accessibility exposes a raise action for a specific accessible window.",
+    "privacyBoundary": "Accessibility trust and Screen Recording authorization must be surfaced and tested; no permission was requested in this audit.",
+    "sources": [
+      "https://developer.apple.com/documentation/coregraphics/cgwindowlistcopywindowinfo(_:_:)",
+      "https://developer.apple.com/documentation/coregraphics/cgevent",
+      "https://developer.apple.com/documentation/appkit/nsaccessibilityprotocol/accessibilityperformraise()",
+      "https://developer.apple.com/documentation/applicationservices/1459186-axisprocesstrustedwithoptions"
+    ]
+  },
+  "validation": {
+    "sourceInspection": "confirmed the native helper resolves the selected CGWindowID to current owner PID and bounds, while main-process IPC checks source authorization and per-source interaction enablement",
+    "rendererSyntax": "passed",
+    "nativeHelperCompile": "passed with swiftc for arm64",
+    "macPackageBuild": "passed; arm64 helper included at Contents/Helpers/FloaMirrorInput and main.cjs resolves that nested-helper path",
+    "failureRecovery": "source syntax passed; packaged app.asar main.cjs SHA-256 matches the source and contains the fail-closed release-and-revoke branch plus serialized input/transition queue",
+    "packagedHelperProtocol": "accessibility status request returned valid JSON without prompting or activating Floa",
+    "signing": "Electron builder skipped signing because the configured Developer ID identity is not trusted; helper now resides in Contents/Helpers, the macOS nested-helper location that the signing walk can identify, but a signed build and TCC approval remain unverified",
+    "appLaunched": false,
+    "windowFocused": false,
+    "interactionRuntime": "not run"
+  },
+  "nextImplementationSteps": [
+    "Run the complete interaction flow against a disposable target window without activating Floa or disturbing the user's foreground app.",
+    "Verify per-window coordinate mapping on a second display and after the target is resized.",
+    "Check TCC Accessibility approval for the packaged helper under a trusted signed app build.",
+    "Confirm mouse-up cleanup if the user switches mirror tabs while a pointer button is held."
+  ]
+}

@@ -1,115 +1,115 @@
 :root {
   color-scheme: light dark;
-  --shell-bg: #f6f6f4;
-  --surface: #fff;
-  --text: #262521;
-  --text-secondary: #74726d;
-  --text-muted: #72706a;
-  --border: #e5e4df;
-  --border-soft: #ecebe7;
-  --control-bg: #e9e8e3;
-  --control-bg-soft: #eeede9;
-  --notice-bg: #fff;
-  --notice-text: #45433d;
-  --warning-bg: #fff9e9;
-  --warning-border: #ead8aa;
-  --warning-text: #514331;
-  --feedback-text: #785b35;
-  --error-text: #8a4b3e;
-  --danger-text: #a33f32;
-  --focus-bg: #f0f3ff;
-  --focus-border: #91a5e3;
-  --focus-text: #3154b6;
-  --spinner-border: #d7d6d0;
-  --spinner-top: #74726d;
-  --accent: #34332f;
-  --accent-hover: #4c4a45;
-  --shadow: #25231d18;
+  --shell-bg: #f8f9fa;
+  --surface: #ffffff;
+  --text: #202124;
+  --text-secondary: #5f6368;
+  --text-muted: #70757a;
+  --border: #dadce0;
+  --border-soft: #e8eaed;
+  --control-bg: #f1f3f4;
+  --control-bg-soft: #e8eaed;
+  --notice-bg: #ffffff;
+  --notice-text: #202124;
+  --warning-bg: #fef7e0;
+  --warning-border: #f9ab00;
+  --warning-text: #5f4300;
+  --feedback-text: #5f6368;
+  --error-text: #b3261e;
+  --danger-text: #d93025;
+  --focus-bg: #e8f0fe;
+  --focus-border: #1a73e8;
+  --focus-text: #174ea6;
+  --spinner-border: #dadce0;
+  --spinner-top: #5f6368;
+  --accent: #1a73e8;
+  --accent-hover: #1765cc;
+  --shadow: #2021241f;
 }
 @media (prefers-color-scheme: dark) {
   :root {
-    --shell-bg: #1c1c1b;
-    --surface: #282827;
-    --text: #ecebe7;
-    --text-secondary: #b2b0a9;
-    --text-muted: #aaa8a0;
-    --border: #3c3b38;
-    --border-soft: #343330;
-    --control-bg: #3a3936;
-    --control-bg-soft: #302f2d;
-    --notice-bg: #2b2a28;
-    --notice-text: #e3e1da;
-    --warning-bg: #342d20;
-    --warning-border: #62502d;
-    --warning-text: #ead8b3;
-    --feedback-text: #e0c99f;
-    --error-text: #edaaa0;
-    --danger-text: #f09c90;
-    --focus-bg: #282c39;
-    --focus-border: #6579b0;
-    --focus-text: #c1cff7;
-    --spinner-border: #4c4b47;
-    --spinner-top: #cfcdc5;
-    --accent: #d7d5ce;
-    --accent-hover: #f0eee7;
-    --shadow: #0008;
+    --shell-bg: #202124;
+    --surface: #292a2d;
+    --text: #e8eaed;
+    --text-secondary: #bdc1c6;
+    --text-muted: #9aa0a6;
+    --border: #5f6368;
+    --border-soft: #3c4043;
+    --control-bg: #35363a;
+    --control-bg-soft: #3c4043;
+    --notice-bg: #292a2d;
+    --notice-text: #e8eaed;
+    --warning-bg: #41331c;
+    --warning-border: #8a6d20;
+    --warning-text: #fdd663;
+    --feedback-text: #bdc1c6;
+    --error-text: #f28b82;
+    --danger-text: #f28b82;
+    --focus-bg: #303b50;
+    --focus-border: #8ab4f8;
+    --focus-text: #a8c7fa;
+    --spinner-border: #5f6368;
+    --spinner-top: #bdc1c6;
+    --accent: #8ab4f8;
+    --accent-hover: #a8c7fa;
+    --shadow: #00000066;
   }
 }
 :root[data-theme="light"] {
   color-scheme: light;
-  --shell-bg: #f6f6f4;
-  --surface: #fff;
-  --text: #262521;
-  --text-secondary: #74726d;
-  --text-muted: #72706a;
-  --border: #e5e4df;
-  --border-soft: #ecebe7;
-  --control-bg: #e9e8e3;
-  --control-bg-soft: #eeede9;
-  --notice-bg: #fff;
-  --notice-text: #45433d;
-  --warning-bg: #fff9e9;
-  --warning-border: #ead8aa;
-  --warning-text: #514331;
-  --feedback-text: #785b35;
-  --error-text: #8a4b3e;
-  --danger-text: #a33f32;
-  --focus-bg: #f0f3ff;
-  --focus-border: #91a5e3;
-  --focus-text: #3154b6;
-  --spinner-border: #d7d6d0;
-  --spinner-top: #74726d;
-  --accent: #34332f;
-  --accent-hover: #4c4a45;
-  --shadow: #25231d18;
+  --shell-bg: #f8f9fa;
+  --surface: #ffffff;
+  --text: #202124;
+  --text-secondary: #5f6368;
+  --text-muted: #70757a;
+  --border: #dadce0;
+  --border-soft: #e8eaed;
+  --control-bg: #f1f3f4;
+  --control-bg-soft: #e8eaed;
+  --notice-bg: #ffffff;
+  --notice-text: #202124;
+  --warning-bg: #fef7e0;
+  --warning-border: #f9ab00;
+  --warning-text: #5f4300;
+  --feedback-text: #5f6368;
+  --error-text: #b3261e;
+  --danger-text: #d93025;
+  --focus-bg: #e8f0fe;
+  --focus-border: #1a73e8;
+  --focus-text: #174ea6;
+  --spinner-border: #dadce0;
+  --spinner-top: #5f6368;
+  --accent: #1a73e8;
+  --accent-hover: #1765cc;
+  --shadow: #2021241f;
 }
 :root[data-theme="dark"] {
   color-scheme: dark;
-  --shell-bg: #1c1c1b;
-  --surface: #282827;
-  --text: #ecebe7;
-  --text-secondary: #b2b0a9;
-  --text-muted: #aaa8a0;
-  --border: #3c3b38;
-  --border-soft: #343330;
-  --control-bg: #3a3936;
-  --control-bg-soft: #302f2d;
-  --notice-bg: #2b2a28;
-  --notice-text: #e3e1da;
-  --warning-bg: #342d20;
-  --warning-border: #62502d;
-  --warning-text: #ead8b3;
-  --feedback-text: #e0c99f;
-  --error-text: #edaaa0;
-  --danger-text: #f09c90;
-  --focus-bg: #282c39;
-  --focus-border: #6579b0;
-  --focus-text: #c1cff7;
-  --spinner-border: #4c4b47;
-  --spinner-top: #cfcdc5;
-  --accent: #d7d5ce;
-  --accent-hover: #f0eee7;
-  --shadow: #0008;
+  --shell-bg: #202124;
+  --surface: #292a2d;
+  --text: #e8eaed;
+  --text-secondary: #bdc1c6;
+  --text-muted: #9aa0a6;
+  --border: #5f6368;
+  --border-soft: #3c4043;
+  --control-bg: #35363a;
+  --control-bg-soft: #3c4043;
+  --notice-bg: #292a2d;
+  --notice-text: #e8eaed;
+  --warning-bg: #41331c;
+  --warning-border: #8a6d20;
+  --warning-text: #fdd663;
+  --feedback-text: #bdc1c6;
+  --error-text: #f28b82;
+  --danger-text: #f28b82;
+  --focus-bg: #303b50;
+  --focus-border: #8ab4f8;
+  --focus-text: #a8c7fa;
+  --spinner-border: #5f6368;
+  --spinner-top: #bdc1c6;
+  --accent: #8ab4f8;
+  --accent-hover: #a8c7fa;
+  --shadow: #00000066;
 }
 * { box-sizing: border-box; }
 html, body, #root { width: 100%; height: 100%; margin: 0; overflow: hidden; }
@@ -118,9 +118,13 @@ body[data-background-opacity="true"] { background: transparent; }
 html[data-tauri-shell] body { background: transparent; }
 button, input { color: inherit; font: inherit; }
 button { cursor: pointer; }
-button:focus-visible, input:focus-visible { outline: 2px solid #5878d6; outline-offset: 2px; }
+button:focus-visible, input:focus-visible { outline: 2px solid var(--focus-border); outline-offset: 2px; }
 .shell-header { position: relative; z-index: 3; height: 48px; padding: 6px 14px 0; background: var(--shell-bg); border-bottom: 1px solid var(--border); user-select: none; -webkit-app-region: drag; }
 html[data-tauri-shell] .shell-header { border-radius: 14px 14px 0 0; }
+/* Tauri's WKWebView can treat the Electron drag region as native hit-testing,
+   which prevents toolbar controls from receiving clicks. Dragging in this host
+   is handled by App's header mousedown bridge instead. */
+html[data-tauri-shell] .shell-header { -webkit-app-region: no-drag; }
 .brand-row { height: 35px; display: flex; align-items: center; justify-content: flex-end; }
 .window-actions { display: flex; gap: 5px; -webkit-app-region: no-drag; }
 .icon-button { width: 26px; height: 25px; border: 0; border-radius: 7px; background: transparent; font-size: 16px; line-height: 1; }
@@ -154,11 +158,11 @@ html[data-tauri-shell] .shell-header { border-radius: 14px 14px 0 0; }
 .shortcut-input.capturing { color: var(--focus-text); border-color: var(--focus-border); background: var(--focus-bg); }
 .shortcut-hint { flex: 0 0 auto; padding: 3px 7px; color: var(--text-secondary); background: var(--control-bg-soft); border: 1px solid var(--border); border-radius: 5px; font-family: inherit; font-size: 11px; line-height: 1.3; }
 .toggle-row { cursor: pointer; }
-.toggle-row input { width: 16px; height: 16px; accent-color: #4c6cc9; }
+.toggle-row input { width: 16px; height: 16px; accent-color: var(--accent); }
 .setting-row select { max-width: 160px; min-height: 30px; padding: 0 8px; color: var(--text); border: 1px solid var(--border); border-radius: 7px; background: var(--shell-bg); }
 .opacity-row { gap: 24px; }
 .range-control { display: flex; flex: 0 1 220px; align-items: center; gap: 10px; }
-.range-control input { width: 100%; min-width: 90px; accent-color: #5878d6; }
+.range-control input { width: 100%; min-width: 90px; accent-color: var(--accent); }
 .range-control output { min-width: 38px; color: var(--text-secondary); text-align: right; font-variant-numeric: tabular-nums; }
 .opacity-preview { padding: 12px 0 6px; }
 .opacity-preview-caption { margin-bottom: 7px; color: var(--text-secondary); font-size: 10px; }

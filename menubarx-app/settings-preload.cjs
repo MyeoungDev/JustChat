@@ -11,5 +11,10 @@ contextBridge.exposeInMainWorld('settingsApp', {
     const listener = (_event, permissions) => callback(permissions)
     ipcRenderer.on('settings:permissions-changed', listener)
     return () => ipcRenderer.removeListener('settings:permissions-changed', listener)
+  },
+  onFocusShortcuts: (callback) => {
+    const listener = () => callback()
+    ipcRenderer.on('settings:focus-shortcuts', listener)
+    return () => ipcRenderer.removeListener('settings:focus-shortcuts', listener)
   }
 })

@@ -1,0 +1,49 @@
+{
+  "scenario": "Floa local video selection, playback, and resume persistence",
+  "date": "2026-11-26",
+  "application": {
+    "name": "Floa",
+    "artifact": "release/floa/mac-arm64/Floa.app",
+    "architecture": "mac-arm64",
+    "electron": "45.2.1",
+    "userData": "/tmp/FloaMediaQA20261126"
+  },
+  "fixture": {
+    "path": "/Users/gwanii/Downloads/Floa media REA long fixture 2026-11-26.mp4",
+    "temporarySource": "/tmp/Floa-media-REA-long-fixture-2026-11-26.mp4",
+    "durationSeconds": 60,
+    "dimensions": "1440x810",
+    "generation": "Repeated the repository's existing 7.5 second MP4 eight times using AVFoundation; no Glaso assets were used."
+  },
+  "steps": [
+    {
+      "action": "Open Local Video using Option+Command+O and select the MP4 in the macOS picker",
+      "result": "pass",
+      "observation": "The picker showed the fixture and opened a separate Floa local video window."
+    },
+    {
+      "action": "Start playback in the player controls",
+      "result": "pass",
+      "observation": "The accessible Play button changed to Pause. The decoded frame and playback controls were visible in the player."
+    },
+    {
+      "action": "Seek to 30 seconds and allow the player IPC to save the seeked position",
+      "result": "pass",
+      "observation": "The player showed 0:30; isolated browser-data.json stored time=30 with matching file size and modification timestamp. Seeking was set through CDP for deterministic positioning; the actual player seeked handler and IPC persisted it."
+    },
+    {
+      "action": "Close the player window, reopen the same file from the native picker, and inspect playback",
+      "result": "pass",
+      "observation": "The reopened player had duration=60, currentTime=39.4898, paused=false, and readyState=4. It had resumed from the stored 30 second position and continued playing before observation."
+    },
+    {
+      "action": "Check playback with Floa obscured in an isolated renderer probe",
+      "result": "partial",
+      "observation": "The main browser document became hidden during the probe and playback stopped. The dedicated media BrowserWindow now sets backgroundThrottling=false; the successful end-to-end player above reported visibility=visible."
+    }
+  ],
+  "limitations": [
+    "Volume and mute changes were not included in this scenario.",
+    "Position setting was deterministic CDP input rather than dragging the native time scrubber. The player seeked event, IPC save, app profile persistence, native reopen, and resumed playback were exercised."
+  ]
+}

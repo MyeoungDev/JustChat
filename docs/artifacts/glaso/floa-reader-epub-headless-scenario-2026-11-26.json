@@ -1,0 +1,70 @@
+{
+  "scenario": "Floa Reader EPUB render, search, and bookmark",
+  "date": "2026-11-26",
+  "reference": {
+    "source": "Glaso public guided animation, Reader lesson",
+    "observedUserActions": [
+      "Open an EPUB in Reader",
+      "Search for a phrase in the book",
+      "Jump to the matching passage",
+      "Bookmark the current CFI location"
+    ],
+    "fidelity": "Behavioral comparison only; no Glaso code, binaries, or assets used."
+  },
+  "application": {
+    "name": "Floa Reader renderer",
+    "entry": "menubarx-app/reader.html",
+    "runtime": "Chrome headless with packaged app.asar extracted to /tmp and served over loopback HTTP",
+    "packageArtifact": "release/floa/mac-arm64/Floa.app/Contents/Resources/app.asar",
+    "epubEngine": "epub.js 0.3.93",
+    "bridge": "readerApp IPC surface stubbed in page initialization; renderer and epub.js were not stubbed",
+    "packageChecks": {
+      "jszipAssetPresent": true,
+      "packagedReaderMatchesSource": true
+    }
+  },
+  "fixture": {
+    "format": "EPUB 3",
+    "path": "/tmp/floa-reader-rea.epub",
+    "title": "Floa EPUB REA Fixture",
+    "searchPhrase": "paper lantern sunrise",
+    "source": "Generated locally for this run"
+  },
+  "observations": [
+    {
+      "step": "Render the EPUB chapter in Reader",
+      "result": "pass",
+      "evidence": "The chapter heading and three paragraphs rendered in the Reader EPUB viewport."
+    },
+    {
+      "step": "Search for paper lantern sunrise",
+      "result": "pass",
+      "evidence": "Reader displayed 1 found and navigated to the matching EPUB CFI."
+    },
+    {
+      "step": "Save a bookmark at the current reading position",
+      "result": "pass",
+      "evidence": "The mocked persistence bridge received addBookmark with an epubcfi(...) location."
+    },
+    {
+      "step": "Keep browser chrome visible during EPUB reading",
+      "result": "pass",
+      "evidence": "Screenshot shows Reader toolbar and library/sidebar while the chapter is displayed."
+    },
+    {
+      "step": "Run the same PDF and EPUB flows from the packaged app.asar",
+      "result": "pass",
+      "evidence": "The extracted package rendered the 240-page PDF, switched documents during search, rendered and searched EPUB, and sent an EPUB CFI to bookmark persistence."
+    }
+  ],
+  "bugsFoundAndFixed": [
+    "The Reader referenced node_modules/jszip, but jszip was only a transitive epub.js dependency and the app package had no direct link. JSZip is now declared as a direct app dependency.",
+    "The Reader called rendition.search(), which is not available in the packaged epub.js API. Search now loads each spine section and collects CFI matches using Section.find()."
+  ],
+  "limitations": [
+    "Chrome headless validates the local Reader HTML and renderer, not the Electron BrowserWindow integration.",
+    "The readerApp bridge was stubbed; native file picker, on-disk persistence, and macOS keyboard routing were not exercised.",
+    "The fixture has one chapter; multi-chapter search and cross-element phrase matching require more coverage.",
+    "No visible app window was created and the existing Just Browse process was left untouched."
+  ]
+}

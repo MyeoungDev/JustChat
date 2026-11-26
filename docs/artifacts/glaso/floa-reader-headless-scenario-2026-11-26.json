@@ -1,0 +1,96 @@
+{
+  "scenario": "Floa Reader PDF selection/highlight restore, PDF search/switch, EPUB render/search/bookmark",
+  "date": "2026-11-26",
+  "reference": {
+    "source": "Glaso public guided animation, Reader lesson",
+    "observedUserActions": [
+      "Open a document in Reader",
+      "Select a passage and save it as a highlight",
+      "Return to the document and see the highlight again",
+      "Search within the document",
+      "Switch to another library document",
+      "Bookmark the current reading position"
+    ],
+    "fidelity": "Behavioral comparison only; no Glaso code, binaries, or assets used."
+  },
+  "application": {
+    "name": "Floa Reader renderer",
+    "entry": "menubarx-app/reader.html",
+    "runtime": "Chrome headless with the extracted macOS arm64 app.asar served over loopback HTTP",
+    "pdfEngine": "PDF.js 6.5.438",
+    "bridge": "readerApp IPC surface stubbed in page initialization; renderer code and PDF.js were not stubbed"
+  },
+  "packagedArtifact": {
+    "path": "release/floa/mac-arm64/Floa.app/Contents/Resources/app.asar",
+    "readerSourcesMatchWorktree": true,
+    "jszipIncluded": true,
+    "codeSigning": "Skipped because the installed Developer ID identity is not trusted."
+  },
+  "fixtures": [
+    {
+      "id": "alpha",
+      "pages": 240,
+      "content": "only alpha phrase appears on page one",
+      "source": "Generated locally for this run"
+    },
+    {
+      "id": "bravo",
+      "pages": 2,
+      "content": "only bravo phrase appears on page one",
+      "source": "Generated locally for this run"
+    }
+  ],
+  "observations": [
+    {
+      "step": "Open the most recent Alpha document",
+      "result": "pass",
+      "evidence": "Reader displayed Document Alpha.pdf and rendered its first PDF canvas; metadata reported PDF · 240 pages."
+    },
+    {
+      "step": "Select text in the PDF and save a highlight",
+      "result": "pass",
+      "evidence": "PDF.js TextLayer spans were selectable; the renderer enabled Highlight, sent the selected phrase and page number to the persistence bridge, and displayed a correctly aligned yellow overlay. Screenshot: floa-reader-pdf-highlight-headless-2026-11-26.png."
+    },
+    {
+      "step": "Open another document and return to the highlighted PDF",
+      "result": "pass",
+      "evidence": "The saved text highlight was rendered again after the PDF was reopened."
+    },
+    {
+      "step": "Remove the saved highlight while its PDF is open",
+      "result": "pass",
+      "evidence": "The packaged renderer removed the corresponding PDF overlay immediately after the mocked persistence bridge accepted removal, without reopening the document."
+    },
+    {
+      "step": "Open EPUB, search within its spine sections, and bookmark a result location",
+      "result": "pass",
+      "evidence": "The packaged reader rendered the EPUB content, showed a search result, and sent an EPUB CFI to the mocked bookmark bridge. JSZip was present in app.asar."
+    },
+    {
+      "step": "Start a search in Alpha and switch to Bravo while the 240-page scan is pending",
+      "result": "pass",
+      "evidence": "The renderer switched to Document Bravo.pdf and rendered a page canvas without allowing the previous document result to replace the current search state."
+    },
+    {
+      "step": "Search for the Alpha-only phrase in Bravo",
+      "result": "pass",
+      "evidence": "The visible result state was No matches."
+    },
+    {
+      "step": "Save a bookmark from the Reader toolbar",
+      "result": "pass",
+      "evidence": "The mocked persistence bridge received addBookmark for the current document."
+    },
+    {
+      "step": "Keep Reader chrome visible after opening a PDF",
+      "result": "pass",
+      "evidence": "After the fix, reader toolbar top=0, sidebar header top=17, window.scrollY=0, reader viewport scrollTop=0. Screenshot: floa-reader-headless-2026-11-26.png."
+    }
+  ],
+  "limitations": [
+    "Chrome headless validates the local Reader HTML and renderer, not the Electron BrowserWindow integration.",
+    "The readerApp bridge was stubbed; native file picker, on-disk persistence, and macOS keyboard routing were not exercised.",
+    "The PDF and EPUB headless harnesses use generated local fixtures rather than Glaso documents.",
+    "No visible app window was created and the existing Just Browse process was left untouched."
+  ]
+}

@@ -1,0 +1,155 @@
+{
+  "browser": {
+    "mode": "launch",
+    "executable_path": "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome",
+    "headless": true
+  },
+  "start_url": {
+    "url": "https://glaso.app/es/tour/"
+  },
+  "environment": {
+    "viewport": {
+      "width": 1440,
+      "height": 900,
+      "device_scale_factor": 1
+    },
+    "locale": "es-ES",
+    "timezone": "UTC",
+    "color_scheme": "dark",
+    "reduced_motion": "no-preference",
+    "service_workers": "block"
+  },
+  "actions": [
+    {
+      "action": "wait_for",
+      "step_id": "tour-ready",
+      "timeout_ms": 20000,
+      "locator": {
+        "kind": "css",
+        "selector": "#main"
+      },
+      "state": "visible"
+    },
+    {
+      "action": "click",
+      "step_id": "lesson-1-autoplay",
+      "locator": {
+        "kind": "css",
+        "selector": "[data-lesson=\"window-essentials\"]"
+      }
+    },
+    {
+      "action": "wait_for_timeout",
+      "step_id": "watch-complete-1",
+      "duration_ms": 20000
+    },
+    {
+      "action": "click",
+      "step_id": "pause-at-end-1",
+      "locator": {
+        "kind": "css",
+        "selector": "button.tour-play"
+      }
+    },
+    {
+      "action": "click",
+      "step_id": "lesson-2-autoplay",
+      "locator": {
+        "kind": "css",
+        "selector": "[data-lesson=\"window-placement\"]"
+      }
+    },
+    {
+      "action": "wait_for_timeout",
+      "step_id": "watch-complete-2",
+      "duration_ms": 31000
+    },
+    {
+      "action": "click",
+      "step_id": "pause-at-end-2",
+      "locator": {
+        "kind": "css",
+        "selector": "button.tour-play"
+      }
+    },
+    {
+      "action": "click",
+      "step_id": "lesson-3-autoplay",
+      "locator": {
+        "kind": "css",
+        "selector": "[data-lesson=\"browser-and-video\"]"
+      }
+    },
+    {
+      "action": "wait_for_timeout",
+      "step_id": "watch-complete-3",
+      "duration_ms": 32000
+    },
+    {
+      "action": "click",
+      "step_id": "pause-at-end-3",
+      "locator": {
+        "kind": "css",
+        "selector": "button.tour-play"
+      }
+    },
+    {
+      "action": "click",
+      "step_id": "lesson-4-autoplay",
+      "locator": {
+        "kind": "css",
+        "selector": "[data-lesson=\"window-mirror\"]"
+      }
+    },
+    {
+      "action": "wait_for_timeout",
+      "step_id": "watch-complete-4",
+      "duration_ms": 28000
+    },
+    {
+      "action": "click",
+      "step_id": "pause-at-end-4",
+      "locator": {
+        "kind": "css",
+        "selector": "button.tour-play"
+      }
+    },
+    {
+      "action": "click",
+      "step_id": "lesson-5-autoplay",
+      "locator": {
+        "kind": "css",
+        "selector": "[data-lesson=\"notes-and-reader\"]"
+      }
+    },
+    {
+      "action": "wait_for_timeout",
+      "step_id": "watch-complete-5",
+      "duration_ms": 34000
+    },
+    {
+      "action": "click",
+      "step_id": "pause-at-end-5",
+      "locator": {
+        "kind": "css",
+        "selector": "button.tour-play"
+      }
+    }
+  ],
+  "capture": {
+    "after_each_step": [
+      "screenshot",
+      "accessibility"
+    ],
+    "at_end": [
+      "url",
+      "screenshot",
+      "dom",
+      "accessibility"
+    ],
+    "events": [
+      "console",
+      "page-errors"
+    ]
+  }
+}

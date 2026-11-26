@@ -1,0 +1,36 @@
+{
+  "id": "just-browse-ocr-worker-packaged-runtime-2026-11-26",
+  "source": "Just Browse Notes image OCR behavior, implemented from observed Glaso Notes capabilities",
+  "purpose": "Verify that the packaged Tesseract Node worker resolves its runtime dependency and recognizes text after the regenerator-runtime packaging fix.",
+  "environment": {
+    "platform": "macOS arm64",
+    "artifact": "release/just-browse/mac-arm64/Just Browse.app",
+    "profile": "Isolated command-line worker test; no user browser profile used"
+  },
+  "steps": [
+    {
+      "action": "Resolve regenerator-runtime/runtime from the packaged Tesseract worker directory",
+      "expected": "The resolved module is under Contents/Resources/app.asar.unpacked/node_modules/regenerator-runtime/",
+      "observed": "PASS: resolved to app.asar.unpacked/node_modules/regenerator-runtime/runtime.js"
+    },
+    {
+      "action": "Start createWorker with the packaged app's unpacked Tesseract Node worker and English OCR model",
+      "expected": "Worker starts without a missing-module exception",
+      "observed": "PASS: createWorker started and completed recognition"
+    },
+    {
+      "action": "Recognize a generated PNG containing the text 'Just Browse OCR verification'",
+      "expected": "Recognized text contains 'Browse'",
+      "observed": "PASS: Just Browse OCR verification"
+    },
+    {
+      "action": "Terminate the worker",
+      "expected": "Worker exits cleanly",
+      "observed": "PASS"
+    }
+  ],
+  "limitations": [
+    "This validates the packaged worker execution path and text recognition, not the Notes window's operating-system clipboard paste flow.",
+    "The test was run against the unsigned macOS arm64 directory build; signing and notarization were unavailable in this environment."
+  ]
+}

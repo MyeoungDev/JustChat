@@ -1,0 +1,65 @@
+{
+  "scenario_id": "just-browse-history-smoke-2026-11-26",
+  "product": "Just Browse",
+  "scenario_type": "packaged-app-interaction",
+  "authority": "controlled-local-runtime",
+  "build": {
+    "platform": "macOS arm64",
+    "packaging": "electron-builder directory package",
+    "code_signed": false
+  },
+  "profile": "isolated temporary user-data directory; no default user profile used",
+  "fixture": "loopback HTTP page at 127.0.0.1:9844 with title History QA Page",
+  "steps": [
+    {
+      "action": "Navigate to the loopback fixture with a unique query string",
+      "expected": "The visit is stored in browser-data.json with the page title, URL, and timestamp",
+      "observed": "pass"
+    },
+    {
+      "action": "Open History from the start page History button through the browser IPC surface",
+      "expected": "History window shows the recorded page",
+      "observed": "pass"
+    },
+    {
+      "action": "Search for History QA",
+      "expected": "The matching page remains and a nonmatching query shows No matching history",
+      "observed": "pass"
+    },
+    {
+      "action": "Open the entry in a new tab",
+      "expected": "The browser has two tabs and navigates to the stored URL",
+      "observed": "pass"
+    },
+    {
+      "action": "Remove one entry and clear all history",
+      "expected": "The list updates immediately and the empty state is shown",
+      "observed": "pass"
+    },
+    {
+      "action": "Restart the packaged app with the same isolated profile",
+      "expected": "The saved visit remains in History; restoring its open tab does not add a phantom visit",
+      "observed": "pass"
+    },
+    {
+      "action": "Emulate light and dark color schemes and inspect the browser chrome computed styles",
+      "expected": "White/gray light chrome and charcoal dark chrome with a visibly lifted active tab",
+      "observed": "pass",
+      "computed_colors": {
+        "light_toolbar": "rgb(255, 255, 255)",
+        "light_tab_strip": "rgb(222, 225, 230)",
+        "dark_toolbar": "rgb(32, 33, 36)",
+        "dark_tab_strip": "rgb(32, 33, 36)",
+        "dark_active_tab": "rgb(53, 54, 58)"
+      }
+    }
+  ],
+  "screenshots": {
+    "dark_history": "just-browse-history-dark-2026-11-26.png",
+    "light_history": "just-browse-history-light-2026-11-26.png"
+  },
+  "limitations": [
+    "The Mac screen was locked, so the test used Chromium DevTools Protocol against the packaged renderer rather than physical keyboard or Orca interaction.",
+    "The fixture was loopback-only and this scenario does not validate public-network navigation or sync behavior."
+  ]
+}

@@ -1,0 +1,64 @@
+{
+  "scenario": "Floa Reader PDF.js parse, text extraction, and search fixture",
+  "date": "2026-11-26",
+  "application": {
+    "name": "Floa",
+    "artifact": "release/floa/mac-arm64/Floa.app",
+    "architecture": "mac-arm64",
+    "electron": "45.2.1",
+    "artifactVerification": "Extracted PDF.js and reader.js from the rebuilt app.asar; parsed the fixture using that packaged PDF.js module."
+  },
+  "fixture": {
+    "path": "/tmp/Floa-Reader-runtime-fixture-2026-11-26.pdf",
+    "pages": 1,
+    "format": "PDF 1.4",
+    "source": "Generated locally for QA; no Glaso code or assets."
+  },
+  "observations": [
+    {
+      "step": "Static source trace of native import through Reader renderers",
+      "result": "code-path-present-runtime-unverified",
+      "details": {
+        "import": "main.cjs importReaderDocument opens a filtered native picker, enforces a 200 MB cap, and copies the chosen file into the app's Reader Library.",
+        "handoff": "reader.js importDocument refreshes library state and calls openDocument for the returned document id.",
+        "load": "main.cjs reader:load validates the stored path and returns document bytes to the Reader preload bridge.",
+        "render": "reader.js dispatches PDF to pdfjs, EPUB to epub.js, and supported text formats to renderText.",
+        "classification": "Source inspection establishes an implemented call path, not successful native selection or visible rendering."
+      }
+    },
+    {
+      "step": "Parse fixture using packaged pdfjs-dist 6.5.438 with Electron-compatible assets",
+      "result": "pass",
+      "details": {
+        "pageCount": 1,
+        "pageBox": [
+          0,
+          0,
+          612,
+          792
+        ],
+        "modulePath": "app.asar/node_modules/pdfjs-dist/legacy/build/pdf.mjs"
+      }
+    },
+    {
+      "step": "Extract searchable text from packaged PDF.js and search for floating browser state",
+      "result": "pass",
+      "details": {
+        "text": "Floa Reader runtime verification Search phrase: floating browser state REA fixture page one",
+        "matches": 1
+      }
+    },
+    {
+      "step": "Check packaged Reader renderer and PDF worker",
+      "result": "pass",
+      "details": {
+        "readerJsMatchesSource": true,
+        "packagedPdfWorkerBytes": 2248830
+      }
+    }
+  ],
+  "limitations": [
+    "No Floa window was brought to the foreground during this scenario.",
+    "Native file picker import, visible PDF canvas rendering, Reader search UI, and bookmark/resume UI for this PDF remain unverified."
+  ]
+}

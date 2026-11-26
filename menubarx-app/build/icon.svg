@@ -1,9 +1,37 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="1024" height="1024" viewBox="0 0 1024 1024">
- <defs><linearGradient id="bg" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#172239"/><stop offset="1" stop-color="#344d7b"/></linearGradient></defs>
- <rect x="48" y="48" width="928" height="928" rx="220" fill="url(#bg)"/>
- <rect x="204" y="216" width="616" height="580" rx="72" fill="#f8fbff"/>
- <path d="M204 288q0-72 72-72h472q72 0 72 72v56H204z" fill="#dce8fa"/>
- <circle cx="272" cy="278" r="16" fill="#637ca7"/><circle cx="324" cy="278" r="16" fill="#637ca7"/><circle cx="376" cy="278" r="16" fill="#637ca7"/>
- <path d="M300 426h424M300 508h330M300 590h382" stroke="#b7c4d9" stroke-width="36" stroke-linecap="round"/>
- <path d="m648 744 38-112 38 112 112 38-112 38-38 112-38-112-112-38z" fill="#507ff2"/>
+  <defs>
+    <linearGradient id="background" x1="120" y1="72" x2="904" y2="952" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#4285F4"/>
+      <stop offset="1" stop-color="#1967D2"/>
+    </linearGradient>
+    <linearGradient id="glass" x1="250" y1="216" x2="746" y2="746" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#FFFFFF"/>
+      <stop offset="1" stop-color="#E8F0FE"/>
+    </linearGradient>
+    <filter id="shadow" x="142" y="138" width="740" height="770" color-interpolation-filters="sRGB" filterUnits="userSpaceOnUse">
+      <feFlood flood-opacity="0" result="BackgroundImageFix"/>
+      <feColorMatrix in="SourceAlpha" values="0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 127 0" result="hardAlpha"/>
+      <feOffset dy="26"/>
+      <feGaussianBlur stdDeviation="31"/>
+      <feComposite in2="hardAlpha" operator="out"/>
+      <feColorMatrix values="0 0 0 0 0.047 0 0 0 0 0.2 0 0 0 0 0.42 0 0 0 0.28 0"/>
+      <feBlend in2="BackgroundImageFix" result="effect1_dropShadow"/>
+      <feBlend in="SourceGraphic" in2="effect1_dropShadow" result="shape"/>
+    </filter>
+  </defs>
+  <rect x="40" y="40" width="944" height="944" rx="230" fill="url(#background)"/>
+  <g filter="url(#shadow)">
+    <rect x="242" y="214" width="540" height="522" rx="58" fill="url(#glass)"/>
+    <path d="M242 272c0-32.032 25.968-58 58-58h424c32.032 0 58 25.968 58 58v64H242v-64Z" fill="#D2E3FC"/>
+    <path d="M242 319h540" stroke="#B6CCF3" stroke-width="3"/>
+    <circle cx="300" cy="273" r="13" fill="#EA4335"/>
+    <circle cx="342" cy="273" r="13" fill="#FBBC04"/>
+    <circle cx="384" cy="273" r="13" fill="#34A853"/>
+    <rect x="292" y="390" width="440" height="276" rx="28" fill="#FFFFFF"/>
+    <path d="M356 454h254" stroke="#DADCE0" stroke-width="24" stroke-linecap="round"/>
+    <path d="M356 520h190" stroke="#E8EAED" stroke-width="24" stroke-linecap="round"/>
+    <path d="M356 586h232" stroke="#E8EAED" stroke-width="24" stroke-linecap="round"/>
+  </g>
+  <path d="M319 812c64 28 126 42 193 42 77 0 145-17 203-52" fill="none" stroke="#AECBFA" stroke-width="20" stroke-linecap="round"/>
+  <path d="m735 781 4 29 28 8-28 8-4 29-9-28-28-8 28-9 9-29Z" fill="#FFFFFF"/>
 </svg>

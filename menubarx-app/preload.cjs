@@ -1,6 +1,7 @@
 const { contextBridge, ipcRenderer } = require('electron')
 
 contextBridge.exposeInMainWorld('browserApp', {
+  platform: process.platform,
   state: () => ipcRenderer.invoke('app:state'),
   navigate: (value) => ipcRenderer.invoke('tab:navigate', value),
   newTab: (value) => ipcRenderer.invoke('tab:new', value),
@@ -13,7 +14,10 @@ contextBridge.exposeInMainWorld('browserApp', {
   closeCurrent: () => ipcRenderer.invoke('tab:close-current'),
   home: () => ipcRenderer.invoke('tab:home'),
   toggleMute: () => ipcRenderer.invoke('tab:toggle-mute'),
+  findInPage: (query, direction) => ipcRenderer.invoke('tab:find', query, direction),
+  closeFind: () => ipcRenderer.invoke('tab:find-close'),
   showMenu: () => ipcRenderer.invoke('browser:menu'),
+  openHistory: () => ipcRenderer.invoke('history:open'),
   showSettings: () => ipcRenderer.invoke('settings:open'),
   setRefreshInterval: (seconds) => ipcRenderer.invoke('tab:refresh-interval', seconds),
   zoom: (delta) => ipcRenderer.invoke('tab:zoom', delta),
@@ -21,6 +25,11 @@ contextBridge.exposeInMainWorld('browserApp', {
   toggleTabDetachment: (id) => ipcRenderer.invoke('tab:detach', id),
   togglePin: () => ipcRenderer.invoke('window:toggle-pin'),
   hide: () => ipcRenderer.invoke('window:hide'),
+  toggleSize: () => ipcRenderer.invoke('window:toggle-size'),
+  toggleScreenFill: () => ipcRenderer.invoke('window:toggle-screen-fill'),
+  saveWindowPreset: (index, name) => ipcRenderer.invoke('window:preset-save', index, name),
+  restoreWindowPreset: (index) => ipcRenderer.invoke('window:preset-restore', index),
+  resetWindowPresets: () => ipcRenderer.invoke('window:preset-reset'),
   addBookmark: () => ipcRenderer.invoke('bookmark:add'),
   openBookmark: (url) => ipcRenderer.invoke('bookmark:open', url),
   removeBookmark: (url) => ipcRenderer.invoke('bookmark:remove', url),
@@ -40,6 +49,16 @@ contextBridge.exposeInMainWorld('browserApp', {
     const listener = (_event, message) => callback(message)
     ipcRenderer.on('app:download-status', listener)
     return () => ipcRenderer.removeListener('app:download-status', listener)
+  },
+  onFindResult: (callback) => {
+    const listener = (_event, result) => callback(result)
+    ipcRenderer.on('app:find-result', listener)
+    return () => ipcRenderer.removeListener('app:find-result', listener)
+  },
+  onFindClose: (callback) => {
+    const listener = () => callback()
+    ipcRenderer.on('app:close-find', listener)
+    return () => ipcRenderer.removeListener('app:close-find', listener)
   }
 })
 

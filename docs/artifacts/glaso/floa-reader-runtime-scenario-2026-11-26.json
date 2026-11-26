@@ -1,0 +1,25 @@
+{
+  "scenario": "Floa Reader search, annotation persistence, and profile restart",
+  "date": "2026-11-26",
+  "application": {
+    "name": "Floa",
+    "artifact": "release/floa/mac-arm64/Floa.app",
+    "architecture": "mac-arm64",
+    "userData": "/tmp/FloaReaderQA-20261126"
+  },
+  "fixture": "Reader Library/floa-reader-rea-scenario.txt",
+  "steps": [
+    {"action": "open reader", "observed": "Reader opened and restored the seeded TXT document", "result": "pass"},
+    {"action": "search document for searchable text", "observed": "1 / 1 result", "result": "pass"},
+    {"action": "add bookmark", "observed": "Page 1 appeared in the bookmark sidebar and profile data", "result": "pass"},
+    {"action": "highlight selected text", "observed": "Expected text appeared in sidebar and profile data", "result": "pass"},
+    {"action": "search library for missing document", "observed": "No matching documents", "result": "pass"},
+    {"action": "restart app using same isolated profile", "observed": "Document, bookmark, and highlight restored", "result": "pass"},
+    {"action": "open native import picker", "observed": "macOS file picker appeared; selecting a file and completing import was not verified", "result": "partial"}
+  ],
+  "limitations": [
+    "The document was seeded into the isolated Reader Library; this scenario does not prove native picker import.",
+    "PDF and EPUB rendering were not exercised in this run.",
+    "Window Mirror and local video runtime flows remain unverified."
+  ]
+}

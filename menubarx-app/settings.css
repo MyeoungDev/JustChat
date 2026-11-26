@@ -8,6 +8,7 @@ h1 { margin: 6px 0 3px; font-size: var(--font-title); line-height: var(--line-ti
 .settings-header p { margin: 0; color: var(--color-fg-secondary); }
 form { display: grid; gap: var(--space-3); }
 .settings-section { padding: 15px 17px 5px; border: 1px solid var(--color-border-subtle); border-radius: var(--radius-card); background: var(--color-bg-layer-1); }
+button:disabled, input:disabled { cursor: not-allowed; opacity: .55; }
 h2 { margin: 0 0 9px; font-size: var(--font-body); line-height: var(--line-body); font-weight: 650; }
 .setting-row, .setting-toggle, .setting-block { min-height: 53px; display: flex; align-items: center; justify-content: space-between; gap: 18px; padding: 9px 0; border-top: 1px solid var(--color-border-subtle); }
 .setting-block { display: grid; gap: 9px; align-items: stretch; }
@@ -17,6 +18,7 @@ small { color: var(--color-fg-secondary); line-height: var(--line-caption); }
 select, input[type="url"], textarea { min-width: 155px; padding: 7px 9px; border: 1px solid var(--color-border); border-radius: var(--radius-control); background: var(--color-bg-layer-2); font: inherit; }
 select { min-height: 34px; }
 input[type="url"], textarea { width: 100%; }
+input[type="range"] { width: 100%; accent-color: var(--color-accent); }
 textarea { resize: vertical; }
 input[type="checkbox"] { width: 16px; height: 16px; accent-color: var(--color-accent); }
 select:hover, input[type="url"]:hover, textarea:hover { border-color: var(--color-border-strong); }
@@ -26,6 +28,10 @@ select:focus-visible, input:focus-visible, textarea:focus-visible, button:focus-
 .settings-footer #status { flex: 1; color: var(--color-fg-secondary); }
 .section-note, .permission-empty { margin: 0 0 10px; color: var(--color-fg-secondary); line-height: var(--line-body); }
 .shortcut-list, .permission-list { display: grid; }
+.window-preset-list { display: grid; gap: 6px; margin: 10px 0; }
+.window-preset-row { display: grid; grid-template-columns: 24px minmax(80px, 1fr) auto auto; align-items: center; gap: 7px; }
+.window-preset-row > label { color: var(--color-fg-secondary); font-weight: 600; }
+.window-preset-row > input { min-width: 80px; padding: 6px 8px; border: 1px solid var(--color-border); border-radius: var(--radius-control); background: var(--color-bg-layer-2); }
 .shortcut-row { min-height: 50px; display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 7px 0; border-top: 1px solid var(--color-border-subtle); }
 .shortcut-description { min-width: 0; display: grid; gap: 3px; }
 .shortcut-description small { color: var(--color-fg-secondary); }
