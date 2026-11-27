@@ -1,0 +1,28 @@
+{
+  "scenario": "Floa global shortcut startup registration and fallback collision handling",
+  "date": "2026-11-27",
+  "reference": {
+    "source": "Glaso public shortcut documentation and installed tutorial/localized settings evidence",
+    "expectedBehavior": [
+      "Allow shortcuts to be disabled together",
+      "Keep saved shortcut assignments available for Floa-focused use",
+      "Do not let a fallback summon key override an explicitly assigned shortcut",
+      "Avoid leaving a partially registered global shortcut set after an OS collision"
+    ],
+    "fidelity": "Behavioral comparison only; no Glaso code, binaries, or assets used."
+  },
+  "implementation": {
+    "startupPath": "Register all enabled global shortcuts through one all-or-nothing registry path.",
+    "failureBehavior": "If a configured accelerator cannot register, unregister the partial set, turn the global-shortcuts setting off, and preserve the user's assignments.",
+    "fallbackBehavior": "Register CommandOrControl+Shift+Space as an optional backup only when it is not assigned to any configured shortcut."
+  },
+  "validation": {
+    "method": "Node VM harness evaluated the exact registration functions extracted from main.cjs with a mocked Electron globalShortcut API.",
+    "cases": {
+      "fallbackAssignedToMediaMute": "pass; the assigned action retained CommandOrControl+Shift+Space and no duplicate summon registration replaced it",
+      "fallbackUnassigned": "pass; the optional summon fallback was registered",
+      "configuredAcceleratorUnavailable": "pass; partial registrations were removed and registration returned failure"
+    },
+    "nativeMacOSKeyDispatch": "not tested; no application window was opened or focused"
+  }
+}

@@ -32,12 +32,15 @@ function sanitizeHtml(html) {
       continue
     }
     if (!allowedTags.has(node.tagName)) { node.replaceWith(...node.childNodes); continue }
+    if (node.tagName === 'IMG' && !/^data:image\/(png|jpeg|gif|webp);base64,/i.test(node.getAttribute('src') || '')) {
+      node.remove()
+      continue
+    }
     for (const attr of [...node.attributes]) {
       if (node.tagName === 'A' && attr.name === 'href') {
         try { const url = new URL(attr.value); if (!['https:', 'http:', 'mailto:'].includes(url.protocol)) node.removeAttribute(attr.name) }
         catch { node.removeAttribute(attr.name) }
       } else if (node.tagName === 'IMG' && ['src', 'alt'].includes(attr.name)) {
-        if (attr.name === 'src' && !/^data:image\/(png|jpeg|gif|webp);base64,/i.test(attr.value)) node.removeAttribute(attr.name)
         if (attr.name === 'alt') node.setAttribute('alt', attr.value.slice(0, 200))
       } else if (node.tagName === 'IMG' && attr.name === 'data-ocr') {
         node.setAttribute('data-ocr', attr.value.replace(/[\u0000-\u001f]/g, ' ').slice(0, 10_000))
@@ -258,7 +261,20 @@ editor.addEventListener('paste', (event) => {
     return
   }
   event.preventDefault()
-  document.execCommand('insertText', false, event.clipboardData?.getData('text/plain') || '')
+  const clipboard = event.clipboardData
+  const html = clipboard?.getData('text/html') || ''
+  const text = clipboard?.getData('text/plain') || ''
+  const safeHtml = html ? sanitizeHtml(html) : ''
+  const incomingImages = document.createElement('template')
+  incomingImages.innerHTML = safeHtml
+  const oversizedImage = [...incomingImages.content.querySelectorAll('img[src^="data:image/"]')].some((image) => {
+    const encoded = image.getAttribute('src').split(',', 2)[1] || ''
+    const padding = encoded.endsWith('==') ? 2 : encoded.endsWith('=') ? 1 : 0
+    return Math.floor(encoded.length * 3 / 4) - padding > 1_000_000
+  })
+  if (oversizedImage) { showNotice('Pasted images must be smaller than 1 MB.'); return }
+  if (safeHtml.trim()) document.execCommand('insertHTML', false, safeHtml)
+  else document.execCommand('insertText', false, text)
   scheduleSave()
 })
 editor.addEventListener('click', (event) => { if (event.target.closest('a')) event.preventDefault() })

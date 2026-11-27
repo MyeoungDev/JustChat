@@ -1,0 +1,21 @@
+{
+  "date": "2026-11-27",
+  "product": "Floa",
+  "feature": "Global address bar shortcut",
+  "shortcut": {
+    "electronAccelerator": "CommandOrControl+/",
+    "macOS": "Command+/",
+    "windowsAndLinux": "Control+/",
+    "global": true
+  },
+  "checks": [
+    {"input": "macOS Command+/ key event", "expected": "Matches the address shortcut", "result": "PASS"},
+    {"input": "macOS Command+Shift+/ key event", "expected": "Does not match the address shortcut", "result": "PASS"},
+    {"input": "Settings shortcut", "expected": "CommandOrControl+Shift+/ remains assigned", "result": "PASS"},
+    {"input": "Legacy address shortcut at the old default", "expected": "Migrates to CommandOrControl+/", "result": "PASS"}
+  ],
+  "limitations": [
+    "The operating system global shortcut was not physically triggered from another app during this check.",
+    "The new binding requires the packaged app to restart before it is active."
+  ]
+}

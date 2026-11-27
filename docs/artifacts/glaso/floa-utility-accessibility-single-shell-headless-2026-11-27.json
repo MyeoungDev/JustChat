@@ -1,0 +1,31 @@
+{
+  "timestamp": "2026-11-27T03:08:46.801Z",
+  "accessibleTabLabels": [
+    "Browser",
+    "Notes",
+    "Reader",
+    "Window Mirror"
+  ],
+  "selectedAfterArrowRight": [
+    "Notes"
+  ],
+  "workspaceAfterArrowRight": "notes",
+  "selectedAfterHome": [
+    "Browser"
+  ],
+  "workspaceAfterHome": "browser",
+  "oneSelectedTabAfterEachAction": true,
+  "noDuplicateUtilityTabStrip": true,
+  "notesContentMetrics": {
+    "width": 420,
+    "height": 351,
+    "bodyWidth": 420,
+    "bodyHeight": 351
+  },
+  "screenshotPath": "/Users/gwanii/Downloads/git/just-chat/docs/artifacts/glaso/floa-notes-single-shell-tab-headless-2026-11-27.png",
+  "browserReturn": {
+    "activeBrowserTabIdPreserved": true,
+    "addressBarRestored": true,
+    "selectedTab": "Browser"
+  }
+}

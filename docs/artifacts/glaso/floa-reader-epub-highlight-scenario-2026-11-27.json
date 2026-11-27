@@ -1,0 +1,64 @@
+{
+  "scenario": "Floa Reader EPUB highlight add, restore model, and live removal",
+  "date": "2026-11-27",
+  "reference": {
+    "source": "Glaso public guided animation, Reader lesson",
+    "observedUserActions": [
+      "Select a passage in an EPUB",
+      "Save the passage as a highlight",
+      "See the highlight on the current page",
+      "Remove the saved highlight"
+    ],
+    "fidelity": "Behavioral comparison only; no Glaso code, binaries, or assets used."
+  },
+  "application": {
+    "entry": "menubarx-app/reader.html",
+    "runtime": "Chrome headless against the extracted macOS arm64 app.asar over loopback HTTP",
+    "engine": "epub.js 0.3.93",
+    "persistenceBridge": "Stubbed; renderer and EPUB.js were not stubbed",
+    "artifact": "release/floa/mac-arm64/Floa.app/Contents/Resources/app.asar"
+  },
+  "fixture": {
+    "format": "EPUB 3",
+    "source": "Generated locally for this run",
+    "selectedText": "Distinctive bookmark phrase"
+  },
+  "observations": [
+    {
+      "step": "Select text in the EPUB iframe",
+      "result": "pass",
+      "evidence": "epub.js produced an epubcfi(/6/2!/4/6,/1:0,/1:27) range and the Reader enabled Highlight."
+    },
+    {
+      "step": "Save and show the highlight without reopening the book",
+      "result": "pass",
+      "evidence": "The mocked persistence bridge returned a saved highlight; the live rendition registered a reader-saved-highlight mark with fill #ffe58a and fill-opacity 0.55. The screenshot shows the selected passage highlighted on the current page."
+    },
+    {
+      "step": "Clear the EPUB selection after saving",
+      "result": "pass",
+      "evidence": "The iframe selection and temporary renderer selection state were cleared after the highlight was applied."
+    },
+    {
+      "step": "Switch to another book and reopen the EPUB",
+      "result": "pass",
+      "evidence": "The renderer reconstructed the saved epub.js mark from the persisted highlight metadata when the EPUB was opened again."
+    },
+    {
+      "step": "Keep a search query while switching documents and refresh its result",
+      "result": "pass",
+      "evidence": "A phrase with no match in the PDF remained in the search field; after opening the EPUB, the Reader searched the new document and displayed its match instead of keeping the previous document's result state."
+    },
+    {
+      "step": "Remove the highlight while the EPUB remains open",
+      "result": "pass",
+      "evidence": "The bridge accepted removal and epub.js removed the annotation from the live rendition registry without reopening the document."
+    }
+  ],
+  "screenshot": "floa-reader-epub-highlight-headless-2026-11-27.png",
+  "limitations": [
+    "The persistence bridge was mocked; this does not verify on-disk persistence or restart restoration.",
+    "The fixture is generated for this run rather than a Glaso document.",
+    "No Electron BrowserWindow was created, no app was activated, and the existing Just Browse process was left untouched."
+  ]
+}

@@ -1,0 +1,14 @@
+{
+  "environment": "Electron 45.2.1 hidden, isolated test profile",
+  "initialWorkspace": "notes",
+  "initialTabId": "ee331596-bed9-4053-b99d-b4d4c6e7fb56",
+  "shortcutPrevented": true,
+  "noteCountBefore": 1,
+  "noteCountAfterShortcut": 2,
+  "shortcutCreatedNote": true,
+  "rebuildCreatedNewShell": true,
+  "workspaceAfterRebuild": "notes",
+  "tabIdPreserved": true,
+  "noteCountAfterRebuild": 2,
+  "noteStatePreserved": true
+}

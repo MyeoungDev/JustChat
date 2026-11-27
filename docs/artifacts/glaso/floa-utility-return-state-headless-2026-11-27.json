@@ -1,0 +1,8 @@
+{
+  "readerSearchValueAfterSwitchAwayAndBack": "floa-state-marker",
+  "readerViewTargetStillLoaded": true,
+  "mirrorCloseReturnsToBrowser": true,
+  "browserTabIdPreserved": true,
+  "browserAddressRestored": true,
+  "mirrorWebContentsRetainedAfterCloseReturn": true
+}

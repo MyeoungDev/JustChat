@@ -2,7 +2,6 @@ const api = window.settingsApp
 const form = document.querySelector('#settings-form')
 const status = document.querySelector('#status')
 const folderLabel = document.querySelector('#download-location')
-const customAgentRow = document.querySelector('#custom-ua-row')
 const opacityInput = form.elements.opacity
 const opacityValue = document.querySelector('#opacity-value')
 const mediaVolumeInput = form.elements.mediaVolume
@@ -40,7 +39,7 @@ function renderShortcuts(definitions) {
     const title = document.createElement('strong')
     title.textContent = definition.label
     const note = document.createElement('small')
-    note.textContent = definition.noteOnly ? 'In Notes' : definition.readerOnly ? 'In Book Reader' : definition.mirrorOnly ? 'In Window Mirror' : definition.global ? 'Global · works in other apps' : 'In Floa'
+    note.textContent = definition.noteOnly ? 'In Notes' : definition.readerOnly ? 'In Book Reader' : definition.global ? 'Global · works in other apps' : 'In Floa'
     description.append(title, note)
     const controls = document.createElement('div')
     controls.className = 'shortcut-controls'
@@ -73,7 +72,10 @@ function renderShortcuts(definitions) {
 
 function keyCombination(event) {
   const modifiers = []
-  if (event.metaKey || event.ctrlKey) modifiers.push('CommandOrControl')
+  if (api.platform === 'darwin') {
+    if (event.metaKey) modifiers.push('CommandOrControl')
+    if (event.ctrlKey) modifiers.push('Control')
+  } else if (event.metaKey || event.ctrlKey) modifiers.push('CommandOrControl')
   if (event.altKey) modifiers.push('Alt')
   if (event.shiftKey) modifiers.push('Shift')
   const keys = { ' ': 'Space', ',': 'Comma', '.': 'Period', '+': 'Plus', '-': '-', '/': '/', '?': '/', '[': '[', ']': ']', '`': '`', '=': '=', ';': ';', "'": "'", '\\': '\\', ArrowLeft: 'Left', ArrowRight: 'Right', ArrowUp: 'Up', ArrowDown: 'Down', Enter: 'Enter' }
@@ -82,7 +84,7 @@ function keyCombination(event) {
   if (!/^[A-Z0-9]$/.test(key) && !/^F([1-9]|1[0-9]|2[0-4])$/.test(key) && !['Comma', 'Period', '/', '-', 'Plus', 'Space', 'Tab', 'Left', 'Right', 'Up', 'Down', 'PageUp', 'PageDown', 'Enter', '[', ']', '`', '=', ';', "'", '\\'].includes(key)) return ''
   if (!modifiers.length) return ''
   if (key === 'Plus') modifiers.push('Shift')
-  const canonical = ['CommandOrControl', 'Alt', 'Shift'].filter((item) => modifiers.includes(item))
+  const canonical = ['CommandOrControl', 'Control', 'Alt', 'Shift'].filter((item) => modifiers.includes(item))
   return [...canonical, key].join('+')
 }
 
@@ -120,7 +122,6 @@ function fillSettings(settings) {
   }
   downloadDirectory = settings.downloadDirectory || ''
   folderLabel.textContent = downloadDirectory || 'Downloads'
-  customAgentRow.hidden = form.elements.userAgentProfile.value !== 'custom'
   opacityValue.value = `${Math.round(Number(opacityInput.value) * 100)}%`
   mediaVolumeValue.value = `${Math.round(Number(mediaVolumeInput.value) * 100)}%`
   for (const [index, preset] of (settings.windowPresets || []).entries()) {
@@ -166,7 +167,6 @@ function formValues() {
   const values = Object.fromEntries(new FormData(form).entries())
   values.defaultRefreshSeconds = Number(values.defaultRefreshSeconds)
   values.defaultZoomLevel = Number(values.defaultZoomLevel)
-  values.maxTabs = Number(values.maxTabs)
   values.discardIdleMinutes = Number(values.discardIdleMinutes)
   values.downloadDirectory = downloadDirectory
   values.shortcuts = { ...shortcuts }
@@ -178,9 +178,6 @@ function formValues() {
   return values
 }
 
-form.elements.userAgentProfile.addEventListener('change', () => {
-  customAgentRow.hidden = form.elements.userAgentProfile.value !== 'custom'
-})
 opacityInput.addEventListener('input', () => { opacityValue.value = `${Math.round(Number(opacityInput.value) * 100)}%` })
 mediaVolumeInput.addEventListener('input', () => { mediaVolumeValue.value = `${Math.round(Number(mediaVolumeInput.value) * 100)}%` })
 

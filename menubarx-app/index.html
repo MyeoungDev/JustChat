@@ -6,32 +6,28 @@
     <title>Floa</title>
     <link rel="stylesheet" href="design-tokens.css" />
     <link rel="stylesheet" href="style.css" />
-  </head>
+    </head>
   <body>
     <header class="toolbar">
       <div class="toolbar-primary">
         <div class="nav-actions">
-          <button id="back" title="Back" aria-label="Back">‹</button>
-          <button id="forward" title="Forward" aria-label="Forward">›</button>
-          <button id="home-button" title="Start page" aria-label="Start page">⌂</button>
-          <button id="reload" title="Reload" aria-label="Reload">↻</button>
+          <button id="back" title="Back" aria-label="Back"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m14.5 5-7 7 7 7"/></svg></button>
+          <button id="forward" title="Forward" aria-label="Forward"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m9.5 5 7 7-7 7"/></svg></button>
+          <button id="home-button" title="Start page" aria-label="Start page"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m3.5 10 8.5-7 8.5 7v10.5h-6v-7h-5v7h-6z"/></svg></button>
+          <button id="reload" title="Reload" aria-label="Reload"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20 11a8 8 0 0 0-14.6-4L4 9"/><path d="M4 4v5h5M4 13a8 8 0 0 0 14.6 4L20 15"/><path d="M20 20v-5h-5"/></svg></button>
         </div>
         <form id="address-form">
           <input id="address" aria-label="Address or search" placeholder="Search or enter address" autocomplete="off" spellcheck="false" />
         </form>
-      </div>
-      <div class="toolbar-actions" role="group" aria-label="Page and window actions">
-        <button id="bookmark" title="Bookmark this page" aria-label="Bookmark this page" aria-pressed="false"><span aria-hidden="true">☆</span><span class="action-label">Favorite</span></button>
-        <button id="mute" title="Mute website audio" aria-label="Mute website audio" aria-pressed="false"><span aria-hidden="true">◖</span><span class="action-label">Mute</span></button>
-        <button id="pin" title="Keep window on top" aria-label="Keep window on top" aria-pressed="false"><span aria-hidden="true">⌖</span><span class="action-label">Pin</span></button>
-        <button id="toggle-size" title="Expand panel" aria-label="Expand panel" aria-pressed="false"><span aria-hidden="true">⤢</span><span class="action-label">Expand</span></button>
-        <button id="toggle-screen-fill" title="Fill current screen" aria-label="Fill current screen" aria-pressed="false"><span aria-hidden="true">□</span><span class="action-label">Fill screen</span></button>
-        <button id="menu-button" title="Browser menu" aria-label="Browser menu"><span aria-hidden="true">⋯</span><span class="action-label">Actions</span></button>
-        <button id="hide" title="Hide window" aria-label="Hide window"><span aria-hidden="true">×</span><span class="action-label">Hide</span></button>
+        <div class="toolbar-actions" role="group" aria-label="Page actions">
+          <button id="bookmark" title="Bookmark this page" aria-label="Bookmark this page" aria-pressed="false"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m12 3 2.8 5.7 6.2.9-4.5 4.4 1.1 6.2-5.6-3-5.6 3 1.1-6.2L3 9.6l6.2-.9z"/></svg><span class="action-label">Favorite</span></button>
+          <button id="menu-button" title="Browser menu" aria-label="Browser menu"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="5" cy="12" r="1"/><circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/></svg><span class="action-label">Actions</span></button>
+        </div>
       </div>
     </header>
     <div class="tab-strip">
       <nav class="tabs" id="tabs" role="group" aria-label="Browser tabs"></nav>
+      <nav class="workspace-tabs" id="workspace-tabs" role="group" aria-label="Floa app tabs"></nav>
       <button id="new-tab" class="new-tab" type="button" title="New tab" aria-label="New tab">+ <span>New tab</span></button>
     </div>
     <div id="find-bar" class="find-bar" role="search" aria-label="Find in page" hidden>
@@ -61,6 +57,6 @@
         <div class="dialog-actions"><button id="cancel-favorite" type="button">Cancel</button><button class="primary" type="submit">Save favorite</button></div>
       </form>
     </dialog>
-    <script src="renderer.js"></script>
+    <script src="workspace.js"></script><script src="renderer.js"></script>
   </body>
 </html>

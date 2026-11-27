@@ -1,0 +1,29 @@
+{
+  "date": "2026-11-27",
+  "product": "Floa",
+  "feature": "Notes rich-text paste",
+  "environment": {
+    "browser": "Google Chrome headless",
+    "appWindowShown": false,
+    "osClipboardUsed": false,
+    "input": "synthetic renderer ClipboardEvent"
+  },
+  "checks": [
+    {"input": "HTML containing strong/emphasis markup", "expected": "formatting is retained", "result": "PASS"},
+    {"input": "HTML containing script, event handler, external image, javascript link", "expected": "unsafe executable content and external image are removed", "result": "PASS"},
+    {"input": "plain text clipboard payload", "expected": "plain text is inserted when no usable HTML is present", "result": "PASS"},
+    {"input": "data image exceeding 1 MB", "expected": "paste is rejected with a user notice", "result": "PASS"}
+  ],
+  "packaging": {
+    "command": "pnpm justbrowse:pack:mac",
+    "result": "PASS",
+    "architecture": "arm64",
+    "asarSourceMatch": "PASS",
+    "codeSigning": "skipped: installed Developer ID identity is not trusted"
+  },
+  "limitations": [
+    "The operating system clipboard service was not exercised.",
+    "The Notes app window was not foregrounded or visually inspected.",
+    "The scenario validates renderer paste handling, not macOS clipboard integration."
+  ]
+}

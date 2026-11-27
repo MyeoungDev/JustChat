@@ -1,0 +1,116 @@
+{
+  "timestamp": "2026-11-27T03:08:01.109Z",
+  "environment": "Electron 45.2.1 hidden test mode, isolated /tmp profile, 420x500 outer window",
+  "labelsBefore": [
+    {
+      "label": "Browser",
+      "selected": "true",
+      "tabIndex": 0
+    },
+    {
+      "label": "Notes",
+      "selected": "false",
+      "tabIndex": -1
+    },
+    {
+      "label": "Reader",
+      "selected": "false",
+      "tabIndex": -1
+    },
+    {
+      "label": "Window Mirror",
+      "selected": "false",
+      "tabIndex": -1
+    }
+  ],
+  "stateBefore": {
+    "tabs": [
+      {
+        "id": "9d7846f2-ce42-4695-ae9c-7b8c319c6878",
+        "url": "",
+        "title": "New Tab",
+        "detached": false
+      },
+      {
+        "id": "ee331596-bed9-4053-b99d-b4d4c6e7fb56",
+        "url": "http://127.0.0.1:54755/",
+        "title": "Floa E2E Local",
+        "detached": false
+      }
+    ],
+    "activeTabId": "ee331596-bed9-4053-b99d-b4d4c6e7fb56",
+    "workspace": "browser"
+  },
+  "keyboardState": {
+    "tabs": [
+      {
+        "id": "9d7846f2-ce42-4695-ae9c-7b8c319c6878",
+        "url": "",
+        "title": "New Tab",
+        "detached": false
+      },
+      {
+        "id": "ee331596-bed9-4053-b99d-b4d4c6e7fb56",
+        "url": "http://127.0.0.1:54755/",
+        "title": "Floa E2E Local",
+        "detached": false
+      }
+    ],
+    "activeTabId": "ee331596-bed9-4053-b99d-b4d4c6e7fb56",
+    "workspace": "browser"
+  },
+  "keyboardSelectedTabs": 1,
+  "keyboardSelectionMatchesState": true,
+  "utilities": [
+    {
+      "workspace": "reader",
+      "accepted": true,
+      "stateWorkspace": "reader",
+      "activeTabId": "ee331596-bed9-4053-b99d-b4d4c6e7fb56",
+      "metrics": {
+        "width": 420,
+        "height": 351,
+        "bodyWidth": 420,
+        "bodyHeight": 351,
+        "duplicatedWorkspaceTabStrip": false
+      }
+    },
+    {
+      "workspace": "mirror",
+      "accepted": true,
+      "stateWorkspace": "mirror",
+      "activeTabId": "ee331596-bed9-4053-b99d-b4d4c6e7fb56",
+      "metrics": {
+        "width": 420,
+        "height": 351,
+        "bodyWidth": 420,
+        "bodyHeight": 351,
+        "duplicatedWorkspaceTabStrip": false
+      }
+    },
+    {
+      "workspace": "notes",
+      "accepted": true,
+      "stateWorkspace": "notes",
+      "activeTabId": "ee331596-bed9-4053-b99d-b4d4c6e7fb56",
+      "metrics": {
+        "width": 420,
+        "height": 351,
+        "bodyWidth": 420,
+        "bodyHeight": 351,
+        "duplicatedWorkspaceTabStrip": false
+      }
+    },
+    {
+      "workspace": "browser",
+      "accepted": true,
+      "stateWorkspace": "browser",
+      "activeTabId": "ee331596-bed9-4053-b99d-b4d4c6e7fb56",
+      "metrics": null
+    }
+  ],
+  "createdTestTab": "236508a8-cd49-4283-9216-00982fef4988",
+  "activeTabAfterClose": "ee331596-bed9-4053-b99d-b4d4c6e7fb56",
+  "priorTabRestoredAfterClose": true,
+  "screenshotPath": "/Users/gwanii/Downloads/git/just-chat/docs/artifacts/glaso/floa-utility-common-tabs-headless-2026-11-27.png"
+}

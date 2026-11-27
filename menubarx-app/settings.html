@@ -30,14 +30,6 @@
           <span><strong>Window opacity <output id="opacity-value">100%</output></strong><small>Let windows behind Floa show through. Use Option+Command+Comma or Period for quick changes.</small></span>
           <input name="opacity" type="range" min="0.35" max="1" step="0.05" />
         </label>
-        <label class="setting-row">
-          <span><strong>Search engine</strong><small>Used when you enter words instead of a web address.</small></span>
-          <select name="searchEngine">
-            <option value="google">Google</option>
-            <option value="duckduckgo">DuckDuckGo</option>
-            <option value="bing">Bing</option>
-          </select>
-        </label>
         <label class="setting-block">
           <span><strong>Homepage</strong><small>Leave blank to use the built-in favorites page. New tabs use this address.</small></span>
           <input name="homepage" type="url" placeholder="https://example.com" autocomplete="url" />
@@ -49,21 +41,14 @@
       </section>
 
       <section class="settings-section">
-        <h2>Browsing</h2>
+        <h2>Search &amp; browsing</h2>
         <label class="setting-row">
-          <span><strong>Default User-Agent</strong><small>Applied to new tabs. Existing tabs can be changed from the browser menu.</small></span>
-          <select name="userAgentProfile">
-            <option value="default">Default (Chromium)</option>
-            <option value="chrome">Desktop (Chrome)</option>
-            <option value="mac-safari">Desktop (macOS Safari)</option>
-            <option value="ios-safari">Mobile (iOS Safari)</option>
-            <option value="android-chrome">Mobile (Android Chrome)</option>
-            <option value="custom">Custom User-Agent</option>
+          <span><strong>Search engine</strong><small>Used when you enter words instead of a web address.</small></span>
+          <select name="searchEngine">
+            <option value="google">Google</option>
+            <option value="duckduckgo">DuckDuckGo</option>
+            <option value="bing">Bing</option>
           </select>
-        </label>
-        <label class="setting-block" id="custom-ua-row" hidden>
-          <span><strong>Custom User-Agent string</strong><small>Sent with new tabs that use the Custom profile.</small></span>
-          <textarea name="userAgentCustom" rows="3" maxlength="512" placeholder="Mozilla/5.0 …"></textarea>
         </label>
         <label class="setting-row">
           <span><strong>New tab auto-refresh</strong><small>Per-tab refresh can be changed from the browser menu.</small></span>
@@ -83,22 +68,6 @@
             <option value="0">100%</option>
             <option value="1">120%</option>
             <option value="2">144%</option>
-          </select>
-        </label>
-        <label class="setting-row">
-          <span><strong>Default device viewport</strong><small>New tabs use this emulated screen size. Change individual tabs from the browser menu.</small></span>
-          <select name="defaultViewportProfile">
-            <option value="desktop">Desktop</option>
-            <option value="iphone-se">iPhone SE</option>
-            <option value="iphone-16">iPhone 16</option>
-            <option value="ipad">iPad</option>
-            <option value="pixel-9">Pixel 9</option>
-          </select>
-        </label>
-        <label class="setting-row">
-          <span><strong>Tab limit</strong><small>Choose a maximum, or select Unlimited.</small></span>
-          <select name="maxTabs">
-            <option value="1">1 tab</option><option value="5">5 tabs</option><option value="10">10 tabs</option><option value="15">15 tabs</option><option value="20">20 tabs</option><option value="30">30 tabs</option><option value="0">Unlimited</option>
           </select>
         </label>
         <label class="setting-row">
@@ -136,7 +105,7 @@
 
       <section class="settings-section">
         <h2>Site permissions</h2>
-        <p class="section-note">Notifications, location, camera, and microphone start blocked. A site must ask and you must approve it. Camera and microphone access also require macOS approval. Screen sharing remains blocked.</p>
+        <p class="section-note">Notifications, location, camera, and microphone start blocked. A site must ask and you must approve it. Camera and microphone access also require macOS approval.</p>
         <div id="site-permissions" class="permission-list" aria-live="polite"></div>
       </section>
 

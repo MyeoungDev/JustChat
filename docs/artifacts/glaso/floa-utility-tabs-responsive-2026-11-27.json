@@ -1,0 +1,94 @@
+{
+  "scenario": "Floa shared workspace tab strip at compact and standard widths",
+  "date": "2026-11-27",
+  "runtime": "Google Chrome headless with CDP viewport override and actual Floa design tokens/style.css",
+  "harness": "Static shell containing representative website tabs, the four workspace buttons, and a placeholder content surface",
+  "measurements": [
+    {
+      "viewport": {
+        "width": 420,
+        "height": 570
+      },
+      "workspaceStrip": {
+        "display": "grid",
+        "width": 420,
+        "scrollWidth": 420,
+        "clientWidth": 420
+      },
+      "workspaceButtons": [
+        {
+          "label": "Browser",
+          "width": 101
+        },
+        {
+          "label": "Notes",
+          "width": 101
+        },
+        {
+          "label": "Reader",
+          "width": 101
+        },
+        {
+          "label": "Window Mirror",
+          "width": 101
+        }
+      ],
+      "screenshot": "floa-utility-tabs-responsive-420x570-headless-2026-11-27.png"
+    },
+    {
+      "viewport": {
+        "width": 660,
+        "height": 570
+      },
+      "workspaceStrip": {
+        "display": "flex",
+        "width": 300,
+        "scrollWidth": 299,
+        "clientWidth": 299
+      },
+      "workspaceButtons": [
+        {
+          "label": "Browser",
+          "width": 64
+        },
+        {
+          "label": "Notes",
+          "width": 64
+        },
+        {
+          "label": "Reader",
+          "width": 64
+        },
+        {
+          "label": "Window Mirror",
+          "width": 93
+        }
+      ],
+      "screenshot": "floa-utility-tabs-responsive-660x570-headless-2026-11-27.png"
+    }
+  ],
+  "changes": [
+    "Compact utility workspace buttons now use four equal grid columns so all labels fit without horizontal clipping.",
+    "Workspace strip rerendering restores keyboard focus to the same workspace or website tab after state updates.",
+    "The in-app Control+Tab and reverse shortcut cycle browser website tabs and all utility workspaces in a single loop; global equivalents are available and configurable in Settings.",
+    "The in-app next/previous defaults now use Control+Tab and Control+Shift+Tab, with a settings-recorder mapping that keeps macOS Control distinct from Command; previous built-in defaults migrate while custom assignments remain."
+  ],
+  "limitations": [
+    "The shell uses static representative tab content; Electron WebContentsView switching, state persistence, and native OS shortcut delivery are not covered by these screenshots.",
+    "The screenshots verify tab-strip layout only; the placeholder content is not a utility workspace rendering.",
+    "Keyboard focus behavior used mocked IPC; native Electron key delivery and global OS shortcut registration were not exercised."
+  ],
+  "keyboardFocusScenario": {
+    "runtime": "Actual workspace.js in Chrome headless with mocked browserApp IPC state",
+    "steps": [
+      "Focus Notes workspace tab",
+      "ArrowRight selects Reader and preserves focus",
+      "ArrowRight selects Window Mirror and preserves focus"
+    ],
+    "result": {
+      "activeTab": "Window Mirror",
+      "selectedTab": "Window Mirror",
+      "continuousArrowNavigation": true
+    }
+  }
+}

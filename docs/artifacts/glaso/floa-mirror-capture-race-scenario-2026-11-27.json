@@ -1,0 +1,27 @@
+{
+  "date": "2026-11-27",
+  "product": "Floa",
+  "feature": "Window Mirror capture lifecycle",
+  "environment": {
+    "browser": "Google Chrome headless",
+    "appWindowShown": false,
+    "osScreenRecordingPermissionUsed": false
+  },
+  "checks": [
+    {
+      "input": "A selected mirror source is rejected after getUserMedia succeeds",
+      "expected": "The stream track stops, authorization is revoked, no mirror tab remains, and the picker remains available",
+      "result": "PASS"
+    },
+    {
+      "input": "Stop All / beforeunload occurs while getUserMedia is pending, then the stream resolves",
+      "expected": "The late stream is stopped and revoked without creating a tab",
+      "result": "PASS"
+    }
+  ],
+  "limitations": [
+    "Uses mocked source enumeration, capture stream, and main-process IPC.",
+    "Does not exercise macOS Screen Recording permission or capture a real app window.",
+    "Does not exercise the native Accessibility input helper."
+  ]
+}

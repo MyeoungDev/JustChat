@@ -4,11 +4,21 @@ const newTabButton = document.querySelector('#new-tab')
 const address = document.querySelector('#address')
 const homeAddress = document.querySelector('#home-address')
 const home = document.querySelector('#home')
-let state = { tabs: [], bookmarks: [], activeTabId: null, pinned: false, expanded: false, screenFilled: false, muted: false, canGoBack: false, canGoForward: false }
+let state = { tabs: [], bookmarks: [], activeTabId: null, workspace: 'browser', pinned: false, expanded: false, screenFilled: false, muted: false, canGoBack: false, canGoForward: false }
 let noticeTimer
 let editingBookmarkUrl = ''
 let findRequestId = 0
 let findQuery = ''
+let lastStateRevision = -1
+
+function receiveState(next) {
+  if (!next) return
+  const revision = Number.isFinite(next.revision) ? next.revision : 0
+  if (revision < lastStateRevision) return
+  lastStateRevision = revision
+  state = next
+  render()
+}
 
 function formatShortcut(value) {
   if (!value) return ''
@@ -47,9 +57,10 @@ function render() {
   tabsNode.replaceChildren()
   for (const tab of state.tabs) {
     const button = document.createElement('div')
-    const active = tab.id === state.activeTabId
+    const active = state.workspace === 'browser' && tab.id === state.activeTabId
     button.className = `tab${active ? ' active' : ''}`
     button.setAttribute('role', 'group')
+    button.setAttribute('aria-current', active ? 'page' : 'false')
     button.setAttribute('aria-label', `Tab ${state.tabs.indexOf(tab) + 1}: ${tab.title || 'New tab'}`)
     button.title = tab.url || 'New tab'
     const select = document.createElement('button')
@@ -64,16 +75,7 @@ function render() {
     select.append(title)
     select.addEventListener('click', () => api.activateTab(tab.id))
     button.append(select)
-    if (tab.detached) button.classList.add('detached')
     if (tab.discarded) button.classList.add('discarded')
-    const detach = document.createElement('button')
-    detach.className = 'tab-detach'
-    detach.type = 'button'
-    detach.textContent = tab.detached ? '↙' : '↗'
-    detach.title = tab.detached ? 'Return tab to Floa' : 'Detach tab to a window'
-    detach.setAttribute('aria-label', detach.title)
-    detach.addEventListener('click', (event) => { event.stopPropagation(); api.toggleTabDetachment(tab.id) })
-    button.append(detach)
     if (state.tabs.length > 1) {
       const close = document.createElement('button')
       close.className = 'tab-close'
@@ -96,51 +98,32 @@ function render() {
       tabsNode.querySelectorAll('.tab-select')[nextIndex]?.focus()
     })
   }
-  const active = state.tabs.find((tab) => tab.id === state.activeTabId)
+  const active = state.workspace === 'browser' ? state.tabs.find((tab) => tab.id === state.activeTabId) : null
   address.value = active?.url || ''
+  const browserTabActive = state.workspace === 'browser'
+  for (const id of ['back', 'forward', 'home-button', 'reload', 'bookmark']) {
+    document.querySelector(`#${id}`).disabled = !browserTabActive
+  }
+  address.disabled = !browserTabActive
   document.querySelector('#back').disabled = !state.canGoBack
   document.querySelector('#forward').disabled = !state.canGoForward
-  document.querySelector('#pin').classList.toggle('active', state.pinned)
-  const sizeButton = document.querySelector('#toggle-size')
-  const standardWindow = state.settings?.presentation === 'window'
-  sizeButton.classList.toggle('active', state.expanded)
-  sizeButton.title = state.expanded ? (standardWindow ? 'Restore window' : 'Restore panel size') : (standardWindow ? 'Maximize window' : 'Expand panel')
-  sizeButton.setAttribute('aria-label', sizeButton.title)
-  sizeButton.setAttribute('aria-pressed', String(state.expanded))
-  const screenButton = document.querySelector('#toggle-screen-fill')
-  screenButton.classList.toggle('active', state.screenFilled)
-  screenButton.title = state.screenFilled ? 'Restore screen size' : 'Fill current screen'
-  screenButton.setAttribute('aria-label', screenButton.title)
-  screenButton.setAttribute('aria-pressed', String(state.screenFilled))
   const favorite = Boolean(active?.url && state.bookmarks.some((item) => item.url === active.url))
   const bookmarkButton = document.querySelector('#bookmark')
   bookmarkButton.classList.toggle('active', favorite)
   bookmarkButton.setAttribute('aria-pressed', String(favorite))
   bookmarkButton.querySelector('.action-label').textContent = favorite ? 'Saved' : 'Favorite'
-  document.querySelector('#mute .action-label').textContent = state.muted ? 'Unmute' : 'Mute'
-  document.querySelector('#pin .action-label').textContent = state.pinned ? 'Unpin' : 'Pin'
-  document.querySelector('#toggle-size .action-label').textContent = state.expanded ? 'Restore' : (standardWindow ? 'Maximize' : 'Expand')
-  document.querySelector('#toggle-screen-fill .action-label').textContent = state.screenFilled ? 'Restore screen' : 'Fill screen'
   const help = [
     ['back', 'Go back', 'back'],
     ['forward', 'Go forward', 'forward'],
     ['home-button', 'Open start page', 'startPage'],
     ['reload', 'Reload page', 'reload'],
     ['bookmark', favorite ? 'Remove from Favorites' : 'Add to Favorites', null],
-    ['mute', state.muted ? 'Unmute website audio' : 'Mute website audio', null],
-    ['pin', state.pinned ? 'Unpin window' : 'Keep window on top', 'togglePin'],
-    ['toggle-size', sizeButton.title, 'toggleSize'],
-    ['toggle-screen-fill', screenButton.title, 'toggleFullscreen'],
-    ['menu-button', 'Open browser menu', null],
-    ['hide', 'Hide Floa', 'hideWindow']
+    ['menu-button', 'Open browser menu', null]
   ]
   for (const [id, label, shortcut] of help) setToolbarHelp(id, label, shortcut)
   const newTabHint = formatShortcut(state.settings?.shortcuts?.newTab)
   newTabButton.dataset.tooltip = newTabHint ? `New tab · ${newTabHint}` : 'New tab'
   newTabButton.title = newTabButton.dataset.tooltip
-  document.querySelector('#mute').classList.toggle('active', state.muted)
-  document.querySelector('#mute').setAttribute('aria-pressed', String(state.muted))
-  document.querySelector('#pin').setAttribute('aria-pressed', String(state.pinned))
   home.hidden = Boolean(active?.url)
   renderBookmarks()
 }
@@ -253,10 +236,6 @@ document.querySelector('#bookmark').addEventListener('click', () => {
   if (state.bookmarks.some((item) => item.url === active.url)) api.removeBookmark(active.url)
   else api.addBookmark()
 })
-document.querySelector('#pin').addEventListener('click', () => api.togglePin())
-document.querySelector('#toggle-size').addEventListener('click', () => api.toggleSize())
-document.querySelector('#toggle-screen-fill').addEventListener('click', () => api.toggleScreenFill())
-document.querySelector('#mute').addEventListener('click', () => api.toggleMute())
 const findBar = document.querySelector('#find-bar')
 const findInput = document.querySelector('#find-query')
 const findCount = document.querySelector('#find-count')
@@ -291,7 +270,6 @@ document.addEventListener('keydown', (event) => {
   if (event.key === 'Escape' && !findBar.hidden) { event.preventDefault(); closeFind() }
 })
 document.querySelector('#menu-button').addEventListener('click', () => api.showMenu())
-document.querySelector('#hide').addEventListener('click', () => api.hide())
 document.querySelector('#open-history').addEventListener('click', () => api.openHistory())
 document.querySelector('#add-favorite').addEventListener('click', () => editFavorite())
 document.querySelector('#favorite-folder-filter').addEventListener('change', renderBookmarks)
@@ -302,7 +280,7 @@ document.querySelector('#bookmark-form').addEventListener('submit', async (event
   if (result?.error) { showNotice(result.error); return }
   document.querySelector('#bookmark-editor').close()
 })
-api.onState((next) => { state = next; render() })
+api.onState(receiveState)
 api.onNavigateError(showNotice)
 api.onDownloadStatus(showNotice)
-api.state().then((next) => { state = next; render() })
+api.state().then(receiveState)

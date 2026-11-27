@@ -1,0 +1,63 @@
+{
+  "timestamp": "2026-11-27T03:16:51.505Z",
+  "outerWindow": {
+    "width": 420,
+    "height": 320
+  },
+  "measurements": [
+    {
+      "workspace": "notes",
+      "viewport": 171,
+      "bodyClient": 171,
+      "bodyScroll": 171,
+      "docScroll": 171,
+      "sidebarScroll": 171,
+      "sidebarClient": 171,
+      "sidebarOverflow": "visible",
+      "headingSmallWhiteSpace": "normal"
+    },
+    {
+      "workspace": "reader",
+      "viewport": 171,
+      "bodyClient": 171,
+      "bodyScroll": 171,
+      "docScroll": 171,
+      "sidebarScroll": 242,
+      "sidebarClient": 171,
+      "sidebarOverflow": "auto",
+      "toolbar": {
+        "x": 150,
+        "y": 0,
+        "width": 270,
+        "height": 52,
+        "top": 0,
+        "right": 420,
+        "bottom": 52,
+        "left": 150
+      },
+      "heading": {
+        "x": 221,
+        "y": 8.5,
+        "width": 110,
+        "height": 34,
+        "top": 8.5,
+        "right": 331,
+        "bottom": 42.5,
+        "left": 221
+      },
+      "headingSmallWhiteSpace": "nowrap"
+    },
+    {
+      "workspace": "mirror",
+      "viewport": 171,
+      "bodyClient": 171,
+      "bodyScroll": 171,
+      "docScroll": 171,
+      "sidebarOverflow": "hidden",
+      "headingSmallWhiteSpace": "normal"
+    }
+  ],
+  "screenshot": "docs/artifacts/glaso/floa-reader-min-height-320-headless-2026-11-27.png",
+  "allDocumentScrollFitsViewport": true,
+  "readerToolbarDoesNotWrap": true
+}

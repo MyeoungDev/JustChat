@@ -12,14 +12,14 @@
 
 - Compact, floating macOS browser chrome with Chrome-like neutral light/dark surfaces, clear address and tab rows, and a legible separation between app controls and the active web page.
 - Rounded, quiet controls and surfaces. Use Chrome blue for active state, primary actions, and keyboard focus.
-- Keep the active page visually dominant. Keep utilities such as Notes, Reader, local video, and Window Mirror in small, focused floating windows.
+- Keep the active page visually dominant. Notes and Reader replace the Browser content inside the shared Floa window; the local video player remains a focused separate window.
 - Retain Just Browse names, icons, copy, and accessibility semantics. Do not import Glaso assets or reproduce the tour website's decorative background.
 
 ## Interaction target
 
 - One configurable global shortcut reveals or hides the floating browser.
 - Window controls support opacity, pin/follow behavior, clean mode, click-through, saved positions, and keyboard nudging where implemented.
-- Browser tabs, address/search, navigation, favorites, local video, Notes, Reader, and Window Mirror follow the public behavior and shortcut matrix in [`analysis.md`](analysis.md).
+- Browser tabs, address/search, navigation, favorites, local video, Notes, and Reader follow the public behavior and shortcut matrix in [`analysis.md`](analysis.md).
 - Visible state, keyboard focus, and the action's result should remain clear. Escape returns from transient controls to the prior working surface.
 
 ## Just Browse baseline and implementation

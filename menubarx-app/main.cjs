@@ -1,11 +1,10 @@
-const { app, BrowserWindow, WebContentsView, Menu, nativeImage, nativeTheme, screen, globalShortcut, ipcMain, shell, session, clipboard, dialog, systemPreferences, powerSaveBlocker, desktopCapturer } = require('electron')
+const { app, BrowserWindow, WebContentsView, Menu, nativeImage, nativeTheme, screen, globalShortcut, ipcMain, shell, session, clipboard, dialog, systemPreferences, powerSaveBlocker } = require('electron')
 const fs = require('node:fs')
 const path = require('node:path')
 const crypto = require('node:crypto')
-const { spawn } = require('node:child_process')
-const readline = require('node:readline')
 const { pathToFileURL } = require('node:url')
 const { createWorker } = require('tesseract.js')
+const headlessUiTest = process.env.FLOA_UI_TEST === '1'
 const englishOcrData = require('@tesseract.js-data/eng')
 const koreanOcrData = require('@tesseract.js-data/kor')
 
@@ -14,10 +13,16 @@ const existingUserDataPath = userDataOverride || path.join(app.getPath('appData'
 app.setName('Floa')
 app.setPath('userData', existingUserDataPath)
 if (process.platform === 'win32') app.setAppUserModelId('com.justchat.justbrowse')
+for (const scheme of ['justbrowse', 'menubrowser']) {
+  if (process.defaultApp && process.argv[1]) app.removeAsDefaultProtocolClient(scheme, process.execPath, [path.resolve(process.argv[1])])
+  else app.removeAsDefaultProtocolClient(scheme)
+}
 
 const PANEL_WIDTH = 660
 const PANEL_HEIGHT = 570
-const TOOLBAR_HEIGHT = 116
+const TOOLBAR_HEIGHT = 46
+const TAB_STRIP_HEIGHT = 38
+const SHELL_HEIGHT = TOOLBAR_HEIGHT + TAB_STRIP_HEIGHT
 const SEARCH_ENGINES = [
   { id: 'google', label: 'Google', queryUrl: 'https://www.google.com/search?q=' },
   { id: 'duckduckgo', label: 'DuckDuckGo', queryUrl: 'https://duckduckgo.com/?q=' },
@@ -43,12 +48,13 @@ const SHORTCUT_DEFINITIONS = [
   { id: 'mediaMute', label: 'Mute or unmute the whole app', default: 'Alt+Command+M', global: true },
   { id: 'mediaVolumeDown', label: 'Decrease local video volume', default: 'Alt+Command+-', global: true },
   { id: 'mediaVolumeUp', label: 'Increase local video volume', default: 'Alt+Command+=', global: true },
+  { id: 'openBrowserWorkspace', label: 'Open Browser tab', default: 'Alt+Command+B', global: true },
   { id: 'openNotes', label: 'Open Notes', default: 'Alt+Command+N', global: true },
-  { id: 'cycleWorkspace', label: 'Switch between Browser, Mirror, and Notes', default: 'Alt+Command+S', global: true },
-  { id: 'nextTabGlobal', label: 'Select next browser tab from any app', default: 'Alt+Command+Tab', global: true },
-  { id: 'previousTabGlobal', label: 'Select previous browser tab from any app', default: 'Alt+Shift+Command+Tab', global: true },
+  { id: 'cycleWorkspace', label: 'Cycle Browser, Notes, and Reader', default: 'Alt+Command+S', global: true },
+  { id: 'nextTabGlobal', label: 'Select next Floa tab from any app', default: 'Alt+Command+Tab', global: true },
+  { id: 'previousTabGlobal', label: 'Select previous Floa tab from any app', default: 'Alt+Shift+Command+Tab', global: true },
   { id: 'quitApp', label: 'Quit Floa', default: 'Alt+Command+X', global: true },
-  { id: 'focusAddressGlobal', label: 'Focus address bar from Floa', default: 'Alt+Command+U' },
+  { id: 'focusAddressGlobal', label: 'Focus address bar from any app', description: 'Global shortcut; works while another app is focused.', default: 'CommandOrControl+/', global: true },
   { id: 'shortcutsSettings', label: 'Open Settings shortcuts', default: 'CommandOrControl+Shift+/' },
   { id: 'noteNew', label: 'New note', default: 'CommandOrControl+N', noteOnly: true },
   { id: 'noteNewAlternate', label: 'New note', default: 'CommandOrControl+T', noteOnly: true },
@@ -59,7 +65,6 @@ const SHORTCUT_DEFINITIONS = [
   { id: 'noteItalic', label: 'Italicize note text', default: 'CommandOrControl+I', noteOnly: true },
   { id: 'noteUnderline', label: 'Underline note text', default: 'CommandOrControl+U', noteOnly: true },
   { id: 'openReader', label: 'Open Book Reader', default: 'Alt+Command+R', global: true },
-  { id: 'openWindowMirror', label: 'Open Window Mirror', default: 'Alt+Command+W', global: true },
   { id: 'readerOpen', label: 'Import a book or document', default: 'CommandOrControl+O', readerOnly: true },
   { id: 'readerSearch', label: 'Find in book', default: 'CommandOrControl+F', readerOnly: true },
   { id: 'readerPrevious', label: 'Previous page', default: 'CommandOrControl+PageUp', readerOnly: true },
@@ -68,10 +73,6 @@ const SHORTCUT_DEFINITIONS = [
   { id: 'readerZoomOut', label: 'Decrease reading size', default: 'CommandOrControl+-', readerOnly: true },
   { id: 'readerZoomReset', label: 'Reset reading size', default: 'CommandOrControl+0', readerOnly: true },
   { id: 'readerBookmark', label: 'Bookmark reading position', default: 'CommandOrControl+D', readerOnly: true },
-  { id: 'mirrorNewTab', label: 'Add a mirrored window', default: 'CommandOrControl+T', mirrorOnly: true },
-  { id: 'mirrorCloseTab', label: 'Stop active mirror tab', default: 'CommandOrControl+W', mirrorOnly: true },
-  { id: 'mirrorNextTab', label: 'Next mirror tab', default: 'CommandOrControl+PageDown', mirrorOnly: true },
-  { id: 'mirrorPreviousTab', label: 'Previous mirror tab', default: 'CommandOrControl+PageUp', mirrorOnly: true },
   { id: 'findInPage', label: 'Find in page', default: 'CommandOrControl+F' },
   { id: 'newTab', label: 'New tab', default: 'CommandOrControl+T' },
   { id: 'closeTab', label: 'Close tab', default: 'CommandOrControl+W' },
@@ -82,8 +83,8 @@ const SHORTCUT_DEFINITIONS = [
   { id: 'startPage', label: 'Open start page', default: 'CommandOrControl+Shift+H' },
   { id: 'reload', label: 'Reload page', default: 'CommandOrControl+R' },
   { id: 'forceReload', label: 'Force reload without cache', default: 'CommandOrControl+Shift+R' },
-  { id: 'nextTab', label: 'Select next tab', default: 'CommandOrControl+Shift+Right' },
-  { id: 'previousTab', label: 'Select previous tab', default: 'CommandOrControl+Shift+Left' },
+  { id: 'nextTab', label: 'Select next browser or utility tab', default: 'Control+Tab' },
+  { id: 'previousTab', label: 'Select previous browser or utility tab', default: 'Control+Shift+Tab' },
   ...Array.from({ length: 9 }, (_, index) => ({ id: `selectTab${index + 1}`, label: `Select tab ${index + 1}`, default: `CommandOrControl+${index + 1}` })),
   { id: 'back', label: 'Go back', default: 'CommandOrControl+[' },
   { id: 'forward', label: 'Go forward', default: 'CommandOrControl+]' },
@@ -91,37 +92,20 @@ const SHORTCUT_DEFINITIONS = [
   { id: 'zoomOut', label: 'Zoom out', default: 'CommandOrControl+-' },
   { id: 'zoomReset', label: 'Reset zoom', default: 'CommandOrControl+0' },
   { id: 'togglePin', label: 'Pin or unpin window', default: 'CommandOrControl+Shift+P' },
-  { id: 'detachTab', label: 'Detach or reattach tab', default: 'CommandOrControl+Shift+D' },
   { id: 'openExternal', label: 'Open page in default browser', default: 'CommandOrControl+Shift+O' },
   { id: 'settings', label: 'Open settings', default: 'CommandOrControl+Comma' },
   { id: 'downloads', label: 'Open downloads', default: 'CommandOrControl+Shift+J' },
   { id: 'history', label: 'Open browsing history', default: 'CommandOrControl+Y' }
 ]
 const DEFAULT_SHORTCUTS = Object.fromEntries(SHORTCUT_DEFINITIONS.map(({ id, default: accelerator }) => [id, accelerator]))
-const USER_AGENT_PROFILES = [
-  { id: 'default', label: 'Default (Chromium)' },
-  { id: 'chrome', label: 'Desktop (Chrome)' },
-  { id: 'mac-safari', label: 'Desktop (macOS Safari)' },
-  { id: 'ios-safari', label: 'Mobile (iOS Safari)' },
-  { id: 'android-chrome', label: 'Mobile (Android Chrome)' },
-  { id: 'custom', label: 'Custom User-Agent' }
-]
 const SITE_PERMISSIONS = new Set(['notifications', 'geolocation', 'camera', 'microphone'])
 const PERMISSION_LABELS = { notifications: 'notifications', geolocation: 'your location', camera: 'your camera', microphone: 'your microphone' }
-const VIEWPORT_PROFILES = [
-  { id: 'desktop', label: 'Desktop', width: 0, height: 0, scale: 1 },
-  { id: 'iphone-se', label: 'iPhone SE', width: 375, height: 667, scale: 2 },
-  { id: 'iphone-16', label: 'iPhone 16', width: 393, height: 852, scale: 3 },
-  { id: 'ipad', label: 'iPad', width: 820, height: 1180, scale: 2 },
-  { id: 'pixel-9', label: 'Pixel 9', width: 412, height: 915, scale: 2 }
-]
-const MAX_TAB_CHOICES = [0, 5, 10, 15, 20, 30]
 const TAB_DISCARD_CHOICES = [0, 5, 10, 30]
 const DEFAULT_SETTINGS = {
-  searchEngine: 'google', homepage: '', userAgentProfile: 'default', userAgentCustom: '',
+  searchEngine: 'google', homepage: '',
   defaultRefreshSeconds: 0, defaultZoomLevel: 0, downloadDirectory: '',
   shortcuts: DEFAULT_SHORTCUTS, panelShortcut: 'Alt+G', globalShortcutsEnabled: true, restoreTabs: true, closeOnBlur: false, presentation: 'window', followSpaces: true, opacity: 1,
-  defaultViewportProfile: 'desktop', maxTabs: 15, discardIdleMinutes: 10, mediaVolume: 1, mediaMuted: false,
+  discardIdleMinutes: 10, mediaVolume: 1, mediaMuted: false,
   windowPresets: Array.from({ length: 5 }, (_, index) => ({ name: ['Top Left', 'Top Right', 'Bottom Left', 'Bottom Right', 'Center'][index], bounds: null }))
 }
 let window
@@ -134,9 +118,6 @@ let presentationRebuildPending = false
 let suppressPanelBlurUntil = 0
 const views = new Map()
 const restoredTabIds = new Set()
-const emulatedViews = new WeakSet()
-const detachedWindows = new Map()
-const websiteAppWindows = new Set()
 const idleDiscardTimers = new Map()
 const registeredGlobalShortcuts = new Map()
 let pinned = false
@@ -145,6 +126,10 @@ let clickThrough = false
 let findBarOpen = false
 let appMuteEnabled = false
 let workspaceMode = 'browser'
+let stateRevision = 0
+const workspaceViews = new Map()
+let activeWorkspaceView
+let settingsReturnWorkspace = 'browser'
 let store
 let tabs = []
 let activeTabId = ''
@@ -159,24 +144,10 @@ const resumeQueue = new Map()
 let downloadsWindow
 let historyWindow
 let mediaWindow
-let notesWindow
 let notes = []
 let notesOcrWorkerPromise
 let notesOcrShutdownInProgress = false
-let readerWindow
 let readerDocuments = []
-let mirrorWindow
-let mirrorSources = new Map()
-let allowedMirrorSourceIds = new Set()
-const interactiveMirrorSourceIds = new Set()
-const heldMirrorButtons = new Map()
-const heldMirrorKeys = new Map()
-let activeMirrorSourceId = ''
-let mirrorInputProcess
-let mirrorInputLines
-let mirrorInputRequestId = 0
-const mirrorInputPending = new Map()
-let mirrorInteractionQueue = Promise.resolve()
 let currentMediaPath = ''
 let currentMediaData = null
 let mediaPowerSaveId = 0
@@ -196,21 +167,23 @@ function loadStore() {
     saved = JSON.parse(fs.readFileSync(file, 'utf8'))
   } catch { /* create an empty first-run profile */ }
   const savedSettings = saved.settings && typeof saved.settings === 'object' ? saved.settings : {}
+  const retainedSettings = Object.fromEntries(Object.entries(savedSettings).filter(([key]) => !['userAgentProfile', 'userAgentCustom', 'defaultViewportProfile', 'maxTabs'].includes(key)))
   const shortcuts = Object.fromEntries(SHORTCUT_DEFINITIONS.map((definition) => {
     const legacyValue = definition.id === 'togglePanel' ? savedSettings.panelShortcut : undefined
     let savedValue = savedSettings.shortcuts?.[definition.id] ?? legacyValue ?? definition.default
     if (definition.id === 'newTab' && savedValue === 'CommandOrControl+N') savedValue = definition.default
     if (definition.id === 'togglePanel' && savedValue === 'Alt+X') savedValue = definition.default
+    if (definition.id === 'focusAddressGlobal' && savedValue === 'Alt+Command+U') savedValue = definition.default
+    if (definition.id === 'nextTab' && ['CommandOrControl+Tab', 'CommandOrControl+Shift+Right'].includes(savedValue)) savedValue = definition.default
+    if (definition.id === 'previousTab' && ['CommandOrControl+Shift+Tab', 'CommandOrControl+Shift+Left'].includes(savedValue)) savedValue = definition.default
     return [definition.id, savedValue === '' && definition.id !== 'togglePanel' ? '' : normalizeAccelerator(savedValue) || definition.default]
   }))
   settings = {
     ...DEFAULT_SETTINGS,
-    ...savedSettings,
+    ...retainedSettings,
     shortcuts,
     searchEngine: SEARCH_ENGINES.some((engine) => engine.id === savedSettings.searchEngine) ? savedSettings.searchEngine : DEFAULT_SETTINGS.searchEngine,
     homepage: normalizeStoredUrl(savedSettings.homepage),
-    userAgentProfile: USER_AGENT_PROFILES.some((profile) => profile.id === savedSettings.userAgentProfile) ? savedSettings.userAgentProfile : DEFAULT_SETTINGS.userAgentProfile,
-    userAgentCustom: typeof savedSettings.userAgentCustom === 'string' ? savedSettings.userAgentCustom.slice(0, 512) : '',
     defaultRefreshSeconds: REFRESH_INTERVALS.includes(savedSettings.defaultRefreshSeconds) ? savedSettings.defaultRefreshSeconds : 0,
     defaultZoomLevel: [-2, -1, 0, 1, 2].includes(savedSettings.defaultZoomLevel) ? savedSettings.defaultZoomLevel : 0,
     panelShortcut: shortcuts.togglePanel,
@@ -229,8 +202,6 @@ function loadStore() {
       const validBounds = bounds && ['x', 'y', 'width', 'height'].every((key) => Number.isFinite(bounds[key])) && bounds.width >= 420 && bounds.height >= 320
       return { name: String(savedPreset?.name || defaultPreset.name).replace(/[\r\n\0]/g, '').trim().slice(0, 32) || defaultPreset.name, bounds: validBounds ? { x: Math.round(bounds.x), y: Math.round(bounds.y), width: Math.round(bounds.width), height: Math.round(bounds.height) } : null }
     }),
-    defaultViewportProfile: VIEWPORT_PROFILES.some((profile) => profile.id === savedSettings.defaultViewportProfile) ? savedSettings.defaultViewportProfile : 'desktop',
-    maxTabs: MAX_TAB_CHOICES.includes(savedSettings.maxTabs) ? savedSettings.maxTabs : DEFAULT_SETTINGS.maxTabs,
     discardIdleMinutes: TAB_DISCARD_CHOICES.includes(savedSettings.discardIdleMinutes) ? savedSettings.discardIdleMinutes : DEFAULT_SETTINGS.discardIdleMinutes,
     downloadDirectory: isDirectory(savedSettings.downloadDirectory) ? savedSettings.downloadDirectory : app.getPath('downloads')
   }
@@ -263,16 +234,12 @@ function loadStore() {
     }
   }
   if (!tabs.length) tabs = [newTabRecord()]
-  tabs = tabs.filter((tab) => tab && typeof tab.id === 'string').slice(0, 30).map((tab) => ({
+  tabs = tabs.filter((tab) => tab && typeof tab.id === 'string').map((tab) => ({
     id: tab.id,
     url: normalizeStoredUrl(tab.url),
     title: typeof tab.title === 'string' ? tab.title.slice(0, 300) : safeHost(tab.url || ''),
     refreshSeconds: REFRESH_INTERVALS.includes(tab.refreshSeconds) ? tab.refreshSeconds : settings.defaultRefreshSeconds,
     zoomLevel: [-5, -4, -3, -2, -1, 0, 1, 2, 3, 4, 5].includes(tab.zoomLevel) ? tab.zoomLevel : settings.defaultZoomLevel,
-    userAgentProfile: USER_AGENT_PROFILES.some((profile) => profile.id === tab.userAgentProfile) ? tab.userAgentProfile : settings.userAgentProfile,
-    userAgentCustom: typeof tab.userAgentCustom === 'string' ? tab.userAgentCustom.slice(0, 512) : '',
-    viewportProfile: VIEWPORT_PROFILES.some((profile) => profile.id === tab.viewportProfile) ? tab.viewportProfile : settings.defaultViewportProfile,
-    detachedBounds: normalizeDetachedBounds(tab.detachedBounds),
     discarded: false,
     muted: Boolean(tab.muted)
   }))
@@ -318,7 +285,7 @@ function migrateLegacyUserData() {
 }
 
 function newTabRecord(url = settings.homepage) {
-  return { id: crypto.randomUUID(), url, title: url ? safeHost(url) : 'New Tab', refreshSeconds: settings.defaultRefreshSeconds, zoomLevel: settings.defaultZoomLevel, userAgentProfile: settings.userAgentProfile, userAgentCustom: '', viewportProfile: settings.defaultViewportProfile, detachedBounds: null, discarded: false, muted: false }
+  return { id: crypto.randomUUID(), url, title: url ? safeHost(url) : 'New Tab', refreshSeconds: settings.defaultRefreshSeconds, zoomLevel: settings.defaultZoomLevel, discarded: false, muted: false }
 }
 
 function normalizeStoredUrl(url) {
@@ -387,10 +354,9 @@ function shortcutMatches(input, accelerator) {
 function installKeyboardShortcuts(contents) {
   contents.on('before-input-event', (event, input) => {
     if (input.type !== 'keyDown' || input.isAutoRepeat) return
-    const isNotesWindow = Boolean(notesWindow && !notesWindow.isDestroyed() && contents.id === notesWindow.webContents.id)
-    const isReaderWindow = Boolean(readerWindow && !readerWindow.isDestroyed() && contents.id === readerWindow.webContents.id)
-    const isMirrorWindow = Boolean(mirrorWindow && !mirrorWindow.isDestroyed() && contents.id === mirrorWindow.webContents.id)
-    if (mainPage === 'settings' && !isNotesWindow && !isReaderWindow && !isMirrorWindow) return
+    const isNotesWindow = Boolean(workspaceMode === 'notes' && contents.id === workspaceViews.get('notes')?.webContents.id)
+    const isReaderWindow = Boolean(workspaceMode === 'reader' && contents.id === workspaceViews.get('reader')?.webContents.id)
+    if (mainPage === 'settings' && !isNotesWindow && !isReaderWindow) return
     if (input.key === 'Escape' && mainPage === 'browser' && findBarOpen && (contents === window?.webContents || contents === views.get(activeTabId)?.webContents)) {
       event.preventDefault()
       window?.webContents.send('app:close-find')
@@ -408,12 +374,11 @@ function installKeyboardShortcuts(contents) {
         event.preventDefault(); window?.hide(); return
       }
     }
-    const definition = SHORTCUT_DEFINITIONS.find((item) => Boolean(item.noteOnly) === isNotesWindow && Boolean(item.readerOnly) === isReaderWindow && Boolean(item.mirrorOnly) === isMirrorWindow && shortcutMatches(input, settings.shortcuts[item.id]))
+    const definition = SHORTCUT_DEFINITIONS.find((item) => Boolean(item.noteOnly) === isNotesWindow && Boolean(item.readerOnly) === isReaderWindow && shortcutMatches(input, settings.shortcuts[item.id]))
     if (!definition) return
-    if (mainPage === 'settings' && !isNotesWindow && !isReaderWindow && !isMirrorWindow && !['togglePanel', 'hideWindow', 'settings', 'shortcutsSettings'].includes(definition.id)) return
+    if (mainPage === 'settings' && !isNotesWindow && !isReaderWindow && !['togglePanel', 'hideWindow', 'settings', 'shortcutsSettings'].includes(definition.id)) return
     event.preventDefault()
     const associatedTab = [...views.entries()].find(([, view]) => view.webContents.id === contents.id)?.[0]
-      || [...detachedWindows.entries()].find(([, child]) => !child.isDestroyed() && child.webContents.id === contents.id)?.[0]
       || activeTabId
     runShortcut(definition.id, associatedTab)
   })
@@ -426,7 +391,7 @@ function runShortcut(id, tabId = activeTabId) {
     case 'followSpaces': settings.followSpaces = !settings.followSpaces; applySpaceVisibility(); saveSoon(); sendState(); break
     case 'opacityDown': changeOpacity(-0.05); break
     case 'opacityUp': changeOpacity(0.05); break
-    case 'cleanMode': if (mainPage === 'browser') { cleanMode = !cleanMode; updateBounds(); sendState() } break
+    case 'cleanMode': if (workspaceMode === 'browser') { cleanMode = !cleanMode; updateBounds(); sendState() } break
     case 'clickThrough': toggleClickThrough(); break
     case 'resetWindowPresets': resetWindowPresets(); break
     case 'moveWindowLeft': moveWindow(-24, 0); break
@@ -437,38 +402,29 @@ function runShortcut(id, tabId = activeTabId) {
     case 'mediaMute': toggleAppMute(); break
     case 'mediaVolumeDown': setMediaVolume(settings.mediaVolume - 0.05); break
     case 'mediaVolumeUp': setMediaVolume(settings.mediaVolume + 0.05); break
-    case 'openNotes': showNotesWindow(); break
-    case 'cycleWorkspace': cycleWorkspace(); break
-    case 'nextTabGlobal': showBrowserWorkspace(); runShortcut('nextTab'); break
-    case 'previousTabGlobal': showBrowserWorkspace(); runShortcut('previousTab'); break
+    case 'openBrowserWorkspace': focusPanelForTabShortcut(); showBrowserWorkspace(); break
+    case 'openNotes': focusPanelForTabShortcut(); showNotesWindow(); break
+    case 'cycleWorkspace': focusPanelForTabShortcut(); cycleWorkspace(); break
+    case 'nextTabGlobal': focusPanelForTabShortcut(); cycleUnifiedTab(1); break
+    case 'previousTabGlobal': focusPanelForTabShortcut(); cycleUnifiedTab(-1); break
     case 'quitApp': app.quit(); break
-    case 'focusAddressGlobal': case 'focusAddress':
-      showBrowserWorkspace()
-      activeView?.webContents.blur()
-      window?.webContents.focus()
-      void window?.webContents.executeJavaScript("document.querySelector('#address')?.focus(); document.querySelector('#address')?.select()")
-      break
+    case 'focusAddressGlobal': case 'focusAddress': showBrowserWorkspace(true); break
     case 'shortcutsSettings': showSettingsPage(true); break
-    case 'noteNew': case 'noteNewAlternate': notesWindow?.webContents.send('notes:command', 'new'); break
-    case 'noteDuplicate': notesWindow?.webContents.send('notes:command', 'duplicate'); break
-    case 'noteSave': case 'noteSaveAlternate': notesWindow?.webContents.send('notes:command', 'save'); break
-    case 'noteBold': notesWindow?.webContents.send('notes:command', 'bold'); break
-    case 'noteItalic': notesWindow?.webContents.send('notes:command', 'italic'); break
-    case 'noteUnderline': notesWindow?.webContents.send('notes:command', 'underline'); break
-    case 'openReader': showReaderWindow(); break
-    case 'readerOpen': readerWindow?.webContents.send('reader:command', 'open'); break
-    case 'readerSearch': readerWindow?.webContents.send('reader:command', 'search'); break
-    case 'readerPrevious': readerWindow?.webContents.send('reader:command', 'previous'); break
-    case 'readerNext': readerWindow?.webContents.send('reader:command', 'next'); break
-    case 'readerZoomIn': readerWindow?.webContents.send('reader:command', 'zoom-in'); break
-    case 'readerZoomOut': readerWindow?.webContents.send('reader:command', 'zoom-out'); break
-    case 'readerZoomReset': readerWindow?.webContents.send('reader:command', 'zoom-reset'); break
-    case 'readerBookmark': readerWindow?.webContents.send('reader:command', 'bookmark'); break
-    case 'openWindowMirror': showMirrorWindow(); break
-    case 'mirrorNewTab': mirrorWindow?.webContents.send('mirror:command', 'new'); break
-    case 'mirrorCloseTab': mirrorWindow?.webContents.send('mirror:command', 'close'); break
-    case 'mirrorNextTab': mirrorWindow?.webContents.send('mirror:command', 'next'); break
-    case 'mirrorPreviousTab': mirrorWindow?.webContents.send('mirror:command', 'previous'); break
+    case 'noteNew': case 'noteNewAlternate': workspaceViews.get('notes')?.webContents.send('notes:command', 'new'); break
+    case 'noteDuplicate': workspaceViews.get('notes')?.webContents.send('notes:command', 'duplicate'); break
+    case 'noteSave': case 'noteSaveAlternate': workspaceViews.get('notes')?.webContents.send('notes:command', 'save'); break
+    case 'noteBold': workspaceViews.get('notes')?.webContents.send('notes:command', 'bold'); break
+    case 'noteItalic': workspaceViews.get('notes')?.webContents.send('notes:command', 'italic'); break
+    case 'noteUnderline': workspaceViews.get('notes')?.webContents.send('notes:command', 'underline'); break
+    case 'openReader': focusPanelForTabShortcut(); showReaderWindow(); break
+    case 'readerOpen': workspaceViews.get('reader')?.webContents.send('reader:command', 'open'); break
+    case 'readerSearch': workspaceViews.get('reader')?.webContents.send('reader:command', 'search'); break
+    case 'readerPrevious': workspaceViews.get('reader')?.webContents.send('reader:command', 'previous'); break
+    case 'readerNext': workspaceViews.get('reader')?.webContents.send('reader:command', 'next'); break
+    case 'readerZoomIn': workspaceViews.get('reader')?.webContents.send('reader:command', 'zoom-in'); break
+    case 'readerZoomOut': workspaceViews.get('reader')?.webContents.send('reader:command', 'zoom-out'); break
+    case 'readerZoomReset': workspaceViews.get('reader')?.webContents.send('reader:command', 'zoom-reset'); break
+    case 'readerBookmark': workspaceViews.get('reader')?.webContents.send('reader:command', 'bookmark'); break
     case 'newTab': createNewTab(); break
     case 'closeTab': if (tabs.length > 1) closeTab(tabId); else window?.hide(); break
     case 'hideWindow': window?.hide(); break
@@ -484,15 +440,14 @@ function runShortcut(id, tabId = activeTabId) {
       break
     case 'reload': if (tabId === activeTabId) activeView?.webContents.reload(); else views.get(tabId)?.webContents.reload(); break
     case 'forceReload': if (tabId === activeTabId) activeView?.webContents.reloadIgnoringCache(); else views.get(tabId)?.webContents.reloadIgnoringCache(); break
-    case 'nextTab': if (tabs.length > 1) activateTab(tabs[(Math.max(0, tabIndex) + 1) % tabs.length].id); break
-    case 'previousTab': if (tabs.length > 1) activateTab(tabs[(Math.max(0, tabIndex) - 1 + tabs.length) % tabs.length].id); break
+    case 'nextTab': cycleUnifiedTab(1); break
+    case 'previousTab': cycleUnifiedTab(-1); break
     case 'back': { const view = views.get(tabId); if (view?.webContents.navigationHistory.canGoBack()) view.webContents.navigationHistory.goBack(); break }
     case 'forward': { const view = views.get(tabId); if (view?.webContents.navigationHistory.canGoForward()) view.webContents.navigationHistory.goForward(); break }
     case 'zoomIn': if (tabId === activeTabId) adjustZoom(0.5); break
     case 'zoomOut': if (tabId === activeTabId) adjustZoom(-0.5); break
     case 'zoomReset': if (tabId === activeTabId) resetZoom(); break
     case 'togglePin': pinned = !pinned; window?.setAlwaysOnTop(pinned, 'screen-saver'); sendState(); break
-    case 'detachTab': toggleTabDetachment(tabId); break
     case 'openExternal': { const tab = tabs.find((item) => item.id === tabId); if (tab?.url) void shell.openExternal(tab.url); break }
     case 'settings': if (mainPage === 'settings') closeSettingsPage(); else showSettingsPage(); break
     case 'downloads': showDownloadsWindow(); break
@@ -576,18 +531,57 @@ function recordHistoryVisit(url, title = '') {
 }
 
 function showNotesWindow() {
-  workspaceMode = 'notes'
   if (!notes.length) createNote()
-  if (notesWindow && !notesWindow.isDestroyed()) { notesWindow.show(); notesWindow.focus(); return }
-  notesWindow = new BrowserWindow({ width: 860, height: 640, minWidth: 620, minHeight: 420, show: false, title: 'Floa Notes', alwaysOnTop: true, backgroundColor: chromeCanvasColor(), webPreferences: { preload: path.join(__dirname, 'notes-preload.cjs'), contextIsolation: true, nodeIntegration: false, sandbox: true } })
-  notesWindow.setAlwaysOnTop(true, 'screen-saver')
-  notesWindow.setVisibleOnAllWorkspaces(Boolean(settings.followSpaces), { visibleOnFullScreen: Boolean(settings.followSpaces) })
-  installKeyboardShortcuts(notesWindow.webContents)
-  notesWindow.webContents.setWindowOpenHandler(() => ({ action: 'deny' }))
-  notesWindow.webContents.on('will-navigate', (event) => event.preventDefault())
-  void notesWindow.loadFile(path.join(__dirname, 'notes.html'))
-  notesWindow.once('ready-to-show', () => { if (!notesWindow.isDestroyed()) { notesWindow.show(); notesWindow.focus() } })
-  notesWindow.on('closed', () => { notesWindow = undefined })
+  showWorkspacePage('notes')
+}
+
+function createWorkspaceView(workspace) {
+  let view = workspaceViews.get(workspace)
+  if (view && !view.webContents.isDestroyed()) return view
+  const page = { notes: 'notes.html', reader: 'reader.html' }[workspace]
+  if (!page) return null
+  view = new WebContentsView({ webPreferences: { partition: SESSION_PARTITION, preload: path.join(__dirname, 'preload.cjs'), contextIsolation: true, nodeIntegration: false, sandbox: true } })
+  workspaceViews.set(workspace, view)
+  view.setBackgroundColor(chromeCanvasColor())
+  installKeyboardShortcuts(view.webContents)
+  view.webContents.setWindowOpenHandler(() => ({ action: 'deny' }))
+  view.webContents.on('will-navigate', (event, url) => {
+    if (!url.startsWith(`file://${path.join(__dirname, page)}`)) event.preventDefault()
+  })
+  void view.webContents.loadFile(path.join(__dirname, page), { query: { embedded: '1' } })
+  return view
+}
+
+function showWorkspacePage(workspace, focusAddress = false, browserTabId = '') {
+  if (!window || window.isDestroyed()) createPanel()
+  if (activeWorkspaceView) {
+    try { window.contentView.removeChildView(activeWorkspaceView) } catch { /* already detached */ }
+    activeWorkspaceView = undefined
+  }
+  if (activeView) {
+    try { window.contentView.removeChildView(activeView) } catch { /* already detached */ }
+    activeView.setVisible(false)
+  }
+  workspaceMode = workspace
+  mainPage = 'browser'
+  if (workspace === 'browser') {
+    activeView = undefined
+    activateTab(browserTabId || activeTabId)
+    if (focusAddress) {
+      activeView?.webContents.blur()
+      window.webContents.focus()
+      void window.webContents.executeJavaScript("document.querySelector('#address')?.focus(); document.querySelector('#address')?.select()")
+    } else activeView?.webContents.focus()
+  } else {
+    const view = createWorkspaceView(workspace)
+    if (!view) return
+    activeWorkspaceView = view
+    view.setVisible(true)
+    window.contentView.addChildView(view)
+    updateBounds()
+    view.webContents.focus()
+  }
+  sendState()
 }
 
 function createNote(source = null) {
@@ -600,7 +594,7 @@ function createNote(source = null) {
 
 function publishNotes() {
   const ordered = [...notes].sort((a, b) => b.updatedAt - a.updatedAt)
-  if (notesWindow && !notesWindow.isDestroyed()) notesWindow.webContents.send('notes:state', ordered)
+  if (workspaceViews.get('notes') && !workspaceViews.get('notes').webContents.isDestroyed()) workspaceViews.get('notes').webContents.send('notes:state', ordered)
   return ordered
 }
 
@@ -610,169 +604,16 @@ function publicReaderDocuments() {
 
 function publishReaderState() {
   const state = publicReaderDocuments()
-  if (readerWindow && !readerWindow.isDestroyed()) readerWindow.webContents.send('reader:state', state)
+  if (workspaceViews.get('reader') && !workspaceViews.get('reader').webContents.isDestroyed()) workspaceViews.get('reader').webContents.send('reader:state', state)
   return state
 }
 
 function showReaderWindow() {
-  if (readerWindow && !readerWindow.isDestroyed()) { readerWindow.show(); readerWindow.focus(); publishReaderState(); return }
-  readerWindow = new BrowserWindow({ width: 980, height: 720, minWidth: 640, minHeight: 460, show: false, title: 'Floa Reader', alwaysOnTop: true, backgroundColor: chromeCanvasColor(), webPreferences: { preload: path.join(__dirname, 'reader-preload.cjs'), contextIsolation: true, nodeIntegration: false, sandbox: true } })
-  readerWindow.setAlwaysOnTop(true, 'screen-saver')
-  readerWindow.setVisibleOnAllWorkspaces(Boolean(settings.followSpaces), { visibleOnFullScreen: Boolean(settings.followSpaces) })
-  installKeyboardShortcuts(readerWindow.webContents)
-  readerWindow.webContents.setWindowOpenHandler(() => ({ action: 'deny' }))
-  readerWindow.webContents.on('will-navigate', (event) => event.preventDefault())
-  void readerWindow.loadFile(path.join(__dirname, 'reader.html'))
-  readerWindow.once('ready-to-show', () => { if (!readerWindow.isDestroyed()) { readerWindow.show(); readerWindow.focus(); publishReaderState() } })
-  readerWindow.on('closed', () => { readerWindow = undefined })
-}
-
-function showMirrorWindow() {
-  workspaceMode = 'mirror'
-  if (mirrorWindow && !mirrorWindow.isDestroyed()) { mirrorWindow.show(); mirrorWindow.focus(); return }
-  mirrorWindow = new BrowserWindow({ width: 760, height: 560, minWidth: 480, minHeight: 340, show: false, title: 'Floa · Window Mirror', alwaysOnTop: true, backgroundColor: chromeCanvasColor(), webPreferences: { partition: SESSION_PARTITION, preload: path.join(__dirname, 'mirror-preload.cjs'), contextIsolation: true, nodeIntegration: false, sandbox: true } })
-  mirrorWindow.setAlwaysOnTop(true, 'screen-saver')
-  mirrorWindow.setVisibleOnAllWorkspaces(Boolean(settings.followSpaces), { visibleOnFullScreen: Boolean(settings.followSpaces) })
-  installKeyboardShortcuts(mirrorWindow.webContents)
-  mirrorWindow.webContents.setWindowOpenHandler(() => ({ action: 'deny' }))
-  mirrorWindow.webContents.on('will-navigate', (event) => event.preventDefault())
-  void mirrorWindow.loadFile(path.join(__dirname, 'mirror.html'))
-  mirrorWindow.once('ready-to-show', () => { if (mirrorWindow && !mirrorWindow.isDestroyed()) { mirrorWindow.show(); mirrorWindow.focus() } })
-  mirrorWindow.on('closed', () => {
-    void serializeMirrorInteraction(async () => {
-      for (const sourceId of heldMirrorInputSources()) await releaseMirrorInput(sourceId)
-      mirrorWindow = undefined; mirrorSources.clear(); allowedMirrorSourceIds.clear(); interactiveMirrorSourceIds.clear(); activeMirrorSourceId = ''
-      mirrorInputProcess?.kill(); stopMirrorInputHelper()
-    })
-  })
-}
-
-async function listMirrorSources() {
-  if (!mirrorWindow || mirrorWindow.isDestroyed()) return { error: 'Window Mirror is closed.' }
-  if (process.platform === 'darwin') {
-    const status = systemPreferences.getMediaAccessStatus('screen')
-    if (status === 'denied' || status === 'restricted') return { error: 'screen-permission', status }
-  }
-  try {
-    const sources = await desktopCapturer.getSources({ types: ['window'], thumbnailSize: { width: 360, height: 220 }, fetchWindowIcons: true })
-    mirrorSources = new Map(sources
-      .filter((source) => {
-        const windowId = Number(/^window:(\d+):/.exec(source.id)?.[1])
-        const isOwnWindow = Number.isFinite(windowId) && Boolean(BrowserWindow.fromId(windowId))
-        return !isOwnWindow && source.name?.trim() && !/floa(?: reader| notes| · window mirror)?/i.test(source.name)
-      })
-      .map((source) => [source.id, source]))
-    if (!mirrorSources.size && process.platform === 'darwin' && systemPreferences.getMediaAccessStatus('screen') !== 'granted') return { error: 'screen-permission', status: systemPreferences.getMediaAccessStatus('screen') }
-    return [...mirrorSources.values()].map((source) => ({ id: source.id, name: source.name.slice(0, 200), thumbnail: source.thumbnail.toDataURL(), icon: source.appIcon?.toDataURL() || '' })).sort((a, b) => a.name.localeCompare(b.name))
-  } catch (error) {
-    if (process.platform === 'darwin' && systemPreferences.getMediaAccessStatus('screen') !== 'granted') return { error: 'screen-permission', status: systemPreferences.getMediaAccessStatus('screen') }
-    return { error: error?.message || 'Could not list open windows.' }
-  }
-}
-
-function stopMirrorInputHelper(error = new Error('Mirror input helper stopped.')) {
-  mirrorInputLines?.close()
-  mirrorInputLines = undefined
-  mirrorInputProcess = undefined
-  for (const pending of mirrorInputPending.values()) {
-    clearTimeout(pending.timer)
-    pending.resolve({ ok: false, error: error.message })
-  }
-  mirrorInputPending.clear()
-}
-
-function startMirrorInputHelper() {
-  if (process.platform !== 'darwin') return { error: 'Window interaction is available on macOS only.' }
-  if (mirrorInputProcess && !mirrorInputProcess.killed) return null
-  const helperPath = app.isPackaged
-    ? path.resolve(process.resourcesPath, '..', 'Helpers', 'FloaMirrorInput')
-    : path.resolve(__dirname, '../out/FloaMirrorInput')
-  if (!fs.existsSync(helperPath)) return { error: 'The native Window Mirror input helper is not built.' }
-  try {
-    const child = spawn(helperPath, [], { stdio: ['pipe', 'pipe', 'ignore'] })
-    mirrorInputProcess = child
-    mirrorInputLines = readline.createInterface({ input: child.stdout })
-    mirrorInputLines.on('line', (line) => {
-      let response
-      try { response = JSON.parse(line) } catch { return }
-      const pending = mirrorInputPending.get(String(response.id))
-      if (!pending) return
-      mirrorInputPending.delete(String(response.id))
-      clearTimeout(pending.timer)
-      pending.resolve(response)
-    })
-    child.once('error', (error) => stopMirrorInputHelper(error))
-    child.once('exit', (code) => stopMirrorInputHelper(new Error(`Mirror input helper exited (${code ?? 'unknown'}).`)))
-    child.stdin.on('error', (error) => stopMirrorInputHelper(error))
-    return null
-  } catch (error) { return { error: error.message || 'Could not start the native Window Mirror helper.' } }
-}
-
-function requestMirrorInput(request) {
-  const startupError = startMirrorInputHelper()
-  if (startupError) return Promise.resolve({ ok: false, ...startupError })
-  const id = String(++mirrorInputRequestId)
-  return new Promise((resolve) => {
-    const timer = setTimeout(() => {
-      mirrorInputPending.delete(id)
-      resolve({ ok: false, error: 'The native Window Mirror helper did not respond.' })
-    }, 4000)
-    mirrorInputPending.set(id, { resolve, timer })
-    try { mirrorInputProcess.stdin.write(`${JSON.stringify({ ...request, id })}\n`) }
-    catch (error) {
-      mirrorInputPending.delete(id); clearTimeout(timer)
-      resolve({ ok: false, error: error.message || 'Could not send input to the selected window.' })
-    }
-  })
-}
-
-function authorizedMirrorSource(event, sourceId) {
-  return event.sender.id === mirrorWindow?.webContents.id && typeof sourceId === 'string'
-    && allowedMirrorSourceIds.has(sourceId) && mirrorSources.has(sourceId)
-}
-
-function nativeMirrorWindowId(sourceId) {
-  const match = /^window:(\d+):/.exec(sourceId)
-  return match ? Number(match[1]) : 0
-}
-
-async function sendMirrorWindowAction(sourceId, action, input = {}) {
-  const windowId = nativeMirrorWindowId(sourceId)
-  if (!windowId) return { ok: false, error: 'This mirrored source does not expose a window identifier.' }
-  return requestMirrorInput({ ...input, action, windowId })
-}
-
-function heldMirrorInputSources() {
-  return new Set([...heldMirrorButtons.keys(), ...heldMirrorKeys.keys()])
-}
-
-function serializeMirrorInteraction(operation) {
-  const pending = mirrorInteractionQueue.then(operation, operation)
-  mirrorInteractionQueue = pending.then(() => undefined, () => undefined)
-  return pending
-}
-
-async function releaseMirrorInput(sourceId) {
-  const held = heldMirrorButtons.get(sourceId)
-  heldMirrorButtons.delete(sourceId)
-  const keys = heldMirrorKeys.get(sourceId)
-  heldMirrorKeys.delete(sourceId)
-  const windowId = nativeMirrorWindowId(sourceId)
-  if (!windowId) return
-  if (held) {
-    for (const button of held.buttons) {
-      await requestMirrorInput({ action: button === 'right' ? 'rightUp' : 'up', windowId, x: held.x, y: held.y })
-    }
-  }
-  if (keys) {
-    for (const [keyCode, flags] of [...keys.entries()].reverse()) {
-      await requestMirrorInput({ action: 'keyUp', windowId, keyCode, flags })
-    }
-  }
+  showWorkspacePage('reader')
 }
 
 async function importReaderDocument() {
-  const result = await dialog.showOpenDialog(readerWindow, { title: 'Import Book or Document', properties: ['openFile'], filters: [{ name: 'Books and documents', extensions: ['pdf', 'epub', 'txt', 'md', 'markdown', 'rtf', 'html', 'htm'] }] })
+  const result = await dialog.showOpenDialog(window, { title: 'Import Book or Document', properties: ['openFile'], filters: [{ name: 'Books and documents', extensions: ['pdf', 'epub', 'txt', 'md', 'markdown', 'rtf', 'html', 'htm'] }] })
   if (result.canceled || !result.filePaths[0]) return null
   const source = result.filePaths[0]
   let stat
@@ -936,21 +777,8 @@ function permissionKinds(permission, details = {}) {
   return [...new Set(types.map((type) => type === 'video' ? 'camera' : type === 'audio' ? 'microphone' : '').filter((type) => SITE_PERMISSIONS.has(type)))]
 }
 
-function canMirrorCapture(contents, details = {}) {
-  const mediaTypes = Array.isArray(details.mediaTypes) ? details.mediaTypes : []
-  return Boolean(
-    contents &&
-    mirrorWindow && !mirrorWindow.isDestroyed() &&
-    contents.id === mirrorWindow.webContents.id &&
-    allowedMirrorSourceIds.size > 0 &&
-    mediaTypes.includes('video') &&
-    !mediaTypes.includes('audio')
-  )
-}
-
 function configureSitePermissions(browserSession) {
   browserSession.setPermissionCheckHandler((contents, permission, requestingOrigin, details = {}) => {
-    if (permission === 'display-capture') return canMirrorCapture(contents, details)
     const permissions = permissionKinds(permission, details)
     const origin = safePermissionOrigin(requestingOrigin)
     if (!origin || (contents && (contents.isDestroyed() || origin !== safePermissionOrigin(contents.getURL())))) return false
@@ -959,10 +787,6 @@ function configureSitePermissions(browserSession) {
     return permissions.every((item) => sitePermissions[origin]?.includes(item))
   })
   browserSession.setPermissionRequestHandler((contents, permission, callback, details = {}) => {
-    if (permission === 'display-capture') {
-      callback(canMirrorCapture(contents, details))
-      return
-    }
     const permissions = permissionKinds(permission, details)
     if (!permissions.length || (contents && contents.isDestroyed())) { callback(false); return }
     const origin = safePermissionOrigin(details.requestingUrl || contents?.getURL())
@@ -1010,10 +834,12 @@ function activeTab() { return tabs.find((tab) => tab.id === activeTabId) || tabs
 function sendState() {
   if (!window || window.isDestroyed()) return
   const state = {
-    tabs: tabs.map(({ id, url, title, refreshSeconds, userAgentProfile, viewportProfile, discarded }) => ({ id, url, title, refreshSeconds, userAgentProfile, viewportProfile, discarded, detached: detachedWindows.has(id) })),
+    revision: ++stateRevision,
+    tabs: tabs.map(({ id, url, title, refreshSeconds, discarded }) => ({ id, url, title, refreshSeconds, discarded })),
     bookmarks: bookmarkItems,
     searchEngine,
     settings: publicSettings(),
+    workspace: workspaceMode,
     cleanMode,
     clickThrough,
     opacity: settings.opacity,
@@ -1026,6 +852,9 @@ function sendState() {
     canGoForward: Boolean(activeView && activeView.webContents.navigationHistory.canGoForward())
   }
   window.webContents.send('app:state-changed', state)
+  for (const view of workspaceViews.values()) {
+    if (!view.webContents.isDestroyed()) view.webContents.send('app:state-changed', state)
+  }
 }
 
 function normalizedUrl(input) {
@@ -1044,39 +873,16 @@ function normalizedUrl(input) {
 }
 
 function updateBounds() {
-  if (!window || !activeView) return
+  if (!window) return
   const [width, height] = window.getContentSize()
-  const toolbarOffset = cleanMode ? 0 : TOOLBAR_HEIGHT
-  activeView.setBounds({ x: 0, y: toolbarOffset, width, height: Math.max(0, height - toolbarOffset) })
-  applyViewportProfile(activeView, activeTab(), width, Math.max(0, height - toolbarOffset))
-}
-
-function applyViewportProfile(view, record, availableWidth = PANEL_WIDTH, availableHeight = PANEL_HEIGHT - TOOLBAR_HEIGHT) {
-  if (!view || view.webContents.isDestroyed()) return
-  const profile = VIEWPORT_PROFILES.find((item) => item.id === record?.viewportProfile) || VIEWPORT_PROFILES[0]
-  if (!profile.width) {
-    if (emulatedViews.has(view)) {
-      view.webContents.disableDeviceEmulation()
-      emulatedViews.delete(view)
-    }
+  const toolbarOffset = cleanMode ? 0 : SHELL_HEIGHT
+  const bounds = { x: 0, y: toolbarOffset, width, height: Math.max(0, height - toolbarOffset) }
+  if (workspaceMode !== 'browser' && activeWorkspaceView) {
+    activeWorkspaceView.setBounds(bounds)
     return
   }
-  const scale = Math.min(1, availableWidth / profile.width, availableHeight / profile.height)
-  view.webContents.enableDeviceEmulation({
-    screenPosition: 'mobile', screenSize: { width: profile.width, height: profile.height },
-    viewPosition: { x: 0, y: 0 }, viewSize: { width: profile.width, height: profile.height },
-    deviceScaleFactor: profile.scale, scale
-  })
-  emulatedViews.add(view)
-}
-
-function setTabViewport(id, profileId) {
-  const record = tabs.find((tab) => tab.id === id)
-  const view = views.get(id)
-  if (!record || !view || !VIEWPORT_PROFILES.some((profile) => profile.id === profileId)) return
-  record.viewportProfile = profileId
-  applyViewportProfile(view, record)
-  saveSoon(); sendState()
+  if (!activeView) return
+  activeView.setBounds(bounds)
 }
 
 function scheduleTabDiscard(id) {
@@ -1087,7 +893,7 @@ function scheduleTabDiscard(id) {
     idleDiscardTimers.delete(id)
     const view = views.get(id)
     const record = tabs.find((tab) => tab.id === id)
-    if (!view || !record || activeTabId === id || detachedWindows.has(id) || !record.url || view.webContents.isDestroyed() || view.webContents.isCurrentlyAudible()) return
+    if (!view || !record || activeTabId === id || !record.url || view.webContents.isDestroyed() || view.webContents.isCurrentlyAudible()) return
     disposeView(view)
     views.delete(id)
     record.discarded = true
@@ -1098,12 +904,6 @@ function scheduleTabDiscard(id) {
 }
 
 function createNewTab(url = settings.homepage) {
-  const tabLimit = settings.maxTabs || Number.POSITIVE_INFINITY
-  if (tabs.length >= tabLimit) {
-    const message = `You have reached the ${tabLimit}-tab limit.`
-    if (window && !window.isDestroyed()) window.webContents.send('app:download-status', message)
-    return { error: message }
-  }
   const record = newTabRecord(url)
   tabs.push(record)
   activateTab(record.id)
@@ -1113,31 +913,6 @@ function createNewTab(url = settings.homepage) {
 function disposeView(view) {
   if (!view || view.webContents.isDestroyed()) return
   try { view.webContents.close() } catch { /* already closing */ }
-}
-
-function userAgentFor(profile, custom = '') {
-  if (profile === 'custom') return String(custom || settings.userAgentCustom).replace(/[\r\n\0]/g, '').trim().slice(0, 512) || app.userAgentFallback
-  if (profile === 'chrome') return app.userAgentFallback.replace(/\sElectron\/[^ ]+/g, '')
-  if (profile === 'mac-safari') return 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.0 Safari/605.1.15'
-  if (profile === 'ios-safari') return 'Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.0 Mobile/15E148 Safari/604.1'
-  if (profile === 'android-chrome') return `Mozilla/5.0 (Linux; Android 15; Pixel 9) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/${process.versions.chrome} Mobile Safari/537.36`
-  return app.userAgentFallback
-}
-
-function applyUserAgent(contents, record) {
-  contents.setUserAgent(userAgentFor(record.userAgentProfile, record.userAgentCustom))
-}
-
-function setTabUserAgent(id, profile) {
-  if (!USER_AGENT_PROFILES.some((option) => option.id === profile)) return
-  const record = tabs.find((tab) => tab.id === id)
-  const view = views.get(id)
-  if (!record || !view || view.webContents.isDestroyed()) return
-  record.userAgentProfile = profile
-  record.userAgentCustom = ''
-  applyUserAgent(view.webContents, record)
-  if (record.url) view.webContents.reload()
-  saveSoon(); sendState()
 }
 
 function makeView(record) {
@@ -1157,7 +932,6 @@ function makeView(record) {
   contents.setAudioMuted(appMuteEnabled || Boolean(record.muted))
   installKeyboardShortcuts(contents)
   contents.setZoomLevel(Number.isFinite(record.zoomLevel) ? record.zoomLevel : settings.defaultZoomLevel)
-  applyUserAgent(contents, record)
   contents.setWindowOpenHandler(({ url }) => {
     try { const parsed = new URL(url); if (parsed.protocol === 'https:') void shell.openExternal(url) } catch { /* reject malformed popup */ }
     return { action: 'deny' }
@@ -1214,10 +988,9 @@ function makeView(record) {
 }
 
 function activateTab(id) {
+  if (workspaceMode !== 'browser') { showWorkspacePage('browser', false, id); return }
   const target = tabs.find((tab) => tab.id === id)
   if (!target) return
-  const detachedWindow = detachedWindows.get(id)
-  if (detachedWindow && !detachedWindow.isDestroyed()) { detachedWindow.show(); detachedWindow.focus(); return }
   const previousId = activeTabId
   if (activeView) window.contentView.removeChildView(activeView)
   if (previousId !== id) scheduleTabDiscard(previousId)
@@ -1234,72 +1007,6 @@ function activateTab(id) {
   activeView.setVisible(Boolean(target.url))
   updateBounds()
   saveSoon(); sendState()
-}
-
-function reattachTab(id, focus = true) {
-  const detachedWindow = detachedWindows.get(id)
-  const view = views.get(id)
-  if (!detachedWindow || !view) return
-  const record = tabs.find((tab) => tab.id === id)
-  if (record && !detachedWindow.isDestroyed()) record.detachedBounds = normalizeDetachedBounds(detachedWindow.getNormalBounds())
-  saveSoon()
-  if (!window || window.isDestroyed()) createPanel()
-  detachedWindows.delete(id)
-  detachedWindow._menuBrowserClosing = true
-  try { detachedWindow.contentView.removeChildView(view) } catch { /* view was already removed */ }
-  detachedWindow.close()
-  activateTab(id)
-  if (focus) { window.show(); window.focus() }
-}
-
-function detachActiveTab() {
-  const record = activeTab()
-  const view = activeView
-  if (!record || !view || detachedWindows.has(record.id)) return
-  window.contentView.removeChildView(view)
-  activeView = undefined
-
-  const savedBounds = record.detachedBounds
-  const restoredBounds = savedBounds ? boundsWithinWorkArea(savedBounds, savedBounds.width, savedBounds.height) : null
-  const detachedWindow = new BrowserWindow({
-    ...(restoredBounds || { width: PANEL_WIDTH, height: PANEL_HEIGHT }), minWidth: 420, minHeight: 320,
-    show: false, title: record.title || safeHost(record.url), backgroundColor: '#fff',
-    webPreferences: { contextIsolation: true, nodeIntegration: false, sandbox: true }
-  })
-  installKeyboardShortcuts(detachedWindow.webContents)
-  detachedWindow.contentView.addChildView(view)
-  const updateDetachedBounds = () => {
-    if (detachedWindow.isDestroyed() || view.webContents.isDestroyed()) return
-    record.detachedBounds = normalizeDetachedBounds(detachedWindow.getNormalBounds())
-    const [width, height] = detachedWindow.getContentSize()
-    view.setBounds({ x: 0, y: 0, width, height })
-    saveSoon()
-  }
-  detachedWindow.on('resize', updateDetachedBounds)
-  detachedWindow.on('move', updateDetachedBounds)
-  detachedWindow.on('close', (event) => {
-    if (record) record.detachedBounds = normalizeDetachedBounds(detachedWindow.getNormalBounds())
-    saveSoon()
-    if (!detachedWindow._menuBrowserClosing && !isQuitting) { event.preventDefault(); reattachTab(record.id) }
-  })
-  view.webContents.on('page-title-updated', (_event, title) => {
-    if (!detachedWindow.isDestroyed()) detachedWindow.setTitle(title || record.title || safeHost(record.url))
-  })
-  detachedWindows.set(record.id, detachedWindow)
-  updateDetachedBounds()
-  detachedWindow.show()
-  detachedWindow.focus()
-
-  let replacement = tabs.find((tab) => tab.id !== record.id && !detachedWindows.has(tab.id))
-  if (!replacement && (settings.maxTabs === 0 || tabs.length < settings.maxTabs)) { replacement = newTabRecord(); tabs.push(replacement) }
-  if (replacement) activateTab(replacement.id)
-  else { reattachTab(record.id, true); window?.webContents.send('app:download-status', 'Tab limit reached. Close a tab before detaching this one.') }
-}
-
-function toggleTabDetachment(id) {
-  if (detachedWindows.has(id)) { reattachTab(id); return }
-  activateTab(id)
-  detachActiveTab()
 }
 
 function navigate(input) {
@@ -1376,9 +1083,6 @@ function toggleAppMute() {
     const tab = tabs.find((item) => item.id === id)
     view.webContents.setAudioMuted(appMuteEnabled || Boolean(tab?.muted))
   }
-  for (const appWindow of websiteAppWindows) {
-    if (!appWindow.isDestroyed()) appWindow.webContents.setAudioMuted(appMuteEnabled)
-  }
   if (mediaWindow && !mediaWindow.isDestroyed()) mediaWindow.webContents.setAudioMuted(appMuteEnabled)
   sendState()
 }
@@ -1397,12 +1101,7 @@ function showBrowserMenu() {
     { label: 'Force Refresh', accelerator: settings.shortcuts.forceReload || undefined, click: () => activeView?.webContents.reloadIgnoringCache() },
     { label: 'Find in Page', accelerator: settings.shortcuts.findInPage || undefined, click: () => runShortcut('findInPage') },
     { label: 'Open in Default Browser', accelerator: settings.shortcuts.openExternal || undefined, enabled: Boolean(tab.url), click: () => { if (tab.url) void shell.openExternal(tab.url) } },
-    { label: 'Open as Website App Window', enabled: Boolean(tab.url), click: () => { if (tab.url) openWebsiteApp(tab.url, tab.title) } },
     { label: 'Clear Site Data…', enabled: Boolean(safePermissionOrigin(tab.url)), click: () => { void clearCurrentSiteData() } },
-    { label: 'Detach Tab to Window', accelerator: settings.shortcuts.detachTab || undefined, click: () => toggleTabDetachment(tab.id) },
-    { label: 'User-Agent', submenu: USER_AGENT_PROFILES.map((profile) => ({ label: profile.label, type: 'radio', checked: (tab.userAgentProfile || settings.userAgentProfile) === profile.id, click: () => setTabUserAgent(tab.id, profile.id) })) },
-    { label: 'Device Viewport', submenu: VIEWPORT_PROFILES.map((profile) => ({ label: profile.label, type: 'radio', checked: (tab.viewportProfile || 'desktop') === profile.id, click: () => setTabViewport(tab.id, profile.id) })) },
-    { label: 'Search Engine', submenu: SEARCH_ENGINES.map((engine) => ({ label: engine.label, type: 'radio', checked: searchEngine === engine.id, click: () => { searchEngine = engine.id; settings.searchEngine = engine.id; saveSoon() } })) },
     { label: 'Auto Refresh', submenu: REFRESH_INTERVALS.map((seconds) => ({ label: seconds ? `${seconds < 60 ? `${seconds} seconds` : `${seconds / 60} minute${seconds === 60 ? '' : 's'}`}` : 'Off', type: 'radio', checked: (tab.refreshSeconds || 0) === seconds, click: () => setRefreshInterval(tab.id, seconds) })) },
     { label: 'Zoom', submenu: [
       { label: 'Zoom In', accelerator: settings.shortcuts.zoomIn || undefined, click: () => adjustZoom(0.5) },
@@ -1444,7 +1143,6 @@ function showBrowserMenu() {
     { label: 'History…', accelerator: settings.shortcuts.history || undefined, click: showHistoryWindow },
     { label: 'Notes…', accelerator: settings.shortcuts.openNotes || undefined, click: showNotesWindow },
     { label: 'Book Reader…', accelerator: settings.shortcuts.openReader || undefined, click: showReaderWindow },
-    { label: 'Window Mirror…', accelerator: settings.shortcuts.openWindowMirror || undefined, click: showMirrorWindow },
     { label: 'Hide Window', accelerator: settings.shortcuts.hideWindow || undefined, click: () => window?.hide() },
     { label: 'Quit Floa', role: 'quit' }
   ]
@@ -1480,10 +1178,15 @@ function showSettingsPage(focusShortcuts = false) {
     return
   }
   if (mainPage === 'settings') { window.show(); window.focus(); if (focusShortcuts) focusShortcutList(); return }
+  settingsReturnWorkspace = workspaceMode
   mainPage = 'settings'
   if (activeView && !activeView.webContents.isDestroyed()) {
     activeView.setVisible(false)
     try { window.contentView.removeChildView(activeView) } catch { /* view was already detached */ }
+  }
+  if (activeWorkspaceView) {
+    try { window.contentView.removeChildView(activeWorkspaceView) } catch { /* already detached */ }
+    activeWorkspaceView = undefined
   }
   void window.loadFile(path.join(__dirname, 'settings.html')).then(() => { if (window && !window.isDestroyed()) { window.focus(); if (focusShortcuts) focusShortcutList() } })
 }
@@ -1493,6 +1196,9 @@ function closeSettingsPage() {
   if (!window || window.isDestroyed() || mainPage !== 'settings') return
   const wasVisible = window.isVisible()
   mainPage = 'browser'
+  const destination = settingsReturnWorkspace
+  settingsReturnWorkspace = 'browser'
+  workspaceMode = destination
   if (presentationRebuildPending) {
     presentationRebuildPending = false
     rebuildMainWindow()
@@ -1502,6 +1208,7 @@ function closeSettingsPage() {
   void window.loadFile(path.join(__dirname, 'index.html')).then(() => {
     if (!window || window.isDestroyed()) return
     window.setTitle('Floa')
+    if (destination !== 'browser') { showWorkspacePage(destination); if (wasVisible) window.show(); window.focus(); return }
     if (activeView && !activeView.webContents.isDestroyed()) {
       window.contentView.addChildView(activeView)
       activeView.setVisible(Boolean(activeTab()?.url))
@@ -1514,59 +1221,6 @@ function closeSettingsPage() {
     if (wasVisible) window.show()
     window.focus()
   })
-}
-
-function openWebsiteApp(rawUrl, displayTitle = '') {
-  let url
-  try { url = normalizedUrl(rawUrl) } catch { return }
-  if (!url) return
-  const parsed = new URL(url)
-  const appWindow = new BrowserWindow({
-    width: 980, height: 720, minWidth: 520, minHeight: 420, show: false,
-    title: String(displayTitle || parsed.hostname).slice(0, 100), icon: makeTrayIcon(),
-    autoHideMenuBar: true,
-    webPreferences: { partition: SESSION_PARTITION, contextIsolation: true, nodeIntegration: false, sandbox: true, webSecurity: true }
-  })
-  installKeyboardShortcuts(appWindow.webContents)
-  websiteAppWindows.add(appWindow)
-  appWindow.setMenuBarVisibility(false)
-  appWindow.webContents.setWindowOpenHandler(({ url: popupUrl }) => {
-    const safe = normalizeStoredUrl(popupUrl)
-    if (safe) void shell.openExternal(safe)
-    return { action: 'deny' }
-  })
-  appWindow.webContents.on('will-navigate', (event, nextUrl) => {
-    if (!normalizeStoredUrl(nextUrl)) { event.preventDefault(); return }
-    try { appWindow.setTitle(new URL(nextUrl).hostname) } catch { /* keep current title */ }
-  })
-  appWindow.once('ready-to-show', () => { if (!appWindow.isDestroyed()) { appWindow.show(); appWindow.focus() } })
-  appWindow.on('closed', () => websiteAppWindows.delete(appWindow))
-  void appWindow.loadURL(url).catch((error) => console.warn('Website app failed to load:', error.message))
-  return appWindow
-}
-
-function registerPanelShortcut(shortcut, allowFallback = false) {
-  if (panelShortcut) unregisterGlobalShortcut(panelShortcut)
-  if (tryRegisterGlobalShortcut(shortcut, showPanel, 'togglePanel')) {
-    panelShortcut = shortcut
-    console.info(`[Floa] Registered global shortcut: ${shortcut}`)
-    const fallback = 'CommandOrControl+Shift+Space'
-    const fallbackRegistered = allowFallback && shortcut !== fallback && tryRegisterGlobalShortcut(fallback, showPanel, 'togglePanel')
-    if (fallbackRegistered) console.info(`[Floa] Registered backup global shortcut: ${fallback}`)
-    return true
-  }
-  console.error(`[Floa] Could not register global shortcut: ${shortcut}`)
-  const fallback = 'CommandOrControl+Shift+Space'
-  if (allowFallback && shortcut !== fallback && tryRegisterGlobalShortcut(fallback, showPanel, 'togglePanel')) {
-    panelShortcut = fallback
-    settings.shortcuts.togglePanel = fallback
-    settings.panelShortcut = fallback
-    saveSoon()
-    console.warn(`[Floa] Using fallback global shortcut: ${fallback}`)
-    return true
-  }
-  if (panelShortcut) tryRegisterGlobalShortcut(panelShortcut, showPanel, 'togglePanel')
-  return false
 }
 
 function tryRegisterGlobalShortcut(shortcut, callback, id) {
@@ -1584,9 +1238,6 @@ function applySpaceVisibility() {
   const visible = Boolean(settings.followSpaces)
   if (window && !window.isDestroyed()) window.setVisibleOnAllWorkspaces(visible, { visibleOnFullScreen: visible })
   if (mediaWindow && !mediaWindow.isDestroyed()) mediaWindow.setVisibleOnAllWorkspaces(visible, { visibleOnFullScreen: visible })
-  if (notesWindow && !notesWindow.isDestroyed()) notesWindow.setVisibleOnAllWorkspaces(visible, { visibleOnFullScreen: visible })
-  if (readerWindow && !readerWindow.isDestroyed()) readerWindow.setVisibleOnAllWorkspaces(visible, { visibleOnFullScreen: visible })
-  if (mirrorWindow && !mirrorWindow.isDestroyed()) mirrorWindow.setVisibleOnAllWorkspaces(visible, { visibleOnFullScreen: visible })
 }
 
 function changeOpacity(delta) {
@@ -1708,7 +1359,7 @@ function restoreWindowPreset(index) {
   const preset = settings.windowPresets[index]
   if (!preset?.bounds || !window || window.isDestroyed()) return false
   restoreWindowBounds(boundsWithinWorkArea(preset.bounds, preset.bounds.width, preset.bounds.height))
-  if (!window.isVisible()) showPanel()
+  if (!window.isVisible() && !headlessUiTest) showPanel()
   window.webContents.send('app:download-status', `Restored window position: ${preset.name}.`)
   return true
 }
@@ -1741,35 +1392,6 @@ function moveWindow(dx, dy) {
   if (!window || window.isDestroyed()) return
   const bounds = window.getBounds()
   restoreWindowBounds(boundsWithinWorkArea({ ...bounds, x: bounds.x + dx, y: bounds.y + dy }, bounds.width, bounds.height))
-}
-
-function registerActionShortcut(id, shortcut) {
-  const previous = settings.shortcuts[id]
-  if (previous) unregisterGlobalShortcut(previous)
-  if (!shortcut) return true
-  if (tryRegisterGlobalShortcut(shortcut, () => runShortcut(id), id)) {
-    console.info(`[Floa] Registered global shortcut: ${shortcut}`)
-    return true
-  }
-  console.error(`[Floa] Could not register global shortcut: ${shortcut}`)
-  if (previous) tryRegisterGlobalShortcut(previous, () => runShortcut(id), id)
-  return false
-}
-
-function registerFollowSpacesShortcut(shortcut) {
-  const previous = settings.shortcuts.followSpaces
-  if (previous) unregisterGlobalShortcut(previous)
-  if (!shortcut) {
-    console.info('[Floa] Follow across Spaces shortcut disabled')
-    return true
-  }
-  if (tryRegisterGlobalShortcut(shortcut, () => runShortcut('followSpaces'), 'followSpaces')) {
-    console.info(`[Floa] Registered global shortcut: ${shortcut}`)
-    return true
-  }
-  console.error(`[Floa] Could not register global shortcut: ${shortcut}`)
-  if (previous) tryRegisterGlobalShortcut(previous, () => runShortcut('followSpaces'), 'followSpaces')
-  return false
 }
 
 function unregisterGlobalShortcut(shortcut) {
@@ -1883,7 +1505,7 @@ function saveSettings(input = {}) {
   for (const definition of SHORTCUT_DEFINITIONS) {
     const accelerator = shortcuts[definition.id]
     if (!accelerator) continue
-    const scope = definition.noteOnly ? 'notes' : definition.readerOnly ? 'reader' : definition.mirrorOnly ? 'mirror' : 'browser'
+    const scope = definition.noteOnly ? 'notes' : definition.readerOnly ? 'reader' : 'browser'
     const previous = [...assigned.values()].find((entry) => entry.accelerator === accelerator && (entry.scope === scope || entry.global || definition.global))
     if (previous) return { error: `“${definition.label}” conflicts with “${previous.label}”.` }
     assigned.set(`${scope}:${accelerator}`, { ...definition, scope, accelerator })
@@ -1893,14 +1515,10 @@ function saveSettings(input = {}) {
     shortcuts,
     searchEngine: SEARCH_ENGINES.some((engine) => engine.id === input.searchEngine) ? input.searchEngine : settings.searchEngine,
     homepage,
-    userAgentProfile: USER_AGENT_PROFILES.some((profile) => profile.id === input.userAgentProfile) ? input.userAgentProfile : settings.userAgentProfile,
-    userAgentCustom: String(input.userAgentCustom || '').replace(/[\r\n\0]/g, '').trim().slice(0, 512),
     defaultRefreshSeconds: REFRESH_INTERVALS.includes(Number(input.defaultRefreshSeconds)) ? Number(input.defaultRefreshSeconds) : settings.defaultRefreshSeconds,
     defaultZoomLevel: [-2, -1, 0, 1, 2].includes(Number(input.defaultZoomLevel)) ? Number(input.defaultZoomLevel) : settings.defaultZoomLevel,
     mediaVolume: Number.isFinite(Number(input.mediaVolume)) ? Math.min(1, Math.max(0, Number(input.mediaVolume))) : settings.mediaVolume,
     mediaMuted: typeof input.mediaMuted === 'boolean' ? input.mediaMuted : settings.mediaMuted,
-    defaultViewportProfile: VIEWPORT_PROFILES.some((profile) => profile.id === input.defaultViewportProfile) ? input.defaultViewportProfile : settings.defaultViewportProfile,
-    maxTabs: MAX_TAB_CHOICES.includes(Number(input.maxTabs)) ? Number(input.maxTabs) : settings.maxTabs,
     discardIdleMinutes: TAB_DISCARD_CHOICES.includes(Number(input.discardIdleMinutes)) ? Number(input.discardIdleMinutes) : settings.discardIdleMinutes,
     opacity: Number.isFinite(Number(input.opacity)) ? Math.min(1, Math.max(0.35, Number(input.opacity))) : settings.opacity,
     windowPresets: settings.windowPresets.map((preset, index) => ({
@@ -1915,8 +1533,6 @@ function saveSettings(input = {}) {
     globalShortcutsEnabled: typeof input.globalShortcutsEnabled === 'boolean' ? input.globalShortcutsEnabled : settings.globalShortcutsEnabled,
     panelShortcut: shortcuts.togglePanel
   }
-  const maxTabs = MAX_TAB_CHOICES.includes(Number(input.maxTabs)) ? Number(input.maxTabs) : settings.maxTabs
-  if (maxTabs > 0 && maxTabs < tabs.length) return { error: `Close tabs until ${tabs.length} or fewer are open before lowering the tab limit.` }
   const wasGlobalShortcutsEnabled = settings.globalShortcutsEnabled
   if (wasGlobalShortcutsEnabled && !next.globalShortcutsEnabled) {
     unregisterGlobalShortcuts()
@@ -1937,12 +1553,6 @@ function saveSettings(input = {}) {
   if (mediaWindow && !mediaWindow.isDestroyed()) setMediaVolume(settings.mediaVolume)
   applySpaceVisibility()
   searchEngine = settings.searchEngine
-  for (const tab of tabs) {
-    if (tab.userAgentProfile !== 'custom') continue
-    tab.userAgentCustom = ''
-    const view = views.get(tab.id)
-    if (view && !view.webContents.isDestroyed()) { applyUserAgent(view.webContents, tab); if (tab.url) view.webContents.reload() }
-  }
   if (presentationChanged) {
     if (mainPage === 'settings' || (settingsWindow && !settingsWindow.isDestroyed())) presentationRebuildPending = true
     else rebuildMainWindow()
@@ -1950,7 +1560,7 @@ function saveSettings(input = {}) {
   if (discardPolicyChanged) {
     for (const timer of idleDiscardTimers.values()) clearTimeout(timer)
     idleDiscardTimers.clear()
-    for (const tab of tabs) if (tab.id !== activeTabId && !detachedWindows.has(tab.id)) scheduleTabDiscard(tab.id)
+    for (const tab of tabs) if (tab.id !== activeTabId) scheduleTabDiscard(tab.id)
   }
   saveSoon(); sendState()
   return { settings: publicSettings() }
@@ -1967,13 +1577,6 @@ function closeTab(id) {
   if (index < 0) return
   const closingActive = id === activeTabId
   const closingView = views.get(id)
-  const detachedWindow = detachedWindows.get(id)
-  if (detachedWindow && !detachedWindow.isDestroyed()) {
-    detachedWindows.delete(id)
-    detachedWindow._menuBrowserClosing = true
-    try { detachedWindow.contentView.removeChildView(closingView) } catch { /* view was already removed */ }
-    detachedWindow.close()
-  }
   if (closingActive && activeView) { window.contentView.removeChildView(activeView); activeView = undefined }
   disposeView(closingView); views.delete(id); tabs.splice(index, 1)
   clearInterval(refreshTimers.get(id)); refreshTimers.delete(id)
@@ -1988,7 +1591,6 @@ function makeTrayIcon() {
 }
 
 function showPanel() {
-  workspaceMode = 'browser'
   if (!window || window.isDestroyed()) createPanel()
   if (window.isVisible()) { window.hide(); return }
   const focusPanel = () => {
@@ -1998,18 +1600,22 @@ function showPanel() {
     window.focus()
   }
   focusPanel()
-  if (!activeView) activateTab(activeTabId)
-  else updateBounds()
-  if (activeView?.getVisible()) activeView.webContents.focus()
+  if (workspaceMode === 'browser') {
+    if (!activeView) activateTab(activeTabId)
+    else updateBounds()
+    if (activeView?.getVisible()) activeView.webContents.focus()
+    else window.webContents.focus()
+  } else if (activeWorkspaceView && !activeWorkspaceView.webContents.isDestroyed()) activeWorkspaceView.webContents.focus()
   else window.webContents.focus()
   sendState()
 }
 
-function showBrowserWorkspace() {
-  workspaceMode = 'browser'
+function showBrowserWorkspace(focusAddress = false) {
   if (!window || window.isDestroyed()) createPanel()
   if (settingsWindow && !settingsWindow.isDestroyed()) settingsWindow.close()
   else if (mainPage === 'settings') closeSettingsPage()
+  if (workspaceMode !== 'browser') { showWorkspacePage('browser', focusAddress); window.show(); window.focus(); return }
+  workspaceMode = 'browser'
   if (!window.isVisible()) window.show()
   if (process.platform === 'darwin') app.focus({ steal: true })
   window.focus()
@@ -2017,25 +1623,51 @@ function showBrowserWorkspace() {
   else updateBounds()
   if (activeView?.getVisible()) activeView.webContents.focus()
   else window.webContents.focus()
+  if (focusAddress) {
+    activeView?.webContents.blur()
+    window.webContents.focus()
+    void window.webContents.executeJavaScript("document.querySelector('#address')?.focus(); document.querySelector('#address')?.select()")
+  }
   sendState()
 }
 
 function cycleWorkspace() {
-  const next = workspaceMode === 'browser' ? 'mirror' : workspaceMode === 'mirror' ? 'notes' : 'browser'
-  if (next === 'mirror') showMirrorWindow()
+  const sequence = ['browser', 'notes', 'reader']
+  const next = sequence[(sequence.indexOf(workspaceMode) + 1) % sequence.length]
+  if (next === 'browser') showBrowserWorkspace()
   else if (next === 'notes') showNotesWindow()
-  else showBrowserWorkspace()
+  else showReaderWindow()
+}
+
+function focusPanelForTabShortcut() {
+  if (!window || window.isDestroyed()) createPanel()
+  if (!window.isVisible()) showPanel()
+  else {
+    if (process.platform === 'darwin') app.focus({ steal: true })
+    window.focus()
+  }
+}
+
+function cycleUnifiedTab(direction) {
+  const browserTabs = tabs
+  const entries = [
+    ...browserTabs.map((tab) => ({ workspace: 'browser', tabId: tab.id })),
+    { workspace: 'notes' },
+    { workspace: 'reader' }
+  ]
+  if (!entries.length) return
+  const currentIndex = workspaceMode === 'browser'
+    ? entries.findIndex((entry) => entry.workspace === 'browser' && entry.tabId === activeTabId)
+    : entries.findIndex((entry) => entry.workspace === workspaceMode)
+  const baseIndex = currentIndex < 0 ? (direction > 0 ? -1 : 0) : currentIndex
+  const next = entries[(baseIndex + direction + entries.length) % entries.length]
+  if (next.workspace === 'browser') showWorkspacePage('browser', false, next.tabId)
+  else showWorkspacePage(next.workspace)
 }
 
 function isScreenFilled() {
   if (!window || window.isDestroyed()) return false
   return settings.presentation === 'window' ? window.isFullScreen() : Boolean(panelScreenRestoreBounds)
-}
-
-function normalizeDetachedBounds(bounds) {
-  if (!bounds || !['x', 'y', 'width', 'height'].every((key) => Number.isFinite(bounds[key]))) return null
-  if (Math.abs(bounds.x) > 100000 || Math.abs(bounds.y) > 100000 || bounds.width < 420 || bounds.width > 10000 || bounds.height < 320 || bounds.height > 10000) return null
-  return { x: Math.round(bounds.x), y: Math.round(bounds.y), width: Math.round(bounds.width), height: Math.round(bounds.height) }
 }
 
 function boundsWithinWorkArea(bounds, width, height) {
@@ -2089,12 +1721,12 @@ function createPanel() {
   const normalWindow = true
   pinned = true
   window = new BrowserWindow({
-    width: normalWindow ? 1100 : PANEL_WIDTH, height: normalWindow ? 760 : PANEL_HEIGHT, show: false,
+    width: headlessUiTest ? 420 : (normalWindow ? 1100 : PANEL_WIDTH), height: headlessUiTest ? 500 : (normalWindow ? 760 : PANEL_HEIGHT), show: false,
     title: 'Floa', frame: normalWindow, resizable: true,
-    minWidth: normalWindow ? 640 : 420, minHeight: normalWindow ? 480 : 320,
+    minWidth: headlessUiTest ? 420 : (normalWindow ? 640 : 420), minHeight: headlessUiTest ? 320 : (normalWindow ? 480 : 320),
     alwaysOnTop: true, skipTaskbar: false,
     backgroundColor: chromeCanvasColor(),
-    webPreferences: { preload: path.join(__dirname, 'preload.cjs'), contextIsolation: true, nodeIntegration: false, sandbox: true }
+    webPreferences: { partition: SESSION_PARTITION, preload: path.join(__dirname, 'preload.cjs'), contextIsolation: true, nodeIntegration: false, sandbox: true }
   })
   installKeyboardShortcuts(window.webContents)
   const mainWindow = window
@@ -2116,8 +1748,11 @@ function createPanel() {
     if (mainWindow._preserveViewsOnClose) return
     expandedPanelRestoreBounds = null
     panelScreenRestoreBounds = null
-    for (const [id, view] of views) if (!detachedWindows.has(id)) { disposeView(view); views.delete(id) }
+    for (const [id, view] of views) { disposeView(view); views.delete(id) }
     activeView = undefined
+    for (const view of workspaceViews.values()) { try { view.webContents.close() } catch { /* already closed */ } }
+    workspaceViews.clear(); activeWorkspaceView = undefined
+    workspaceMode = 'browser'; mainPage = 'browser'
     window = undefined
   })
 }
@@ -2130,46 +1765,48 @@ function rebuildMainWindow() {
     if (activeView) {
       try { previous.contentView.removeChildView(activeView) } catch { /* already detached */ }
     }
+    if (activeWorkspaceView) {
+      try { previous.contentView.removeChildView(activeWorkspaceView) } catch { /* already detached */ }
+    }
     previous._preserveViewsOnClose = true
     window = undefined
     previous.close()
   }
-  if (process.platform === 'darwin') app.dock?.show()
+  if (process.platform === 'darwin' && !headlessUiTest) app.dock?.show()
   createPanel()
-  activeView = undefined
-  activateTab(activeTabId)
-  if (settings.presentation === 'window') { window.show(); window.focus() }
-}
-
-function handleDeepLink(raw) {
-  let parsed
-  try { parsed = new URL(raw) } catch { return }
-  if (!['justbrowse:', 'menubrowser:'].includes(parsed.protocol) || parsed.hostname !== 'open' || parsed.pathname !== '/') return
-  let target
-  try { target = normalizedUrl(parsed.searchParams.get('url')) } catch (error) { console.warn('Rejected deep link:', error.message); return }
-  if (!target) return
-  if (!window || window.isDestroyed()) createPanel()
-  if (!window.isVisible()) showPanel()
-  const width = Number.parseInt(parsed.searchParams.get('width') || '', 10)
-  const height = Number.parseInt(parsed.searchParams.get('height') || '', 10)
-  if (Number.isFinite(width) || Number.isFinite(height)) {
-    const bounds = window.getBounds()
-    window.setSize(Math.max(420, Math.min(1100, Number.isFinite(width) ? width : bounds.width)), Math.max(320, Math.min(1000, Number.isFinite(height) ? height : bounds.height)))
+  mainPage = 'browser'
+  if (workspaceMode === 'browser') {
+    activeWorkspaceView = undefined
+    activeView = undefined
+    activateTab(activeTabId)
+  } else {
+    activeView = undefined
+    activeWorkspaceView = workspaceViews.get(workspaceMode)
+    if (activeWorkspaceView && !activeWorkspaceView.webContents.isDestroyed()) {
+      window.contentView.addChildView(activeWorkspaceView)
+      activeWorkspaceView.setVisible(true)
+      updateBounds()
+    }
   }
-  const recordId = createNewTab('')
-  if (typeof recordId !== 'string') return
-  navigate(target)
+  if (settings.presentation === 'window' && !headlessUiTest) { window.show(); window.focus() }
 }
 
-app.on('open-url', (event, url) => { event.preventDefault(); handleDeepLink(url) })
-for (const scheme of ['justbrowse', 'menubrowser']) {
-  if (process.defaultApp && process.argv[1]) app.setAsDefaultProtocolClient(scheme, process.execPath, [path.resolve(process.argv[1])])
-  else app.setAsDefaultProtocolClient(scheme)
+function senderOnLocalPage(event, filename) {
+  try {
+    if (!window || window.isDestroyed()) return false
+    const page = path.join(__dirname, filename)
+    const url = new URL(event.senderFrame.url)
+    if (event.sender.id === window.webContents.id) return url.pathname === page
+    const workspace = { 'notes.html': 'notes', 'reader.html': 'reader' }[filename]
+    const view = workspaceViews.get(workspace)
+    return Boolean(workspace && view && !view.webContents.isDestroyed() && event.sender.id === view.webContents.id && url.pathname === page)
+  } catch { return false }
 }
-
-function requirePanel(event) { return Boolean(window && !window.isDestroyed() && event.sender.id === window.webContents.id) }
-function requireNotes(event) { return Boolean(notesWindow && !notesWindow.isDestroyed() && event.sender.id === notesWindow.webContents.id) }
-function requireReader(event) { return Boolean(readerWindow && !readerWindow.isDestroyed() && event.sender.id === readerWindow.webContents.id) }
+function requirePanel(event) { return senderOnLocalPage(event, 'index.html') }
+function requireNotes(event) { return senderOnLocalPage(event, 'notes.html') }
+function requireNotesSave(event) { return requireNotes(event) }
+function requireReader(event) { return senderOnLocalPage(event, 'reader.html') }
+function requireWorkspacePage(event) { return requirePanel(event) || requireNotes(event) || requireReader(event) }
 function requireHistory(event) { return Boolean(historyWindow && !historyWindow.isDestroyed() && event.sender.id === historyWindow.webContents.id) }
 function requireSettingsWindow(event) {
   return Boolean((settingsWindow && !settingsWindow.isDestroyed() && event.sender.id === settingsWindow.webContents.id)
@@ -2178,7 +1815,7 @@ function requireSettingsWindow(event) {
 
 app.whenReady().then(() => {
   loadStore()
-  if (process.platform === 'darwin') {
+  if (process.platform === 'darwin' && !headlessUiTest) {
     app.dock?.show()
   }
   browserSession = session.fromPartition(SESSION_PARTITION)
@@ -2203,17 +1840,53 @@ app.whenReady().then(() => {
     if (restored) item.resume()
   })
   createPanel()
-  if (settings.globalShortcutsEnabled) {
-    registerPanelShortcut(panelShortcut, true)
-    registerFollowSpacesShortcut(settings.shortcuts.followSpaces)
-    for (const definition of SHORTCUT_DEFINITIONS.filter((item) => item.global && !['togglePanel', 'followSpaces'].includes(item.id))) registerActionShortcut(definition.id, settings.shortcuts[definition.id])
+  if (!headlessUiTest && settings.globalShortcutsEnabled && !registerGlobalShortcuts(settings.shortcuts)) {
+    settings.globalShortcutsEnabled = false
+    settings.panelShortcut = settings.shortcuts.togglePanel
+    saveSoon()
+    console.error('[Floa] Global shortcuts were disabled because at least one configured shortcut could not be registered.')
   }
   activateTab(activeTabId)
-  if (settings.presentation === 'window') { window.show(); window.focus() }
-  for (const argument of process.argv.slice(1)) if (/^(justbrowse|menubrowser):\/\//.test(argument)) handleDeepLink(argument)
+  if (settings.presentation === 'window' && !headlessUiTest) { window.show(); window.focus() }
 })
 
-ipcMain.handle('app:state', (event) => requirePanel(event) ? ({ tabs: tabs.map((tab) => ({ ...tab, detached: detachedWindows.has(tab.id) })), bookmarks: bookmarkItems, searchEngine, settings: publicSettings(), activeTabId, pinned, cleanMode, clickThrough, opacity: settings.opacity, expanded: settings.presentation === 'panel' ? Boolean(expandedPanelRestoreBounds) : Boolean(window.isMaximized()), screenFilled: isScreenFilled(), muted: Boolean(activeView?.webContents.isAudioMuted()), canGoBack: Boolean(activeView?.webContents.navigationHistory.canGoBack()), canGoForward: Boolean(activeView?.webContents.navigationHistory.canGoForward()) }) : null)
+ipcMain.handle('workspace:state', (event) => requireWorkspacePage(event) ? ({ revision: stateRevision, tabs: tabs.map(({ id, url, title }) => ({ id, url, title })), activeTabId, workspace: workspaceMode }) : null)
+if (headlessUiTest) {
+  ipcMain.handle('test:rebuild-main-window', (event) => {
+    if (!requireWorkspacePage(event)) return false
+    rebuildMainWindow()
+    return true
+  })
+  ipcMain.handle('test:resize-window', (event, width, height) => {
+    if (!requireWorkspacePage(event) || !window || window.isDestroyed()) return false
+    if (![width, height].every((value) => Number.isInteger(value) && value >= 320 && value <= 2000)) return false
+    window.setSize(width, height)
+    return true
+  })
+  ipcMain.handle('test:dispatch-key', (event, input = {}) => {
+    if (!requireWorkspacePage(event) || !['keyDown', 'keyUp'].includes(input.type) || typeof input.key !== 'string') return false
+    let prevented = false
+    event.sender.emit('before-input-event', { preventDefault: () => { prevented = true } }, {
+      type: input.type,
+      key: input.key,
+      code: input.code || '',
+      isAutoRepeat: false,
+      alt: Boolean(input.alt),
+      control: Boolean(input.control),
+      meta: Boolean(input.meta),
+      shift: Boolean(input.shift)
+    })
+    return prevented
+  })
+}
+ipcMain.handle('workspace:switch', (event, workspace) => { if (!['browser', 'notes', 'reader'].includes(workspace) || !requireWorkspacePage(event)) return false; if (workspace === 'browser') showBrowserWorkspace(); else showWorkspacePage(workspace); return true })
+ipcMain.handle('workspace:activate-browser-tab', (event, id) => {
+  if (!requireWorkspacePage(event) || typeof id !== 'string' || !tabs.some((tab) => tab.id === id)) return false
+  if (workspaceMode === 'browser') activateTab(id)
+  else showWorkspacePage('browser', false, id)
+  return true
+})
+ipcMain.handle('app:state', (event) => requirePanel(event) ? ({ revision: stateRevision, tabs: tabs.map((tab) => ({ ...tab })), bookmarks: bookmarkItems, searchEngine, settings: publicSettings(), activeTabId, workspace: workspaceMode, pinned, cleanMode, clickThrough, opacity: settings.opacity, expanded: settings.presentation === 'panel' ? Boolean(expandedPanelRestoreBounds) : Boolean(window.isMaximized()), screenFilled: isScreenFilled(), muted: Boolean(activeView?.webContents.isAudioMuted()), canGoBack: Boolean(activeView?.webContents.navigationHistory.canGoBack()), canGoForward: Boolean(activeView?.webContents.navigationHistory.canGoForward()) }) : null)
 ipcMain.handle('tab:navigate', (event, value) => requirePanel(event) ? navigate(value) : null)
 ipcMain.handle('tab:new', (event, value = '') => {
   if (!requirePanel(event)) return null
@@ -2244,7 +1917,6 @@ ipcMain.handle('tab:close-current', (event) => { if (requirePanel(event)) closeT
 ipcMain.handle('tab:refresh-interval', (event, seconds) => { if (requirePanel(event)) setRefreshInterval(activeTabId, seconds) })
 ipcMain.handle('tab:zoom', (event, delta) => { if (requirePanel(event) && [-0.5, 0.5].includes(delta)) adjustZoom(delta) })
 ipcMain.handle('tab:zoom-reset', (event) => { if (requirePanel(event)) resetZoom() })
-ipcMain.handle('tab:detach', (event, id) => { if (requirePanel(event)) toggleTabDetachment(id) })
 ipcMain.handle('tab:back', (event) => { if (requirePanel(event) && activeView?.webContents.navigationHistory.canGoBack()) activeView.webContents.navigationHistory.goBack() })
 ipcMain.handle('tab:forward', (event) => { if (requirePanel(event) && activeView?.webContents.navigationHistory.canGoForward()) activeView.webContents.navigationHistory.goForward() })
 ipcMain.handle('tab:reload', (event) => { if (requirePanel(event)) activeView?.webContents.reload() })
@@ -2358,7 +2030,7 @@ ipcMain.handle('notes:update', (event, id, input = {}) => {
   if (!requireNotes(event)) return null
   return updateNoteData(id, input)
 })
-ipcMain.on('notes:save-sync', (event, id, input = {}) => { if (requireNotes(event)) event.returnValue = Boolean(updateNoteData(id, input)) })
+ipcMain.on('notes:save-sync', (event, id, input = {}) => { if (requireNotesSave(event)) event.returnValue = Boolean(updateNoteData(id, input)) })
 ipcMain.handle('notes:delete', (event, id) => {
   if (!requireNotes(event)) return null
   notes = notes.filter((note) => note.id !== id)
@@ -2404,130 +2076,6 @@ ipcMain.handle('reader:remove-document', (event, id) => {
   if (path.dirname(doc.path) === library) { try { fs.unlinkSync(doc.path) } catch { /* the library record can still be removed */ } }
   saveSoon(); publishReaderState(); return true
 })
-ipcMain.handle('mirror:sources', (event) => event.sender.id === mirrorWindow?.webContents.id ? listMirrorSources() : { error: 'Not allowed.' })
-ipcMain.handle('mirror:authorize-source', (event, sourceId) => serializeMirrorInteraction(() => {
-  if (event.sender.id !== mirrorWindow?.webContents.id || typeof sourceId !== 'string' || !mirrorSources.has(sourceId)) return false
-  allowedMirrorSourceIds.add(sourceId)
-  return true
-}))
-ipcMain.handle('mirror:revoke-source', (event, sourceId) => serializeMirrorInteraction(async () => {
-  if (event.sender.id !== mirrorWindow?.webContents.id || typeof sourceId !== 'string') return false
-  await releaseMirrorInput(sourceId)
-  allowedMirrorSourceIds.delete(sourceId)
-  interactiveMirrorSourceIds.delete(sourceId)
-  if (activeMirrorSourceId === sourceId) activeMirrorSourceId = ''
-  return true
-}))
-ipcMain.handle('mirror:select-source', (event, sourceId) => serializeMirrorInteraction(async () => {
-  if (!authorizedMirrorSource(event, sourceId)) return { ok: false, error: 'This window is not authorized for mirroring.' }
-  const previousSourceId = activeMirrorSourceId
-  if (activeMirrorSourceId !== sourceId) {
-    if (activeMirrorSourceId) await releaseMirrorInput(activeMirrorSourceId)
-    interactiveMirrorSourceIds.delete(activeMirrorSourceId)
-    activeMirrorSourceId = sourceId
-  }
-  return { ok: true, previousSourceId }
-}))
-ipcMain.handle('mirror:accessibility', (event) => event.sender.id === mirrorWindow?.webContents.id
-  ? requestMirrorInput({ action: 'accessibility' }) : { ok: false, error: 'Not allowed.' })
-ipcMain.handle('mirror:set-interaction', (event, sourceId, enabled) => serializeMirrorInteraction(async () => {
-  if (!authorizedMirrorSource(event, sourceId) || activeMirrorSourceId !== sourceId) return { ok: false, error: 'Select this mirror tab before enabling interaction.' }
-  if (!enabled) {
-    await releaseMirrorInput(sourceId)
-    interactiveMirrorSourceIds.delete(sourceId)
-    return { ok: true, enabled: false }
-  }
-  const permission = await requestMirrorInput({ action: 'accessibility', prompt: true })
-  if (!permission.ok) return permission
-  if (!permission.trusted) return { ok: false, needsAccessibility: true, error: 'Enable Accessibility to interact with mirrored windows.' }
-  interactiveMirrorSourceIds.add(sourceId)
-  return { ok: true, enabled: true }
-}))
-ipcMain.handle('mirror:raise-original', (event, sourceId) => serializeMirrorInteraction(async () => {
-  if (!authorizedMirrorSource(event, sourceId) || activeMirrorSourceId !== sourceId) return { ok: false, error: 'Select this mirror tab before opening its original window.' }
-  return sendMirrorWindowAction(sourceId, 'raise')
-}))
-ipcMain.handle('mirror:input', (event, sourceId, input = {}) => serializeMirrorInteraction(async () => {
-  if (!authorizedMirrorSource(event, sourceId) || activeMirrorSourceId !== sourceId || !interactiveMirrorSourceIds.has(sourceId)) return { ok: false, error: 'Turn on Interact for the selected mirrored window first.' }
-  const allowedActions = new Set(['move', 'down', 'up', 'rightDown', 'rightUp', 'drag', 'rightDrag', 'wheel', 'keyDown', 'keyUp'])
-  if (!allowedActions.has(input.action)) return { ok: false, error: 'Unsupported input event.' }
-  const payload = { action: input.action }
-  if (input.action === 'keyDown' || input.action === 'keyUp') {
-    const code = Number(input.keyCode)
-    if (!Number.isInteger(code) || code < 0 || code > 127) return { ok: false, error: 'Unsupported key.' }
-    payload.keyCode = code
-    payload.flags = Number.isInteger(input.flags) ? input.flags & 0x001e0000 : 0
-  } else {
-    const x = Number(input.x); const y = Number(input.y)
-    if (!Number.isFinite(x) || !Number.isFinite(y) || x < 0 || x > 1 || y < 0 || y > 1) return { ok: false, error: 'Invalid pointer position.' }
-    payload.x = x; payload.y = y
-    if (input.action === 'wheel') {
-      payload.deltaX = Math.max(-2400, Math.min(2400, Math.round(Number(input.deltaX) || 0)))
-      payload.deltaY = Math.max(-2400, Math.min(2400, Math.round(Number(input.deltaY) || 0)))
-    }
-  }
-  // sendMirrorWindowAction writes to the helper synchronously before its promise yields.
-  // Record the pending state immediately afterward so a concurrent source switch can
-  // enqueue the matching release behind this input instead of missing a held key/button.
-  const inputPromise = sendMirrorWindowAction(sourceId, input.action, payload)
-  const previousButtons = heldMirrorButtons.get(sourceId)
-  const buttonSnapshot = previousButtons
-    ? { x: previousButtons.x, y: previousButtons.y, buttons: new Set(previousButtons.buttons) }
-    : null
-  const previousKeys = heldMirrorKeys.get(sourceId)
-  const keySnapshot = previousKeys ? new Map(previousKeys) : null
-  if (input.action === 'keyDown') {
-    const keys = heldMirrorKeys.get(sourceId) || new Map()
-    keys.set(payload.keyCode, payload.flags)
-    heldMirrorKeys.set(sourceId, keys)
-  } else if (input.action === 'keyUp') {
-    const keys = heldMirrorKeys.get(sourceId)
-    if (keys) {
-      keys.delete(payload.keyCode)
-      if (!keys.size) heldMirrorKeys.delete(sourceId)
-    }
-  }
-  if (['down', 'rightDown'].includes(input.action)) {
-    const held = heldMirrorButtons.get(sourceId) || { x: payload.x, y: payload.y, buttons: new Set() }
-    held.x = payload.x; held.y = payload.y; held.buttons.add(input.action === 'rightDown' ? 'right' : 'left')
-    heldMirrorButtons.set(sourceId, held)
-  } else if (['up', 'rightUp'].includes(input.action)) {
-    const held = heldMirrorButtons.get(sourceId)
-    if (held) {
-      held.x = payload.x; held.y = payload.y; held.buttons.delete(input.action === 'rightUp' ? 'right' : 'left')
-      if (!held.buttons.size) heldMirrorButtons.delete(sourceId)
-    }
-  } else if (['move', 'drag', 'rightDrag'].includes(input.action)) {
-    const held = heldMirrorButtons.get(sourceId)
-    if (held) { held.x = payload.x; held.y = payload.y }
-  }
-  const result = await inputPromise
-  if (!result.ok) {
-    if (buttonSnapshot) heldMirrorButtons.set(sourceId, buttonSnapshot)
-    else heldMirrorButtons.delete(sourceId)
-    if (keySnapshot) heldMirrorKeys.set(sourceId, keySnapshot)
-    else heldMirrorKeys.delete(sourceId)
-    await releaseMirrorInput(sourceId)
-    interactiveMirrorSourceIds.delete(sourceId)
-    return result
-  }
-  return result
-}))
-ipcMain.handle('mirror:open-accessibility-settings', (event) => {
-  if (event.sender.id !== mirrorWindow?.webContents.id || process.platform !== 'darwin') return false
-  void shell.openExternal('x-apple.systempreferences:com.apple.preference.security?Privacy_Accessibility')
-  return true
-})
-ipcMain.handle('mirror:open-screen-settings', (event) => {
-  if (event.sender.id !== mirrorWindow?.webContents.id || process.platform !== 'darwin') return false
-  void shell.openExternal('x-apple.systempreferences:com.apple.preference.security?Privacy_ScreenCapture')
-  return true
-})
-ipcMain.handle('mirror:close', (event) => serializeMirrorInteraction(() => {
-  if (event.sender.id !== mirrorWindow?.webContents.id) return false
-  mirrorWindow.close()
-  return true
-}))
 ipcMain.handle('downloads:action', async (event, id, action) => {
   if (!downloadsWindow || downloadsWindow.isDestroyed() || event.sender.id !== downloadsWindow.webContents.id) return { error: 'Not allowed.' }
   const record = downloadRecords.find((item) => item.id === id)
@@ -2547,22 +2095,9 @@ ipcMain.handle('downloads:action', async (event, id, action) => {
   return { error: 'This download cannot be resumed. The server may not support byte-range requests.' }
 })
 
-app.on('will-quit', (event) => {
+app.on('will-quit', () => {
   globalShortcut.unregisterAll()
   registeredGlobalShortcuts.clear()
-  interactiveMirrorSourceIds.clear()
-  const releasePending = [...heldMirrorInputSources()]
-  if (releasePending.length) {
-    event.preventDefault()
-    void serializeMirrorInteraction(async () => {
-      for (const sourceId of heldMirrorInputSources()) await releaseMirrorInput(sourceId)
-    }).finally(() => {
-      mirrorInputProcess?.kill(); stopMirrorInputHelper(); app.quit()
-    })
-    return
-  }
-  mirrorInputProcess?.kill()
-  stopMirrorInputHelper()
   for (const [id, item] of liveDownloads) {
     const record = downloadRecords.find((entry) => entry.id === id)
     if (record && !item.isDone()) downloadSnapshot(item, record)

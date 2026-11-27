@@ -1,0 +1,186 @@
+{
+  "scenario": "Floa utility view layout at narrow floating browser content size",
+  "date": "2026-11-27",
+  "runtime": "Google Chrome headless, local utility HTML and CSS",
+  "viewport": {
+    "width": 420,
+    "height": 383,
+    "reason": "420x500 outer window with 117px shared toolbar and tab strip"
+  },
+  "pages": [
+    {
+      "name": "Notes",
+      "path": "menubarx-app/notes.html?embedded=1",
+      "screenshot": "floa-notes-utility-420x383-headless-2026-11-27.png",
+      "result": "rendered; note list and editor remain within captured content viewport; formatting toolbar scrolls horizontally",
+      "wideViewport": {
+        "width": 900,
+        "height": 683,
+        "screenshot": "floa-notes-utility-900x683-headless-2026-11-27.png",
+        "result": "rendered without horizontal clipping"
+      }
+    },
+    {
+      "name": "Reader",
+      "path": "menubarx-app/reader.html?embedded=1",
+      "screenshot": "floa-reader-utility-420x383-headless-2026-11-27.png",
+      "result": "rendered; compact sidebar; controls remain horizontally scrollable; empty library description constrained to content column",
+      "wideViewport": {
+        "width": 900,
+        "height": 683,
+        "screenshot": "floa-reader-utility-900x683-headless-2026-11-27.png",
+        "result": "rendered without horizontal clipping"
+      }
+    },
+    {
+      "name": "Window Mirror",
+      "path": "menubarx-app/mirror.html?embedded=1",
+      "screenshot": "floa-mirror-utility-420x383-headless-2026-11-27.png",
+      "result": "rendered; empty source state remains visible; no capture permission requested",
+      "wideViewport": {
+        "width": 900,
+        "height": 683,
+        "screenshot": "floa-mirror-utility-900x683-headless-2026-11-27.png",
+        "result": "rendered without horizontal clipping"
+      }
+    }
+  ],
+  "limitations": [
+    "This checks utility document layout in Chromium, not Electron WebContentsView switching or persistence.",
+    "The shared Floa toolbar and tab strip are excluded from the screenshots; their 117px height is accounted for in the viewport.",
+    "Electron application window was not shown or focused.",
+    "Real OS keyboard delivery was not tested because doing so would require focusing the application. Shortcut matching and handling were exercised through the same installed before-input-event listener using the isolated headless-only test hook.",
+    "Screen Recording permissions and live Window Mirror capture were not granted or exercised."
+  ],
+  "integratedShell": {
+    "viewport": {
+      "width": 420,
+      "height": 500
+    },
+    "workspace": "Notes",
+    "runtime": "actual index.html, workspace.js, renderer.js with mocked browserApp IPC in Chrome headless",
+    "screenshot": "floa-utility-shell-tabs-420x500-headless-2026-11-27.png",
+    "result": "browser and utility tab groups render in one strip; browser action row clips off-screen but is horizontally scrollable",
+    "limitations": [
+      "Renderer IPC is mocked; this does not exercise Electron BrowserWindow or WebContentsView attachment.",
+      "Home content in the shell capture sits behind the native content view in the real app."
+    ]
+  },
+  "electronIntegration": {
+    "runtime": "Electron 45.2.1 application main process, FLOA_UI_TEST=1, isolated /tmp profile, hidden BrowserWindow, CDP protocol",
+    "outerWindow": {
+      "width": 420,
+      "height": 500
+    },
+    "steps": [
+      "Browser -> Notes",
+      "Notes -> Reader",
+      "Reader -> Window Mirror",
+      "Window Mirror -> Browser",
+      "Browser -> Notes",
+      "Notes -> Browser"
+    ],
+    "results": {
+      "allWorkspaceSwitchCallsSucceeded": true,
+      "workspaceStateMatchedRequestedTab": true,
+      "browserTabIdPreservedAcrossEverySwitch": true,
+      "utilityWebContentsTargetsRemainLoaded": [
+        "notes",
+        "reader",
+        "mirror"
+      ],
+      "utilityViewport": {
+        "width": 420,
+        "height": 351
+      },
+      "bodyScrollSize": {
+        "width": 420,
+        "height": 351
+      },
+      "notesTitleAndBodyPersistedAfterSwitching": true
+    },
+    "screenshots": {
+      "notes": "floa-electron-notes-420x500-headless-2026-11-27.png",
+      "reader": "floa-electron-reader-420x500-headless-2026-11-27.png",
+      "mirror": "floa-electron-mirror-420x500-headless-2026-11-27.png"
+    },
+    "limitations": [
+      "Hidden BrowserWindow was exercised through CDP; no visible or user-owned window was focused.",
+      "Window Mirror showed its Screen Recording permission state in the isolated test profile; no permission was granted."
+    ],
+    "restart": {
+      "restoredActiveBrowserTabId": "ee331596-bed9-4053-b99d-b4d4c6e7fb56",
+      "restoredLocalFixtureUrl": "http://127.0.0.1:54755/",
+      "restoredNoteTitle": "tab-state-check",
+      "restoredNoteBody": "persist this note"
+    },
+    "resize": {
+      "trigger": "browserApp.restoreWindowPreset(0) through the existing window preset IPC",
+      "outerWindow": {
+        "width": 520,
+        "height": 620
+      },
+      "measuredUtilityViewport": {
+        "width": 520,
+        "height": 471
+      },
+      "bodyScrollSize": {
+        "width": 520,
+        "height": 471
+      },
+      "screenshot": "floa-electron-notes-520x620-headless-2026-11-27.png"
+    }
+  },
+  "finalAudit": {
+    "runtime": "Electron 45.2.1 hidden test mode, isolated /tmp/floa-ui-test-profile; no user window was shown or focused",
+    "sharedWorkspaceTabs": {
+      "labels": [
+        "Browser",
+        "Notes",
+        "Reader",
+        "Window Mirror"
+      ],
+      "exactlyOneAriaSelected": true,
+      "arrowRightSelectsNext": true,
+      "homeSelectsBrowser": true,
+      "evidence": "docs/artifacts/glaso/floa-utility-accessibility-single-shell-headless-2026-11-27.json"
+    },
+    "viewIntegrity": {
+      "duplicateUtilityTabStrip": false,
+      "minimumOuterWindow": {
+        "width": 420,
+        "height": 320
+      },
+      "contentViewport": {
+        "width": 420,
+        "height": 171
+      },
+      "allDocumentsFitViewport": true,
+      "readerSidebarAndMirrorPreviewUseInternalScroll": true,
+      "evidence": "docs/artifacts/glaso/floa-utility-min-height-headless-2026-11-27.json"
+    },
+    "switchingAndReturn": {
+      "readerSearchStateRestored": true,
+      "mirrorCloseReturnsToBrowser": true,
+      "activeBrowserTabIdPreserved": true,
+      "addressBarRestored": true,
+      "utilityWebContentsRemainLoaded": true,
+      "evidence": "docs/artifacts/glaso/floa-utility-return-state-headless-2026-11-27.json"
+    },
+    "keyboardAndRebuild": {
+      "notesCommandShortcutCreatesNote": true,
+      "shortcutInputPath": "test-only synthetic before-input-event sent through the installed shortcut listener; native OS key delivery was not used to avoid focusing the app",
+      "mainWindowRebuildPreservesWorkspaceAndBrowserTab": true,
+      "notesRemainAvailableAfterRebuild": true,
+      "evidence": "docs/artifacts/glaso/floa-utility-shortcut-rebuild-headless-2026-11-27.json"
+    },
+    "package": {
+      "command": "pnpm justbrowse:pack:mac",
+      "result": "success; unsigned because the installed Developer ID certificate is not trusted",
+      "sourceArchiveComparison": {
+        "checked": 11,
+        "matching": 11
+      }
+    }
+  }
+}

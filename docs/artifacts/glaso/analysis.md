@@ -1,5 +1,7 @@
 # Glaso REA 분석 기록
 
+> 이 문서는 2026-11-26~27 구현 및 검증 당시의 보관 기록이다. 이후 Floa에서 Window Mirror, User-Agent·기기 화면 시뮬레이션, 탭 수 상한, `justbrowse://` 딥링크, 탭 분리, 별도 웹앱 창은 제거됐다. 아래 구현 진행 기록과 캡처는 당시 상태를 설명하며 현재 기능을 나타내지 않는다. 현행 기능은 [`menubarx-app/README.md`](../../../menubarx-app/README.md), UI 기준은 [`menubarx-app/DESIGN.md`](../../../menubarx-app/DESIGN.md)를 따른다.
+
 ## 범위와 결론
 
 분석 대상은 Glaso for macOS의 공개 웹사이트와 사이트 안에 있는 조작형 제품 데모다. Glaso 앱 바이너리나 소스 코드는 확보되지 않았으므로 앱 내부 구현, 실제 창 레벨, 전역 단축키 등록 방식, WebKit 설정, 저장 구조를 역공학했다고 주장하지 않는다. 이 기록은 공개 제품 설명, REA로 관찰한 웹 데모, REA 정적 분석 범위를 구분한다.
@@ -143,8 +145,8 @@ Glaso는 메뉴 막대 드롭다운 브라우저가 아니라, 다른 앱 위에
 
 ### 남은 Glaso 우선 기능
 
-1. Notes의 실제 시스템 클립보드 붙여넣기와 시각 레이아웃을 화면에서 검증. 페이지 내 찾기의 결과 수, 이전/다음 순환, renderer Escape 닫기는 격리 패키지 앱에서 확인했으며 전역 단축키와 Clean Mode/전체 화면/legacy panel 상태의 실제 키보드 경로는 별도 확인.
-2. Window Mirror에서 실제 앱 창 선택·권한 허용·다중 소스 전환·중지 흐름을 화면에서 검증. 초기 구현은 `getDisplayMedia` 기반 읽기 전용 preview였으나, 2026-11-26 후속 작업에서 원본 창 열기와 macOS opt-in Interact 입력 전달을 구현하고 패키징했다. 권한 승인된 실제 대상 앱에 입력이 도착하는 end-to-end 검증은 남아 있다. Glaso 직접 배포판 바이너리는 확보하지 못했으므로 동작 기준은 공개 튜토리얼과 지원 문서다.
+1. Notes의 실제 시스템 클립보드 붙여넣기와 시각 레이아웃을 화면에서 검증. 2026-11-27에는 headless Chromium에서 서식 HTML 보존, 위험 HTML 정화, 평문 대체, 1 MB 초과 이미지 거부를 확인했다. 입력은 합성 `ClipboardEvent`였으므로 OS 클립보드 연동 자체를 확인한 것은 아니다. 페이지 내 찾기의 결과 수, 이전/다음 순환, renderer Escape 닫기는 격리 패키지 앱에서 확인했으며 전역 단축키와 Clean Mode/전체 화면/legacy panel 상태의 실제 키보드 경로는 별도 확인.
+2. Window Mirror에서 실제 앱 창 선택·권한 허용·다중 소스 전환·중지 흐름을 화면에서 검증. 2026-11-27에는 미러 선택 실패 후 캡처 해제와 Stop All/창 닫기 이후 늦게 도착한 캡처 스트림 정리를 headless로 검증했다. OS의 실제 앱 창 선택·권한 승인·다중 소스 흐름과 권한 승인된 실제 대상 앱에 입력이 도착하는 end-to-end 검증은 남아 있다. Glaso 직접 배포판 바이너리는 확보하지 못했으므로 동작 기준은 공개 튜토리얼과 지원 문서다.
 3. 구현된 투명도·Clean Mode·Click-through·프리셋·방향키의 런타임 전환과 복귀 동작, 프리셋 저장·재호출 및 여러 디스플레이 환경 검증.
 4. Reader의 네이티브 파일 선택을 통한 실제 PDF·EPUB 가져오기와 문서 렌더링·검색·위치 복원을 검증.
 5. 로컬 미디어 파일 선택·재생·저장 위치 복원은 격리 프로필의 패키지 앱에서 확인했다. 미디어 전역 단축키, 볼륨·음소거 보존, Notes OS 클립보드와 시각 레이아웃은 별도 확인한다. Notes 자동 저장·목록 서식·검색·이미지 OCR·재시작 복원은 이전 격리 실행에서 검증했다.
@@ -152,6 +154,13 @@ Glaso는 메뉴 막대 드롭다운 브라우저가 아니라, 다른 앱 위에
 Just Browse에는 Free/Trial/Pro 등급이나 결제·복원 경로가 없다. 따라서 StoreKit 검증은 제품 요구 범위가 아니다.
 
 앞으로도 Glaso 구현 세부를 추정하지 않고, 공개 기능·키표·가이드 영상에서 확인한 사용자 동작을 기준으로 독립 구현한다. 이 회차에서 확인한 것은 창 표시, 접근성상 최상위·핀 상태, 설정 화면의 배치와 Escape 복귀다. Option+G 키를 실제 다른 앱에서 눌러 show/hide 전환하는 수동 키입력은 아직 이 증거에 포함하지 않았다.
+
+### 전역 주소창 단축키 — 2026-11-27
+
+- 사용자가 요청해 `CommandOrControl+/`를 전역 주소창 포커스 단축키로 지정했다. macOS에서는 `⌘/`, Windows/Linux에서는 `Ctrl+/`로 등록된다. 이전 기본값 `Alt+Command+U`만 새 기본값으로 이전하고, 사용자가 직접 변경한 기존 값은 보존한다.
+- 설정에서 주소창 단축키는 다른 앱이 포커스된 상태에서도 작동하는 전역 항목으로 표시된다. 기존 단축키 설정 진입 `CommandOrControl+Shift+/`는 그대로 유지한다.
+- Chromium/Electron 키 입력 매칭 함수를 macOS 대상 VM 시나리오에서 실행해 `/` 및 `⌘/` 조합 일치, `⌘⇧/` 비일치, 설정 단축키 유지, 이전 기본값 이전을 확인했다. 시나리오: [`floa-address-shortcut-scenario-2026-11-27.json`](floa-address-shortcut-scenario-2026-11-27.json).
+- 실제 다른 앱 위에서 OS 전역 키 입력은 실행 중인 Floa 재시작 후 사용자가 확인해야 한다. 패키지 반영 후 앱을 재시작해 이 바인딩을 사용할 수 있게 한다.
 
 ### 브라우징 기록 구현 — 2026-11-26
 
@@ -239,6 +248,20 @@ Glaso 공식 자료의 Free/Trial/Pro 등급은 REA 비교표에만 남긴다. J
 - 파일 fixture는 저장소의 기존 비-Glaso 데모 영상 구간을 AVFoundation으로 8회 반복해 만들었다. 테스트 중 Floa QA 앱 본체와 Electron 하위 프로세스를 종료했고, QA 프로필은 `/tmp`에 격리했다. Downloads에 둔 테스트 사본은 종료 후 `/tmp`로 옮겼다. 기존 사용자 기본 프로필의 Just Browse 프로세스는 유지했다.
 - 전 과정·입력 방식·한계는 [`floa-local-media-codec-scenario-2026-11-26.json`](floa-local-media-codec-scenario-2026-11-26.json)에 기록했다. 이 확인에서는 음량·음소거 설정, 네이티브 seek bar 드래그는 다루지 않았다.
 
+### Notes 서식 붙여넣기 및 HTML 정화 — 2026-11-27
+
+- Notes 편집기는 기존에 이미지와 평문만 붙여넣어 웹페이지의 굵게·기울임 같은 서식이 사라졌다. `text/html`이 있으면 허용 태그/속성 정화 후 삽입하고, HTML이 없으면 `text/plain`을 사용하도록 보완했다.
+- 정화기는 유효하지 않은 출처의 이미지를 완전히 제거한다. 붙여넣은 데이터 이미지 크기는 base64 패딩을 반영해 계산하며 1 MB를 넘으면 삽입하지 않고 안내를 표시한다. 기존 저장 시 최대 2 MB 제한은 유지된다.
+- Chrome headless에서 실제 `notes.js`를 로드해 서식 보존, `<script>` 및 이벤트 속성 제거, 외부 이미지 제거, `javascript:` 링크 속성 제거, 평문 대체, 초과 크기 이미지 거부를 확인했다. 변경된 `notes.js`는 macOS arm64 패키지의 `app.asar`에 포함된 것도 `cmp`로 확인했다.
+- 검증 입력은 합성 renderer `ClipboardEvent`였으며, 시스템 클립보드 서비스와 Notes 창의 일반 GUI/접근성 레이아웃은 아직 검증하지 않았다. 재현 관찰은 [`floa-notes-paste-scenario-2026-11-27.json`](floa-notes-paste-scenario-2026-11-27.json)에 기록했다. 패키징은 성공했지만 현재 머신의 Developer ID 인증서가 신뢰되지 않아 서명은 생략됐다.
+
+### Window Mirror 캡처 해제 경합 — 2026-11-27
+
+- 코드 점검에서 미러 소스 선택 IPC가 실패해도 취득한 MediaStream이 남을 수 있고, Stop All 또는 창 닫기 후 `getUserMedia()`가 늦게 완료되면 이미 정리 절차가 지난 스트림을 새 탭으로 등록할 수 있음을 확인했다.
+- 선택 실패 시 해당 탭과 트랙을 해제하고, 전체 중지/창 종료 뒤 늦게 완료된 요청은 트랙을 정지하고 권한을 취소하도록 보완했다. 탭 제거와 소스 선택 응답이 경합하면 제거된 스트림이 다시 활성화되지 않게 했다.
+- 실제 `mirror.js`를 headless Chromium에서 실행했다. 강제 선택 실패 후 트랙 종료·권한 취소·탭 없음·선택 화면 복귀를 확인했다. 이어서 지연 캡처 중 `beforeunload`를 발생시키고 Promise를 완료해도 트랙이 정지되고 탭이 생기지 않는 것을 확인했다. 앱 창은 표시하지 않았다.
+- OS 화면 녹화 권한과 실제 앱 창의 캡처는 이 renderer 재현에 포함되지 않는다. 재현 결과는 [`floa-mirror-capture-race-scenario-2026-11-27.json`](floa-mirror-capture-race-scenario-2026-11-27.json)에 저장했다.
+
 ### Reader PDF 엔진 비포커스 확인 — 2026-11-26
 
 - 포커스를 가져오지 않고, 로컬에서 만든 1페이지 PDF fixture를 다시 빌드한 `app.asar`에서 추출한 PDF.js 6.5.438로 파싱했다. 612×792 페이지 상자와 본문 텍스트를 읽었고 `floating browser state` 검색어가 한 번 매치됐다.
@@ -275,3 +298,16 @@ Glaso 공식 자료의 Free/Trial/Pro 등급은 REA 비교표에만 남긴다. J
 - 설정·유틸리티 패널 연결 정적 대조: preload에서 호출하는 81개 IPC 명령 모두 대응 main handler가 있고, Notes·Reader·Mirror·History·Downloads·Media·Settings·Browser 렌더러가 참조하는 고정 HTML ID가 모두 존재한다. 이 정적 연결 확인은 GUI 버튼 결과나 OS 동작을 증명하지 않는다. 기본 창 레이아웃 초기화도 현재 창이 있는 디스플레이를 유지하도록 했다.
 - Swift helper arm64 컴파일, JS 문법 검사, macOS 패키지 빌드 및 `Contents/Helpers/FloaMirrorInput` 탑재를 확인했다. macOS 코드 서명 도구가 인식하는 nested helper 위치로 옮겼고 패키지 main 스크립트가 그 경로를 참조한다. helper의 권한 상태 질의는 유효 JSON을 반환했고 권한 프롬프트나 Floa 활성화는 없었다. 현재 Developer ID가 신뢰되지 않아 서명은 생략됐으므로, 서명된 빌드에서의 helper 서명과 TCC 승인은 아직 확인하지 않았다.
 - 사용자가 포커스 탈취를 금지했으므로 Floa를 실행하지 않았고 실제 창에 입력이 도착하는 흐름은 검증하지 않았다. 보조 디스플레이 좌표와 리사이즈, 입력을 누른 채 탭 전환하는 시나리오, 신뢰된 서명 하 TCC 승인 흐름의 런타임 검증이 남는다. 구현은 입력 이벤트와 전환을 직렬화하고 눌린 버튼·키를 해제하지만 이를 실제 앱 창에서 확인한 증거는 없다. 근거와 구현 현황은 [`floa-mirror-interaction-gap-2026-11-26.json`](floa-mirror-interaction-gap-2026-11-26.json)에 기록했다.
+
+### EPUB 하이라이트 즉시 표시·삭제 — 2026-11-27
+
+- 패키지 renderer 확인 중 EPUB 하이라이트는 문서를 다시 열 때만 복구되고, 현재 화면에서는 저장 직후 표시되지 않는 경로를 발견했다. 저장 bridge가 반환한 기록을 epub.js rendition에 즉시 추가하고 선택 영역을 지우도록 수정했다. 삭제 시에도 현재 rendition의 CFI annotation을 제거한다.
+- 문서 전환 후 검색 입력값과 이전 문서의 결과가 엇갈리지 않도록 현재 query를 열린 문서에서 다시 실행한다. PDF에 없던 구문이 EPUB으로 전환된 후 `1 found`가 되는 것을 같은 흐름에서 확인했다.
+- 현재 `app.asar`에서 생성된 EPUB fixture로 선택 → CFI 생성 → 저장 → 현재 페이지에 highlight mark 추가 → 선택 해제 → 다른 문서로 이동 후 EPUB 재개방 시 mark 복원 → sidebar 삭제 → rendition annotation 제거를 headless로 확인했다. screenshot은 [`floa-reader-epub-highlight-headless-2026-11-27.png`](floa-reader-epub-highlight-headless-2026-11-27.png), 결과와 한계는 [`floa-reader-epub-highlight-scenario-2026-11-27.json`](floa-reader-epub-highlight-scenario-2026-11-27.json)에 기록했다.
+- IPC 저장은 모의 처리했다. 디스크 저장/재시작 복원은 이번 시나리오에서 검증하지 않았고, Electron 창을 띄우거나 사용자 포커스를 가져오지 않았다.
+
+### 전역 단축키 시작 등록 일관성 — 2026-11-27
+
+- 코드 추적에서 저장 시에는 전역 단축키를 한 번에 등록하지만 앱 시작 시에는 오래된 개별 등록 경로를 사용하고 있음을 확인했다. 이 경로는 `CommandOrControl+Shift+Space` 보조 호출 키를 사용자 지정 단축키가 이미 사용 중이어도 먼저 등록할 수 있었다.
+- 시작 시에도 저장 시와 같은 전체 등록 경로를 사용하도록 바꿨다. 등록 실패 시 일부 단축키만 남기지 않고 전체 등록을 해제하며 마스터 스위치를 꺼서 사용자 설정 조합은 Floa 포커스 상태에서 계속 사용할 수 있게 했다. 사용하지 않는 개별 등록 경로도 제거했다.
+- 실제 `main.cjs`에서 추출한 등록 함수들을 Electron mock과 함께 VM에서 실행해 보조 키를 사용자 액션에 지정한 경우, 보조 키를 비워둔 경우, OS 등록 충돌의 세 시나리오를 확인했다. 결과는 [`floa-global-shortcuts-startup-scenario-2026-11-27.json`](floa-global-shortcuts-startup-scenario-2026-11-27.json)에 기록했다. macOS 네이티브 키 전달은 확인하지 않았다.

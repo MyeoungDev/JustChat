@@ -207,6 +207,17 @@ function renderPdfHighlights(textLayer, highlights) {
   }
 }
 
+function applyEpubHighlight(rendition, highlight) {
+  if (!rendition || !highlight?.location) return false
+  try {
+    rendition.annotations.highlight(highlight.location, {}, null, 'reader-saved-highlight', {
+      fill: highlight.color || '#fff1a6',
+      'fill-opacity': '0.55'
+    })
+    return true
+  } catch { return false }
+}
+
 document.addEventListener('selectionchange', () => {
   if (current?.type !== 'pdf') return
   const selection = getSelection()
@@ -320,7 +331,7 @@ async function renderEpub(data, doc, generation) {
   })
   await rendition.display(doc.lastLocation || undefined)
   if (generation !== documentLoadGeneration || book !== loadedBook) return
-  for (const entry of doc.highlights || []) { if (entry.location) { try { rendition.annotations.highlight(entry.location, {}, null, 'reader-saved-highlight', { fill: entry.color || '#ffe58a', 'fill-opacity': '0.55' }) } catch {} } }
+  for (const entry of doc.highlights || []) applyEpubHighlight(rendition, entry)
 }
 
 function markdownToHtml(source) {
@@ -384,6 +395,7 @@ async function openDocument(id) {
     if (generation !== documentLoadGeneration) return
     els.loading.hidden = true
     renderLibrary()
+    if (els['search-query'].value.trim()) updateTextSearch(els['search-query'].value)
   } catch (error) {
     if (generation === documentLoadGeneration) { notify(error.message || 'Could not open document.'); els.loading.hidden = true }
   } finally { if (generation === documentLoadGeneration) isRestoring = false }
@@ -505,8 +517,17 @@ async function addHighlight() {
   if (!current) return
   const selected = window.__readerSelection
   if (selected?.cfi && current.type === 'epub') {
-    await window.readerApp.addHighlight(current.id, { location: selected.cfi, text: selected.text, color: '#ffe58a' })
-    window.__readerSelection = null; notify('Highlight saved.'); return
+    const documentId = current.id
+    const rendition = book?.rendition
+    const saved = await window.readerApp.addHighlight(documentId, { location: selected.cfi, text: selected.text, color: '#ffe58a' })
+    if (current?.id !== documentId || book?.rendition !== rendition) return
+    if (!saved) { notify('This highlight is already saved.'); return }
+    const applied = applyEpubHighlight(rendition, saved)
+    for (const contents of rendition?.getContents?.() || []) contents.window?.getSelection?.()?.removeAllRanges()
+    window.__readerSelection = null
+    els.highlight.disabled = true
+    notify(applied ? 'Highlight saved.' : 'Highlight saved in the sidebar; this EPUB page could not display it.')
+    return
   }
   if (current.type === 'pdf' && pdfSelection) {
     const saved = pdfSelection
