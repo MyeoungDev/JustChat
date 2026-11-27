@@ -1,6 +1,5 @@
 (() => {
   const api = window.browserApp
-  if (new URLSearchParams(location.search).has('embedded')) return
   const page = location.pathname.split('/').pop().replace('.html', '')
   const workspaceName = [
     ['browser', 'Browser', 'Browse websites', 'browser'],
@@ -13,13 +12,20 @@
     reader: '<path d="M12 6.2c-2.2-1.6-5.2-2-8-1.1v13.3c2.8-.9 5.8-.5 8 1.1m0-13.3c2.2-1.6 5.2-2 8-1.1v13.3c-2.8-.9-5.8-.5-8 1.1m0-13.3v13.3"/>'
   }
   const host = document.querySelector('#workspace-tabs') || document.createElement('nav')
+  const standalone = !host.isConnected
   host.classList.add('workspace-tabs')
-  host.setAttribute('aria-label', 'Floa workspaces')
+  host.setAttribute('aria-label', standalone ? 'Browser and app tabs' : 'Floa workspaces')
   host.setAttribute('role', 'tablist')
-  if (!host.isConnected) {
+  let browserTabs = host
+  let workspaceTabs = host
+  if (standalone) {
     host.classList.add('floa-app-tab-strip')
-    host.setAttribute('aria-label', 'Browser and app tabs')
     document.body.classList.add(`floa-${page}-page`)
+    browserTabs = document.createElement('div')
+    browserTabs.className = 'workspace-browser-tabs'
+    workspaceTabs = document.createElement('div')
+    workspaceTabs.className = 'workspace-switcher'
+    host.append(browserTabs, workspaceTabs)
     document.body.prepend(host)
   }
   const button = (label, selected, action, title = label, icon = '') => {
@@ -58,20 +64,24 @@
       : focusedTab?.dataset.workspace
         ? { key: 'workspace', value: focusedTab.dataset.workspace }
         : null
-    host.replaceChildren()
-    if (page !== 'index') {
+    if (standalone) {
+      const browserScrollLeft = browserTabs.scrollLeft
+      browserTabs.replaceChildren()
       for (const item of state.tabs || []) {
         const label = item.title || (item.url ? (() => { try { return new URL(item.url).hostname } catch { return 'New Tab' } })() : 'New Tab')
-        const browserTab = button(label, false, () => api.activateWorkspaceBrowserTab(item.id), item.url || label)
+        const browserTab = button(label, state.workspace === 'browser' && item.id === state.activeTabId, () => api.activateWorkspaceBrowserTab(item.id), item.url || label)
+        browserTab.classList.add('workspace-browser-tab')
         browserTab.dataset.browserTabId = item.id
-        host.append(browserTab)
+        browserTabs.append(browserTab)
       }
-    }
+      browserTabs.scrollLeft = browserScrollLeft
+    } else host.replaceChildren()
+    workspaceTabs.replaceChildren()
     for (const [id, label, description, icon] of workspaceName) {
-      host.append(button(label, state.workspace === id, () => api.switchWorkspace(id), description, icon))
+      workspaceTabs.append(button(label, state.workspace === id, () => api.switchWorkspace(id), description, icon))
     }
     if (focusKey) {
-      const restored = [...host.children].find((tab) => tab.dataset[focusKey.key] === focusKey.value)
+      const restored = [...host.querySelectorAll('button')].find((tab) => tab.dataset[focusKey.key] === focusKey.value)
       restored?.focus()
     }
   }

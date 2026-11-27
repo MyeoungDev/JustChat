@@ -6,6 +6,7 @@
     <meta http-equiv="Content-Security-Policy" content="default-src 'self' data: blob:; img-src 'self' data: blob:; font-src 'self' data:; style-src 'self' 'unsafe-inline'; script-src 'self'; worker-src 'self' blob:; connect-src 'self' data: blob:" />
     <title>Floa Reader</title>
     <link rel="stylesheet" href="design-tokens.css" />
+    <link rel="stylesheet" href="workspace.css" />
     <link rel="stylesheet" href="reader.css" />
     </head>
   <body>
@@ -39,6 +40,7 @@
       </div>
       <div id="message" class="message" role="status" aria-live="polite"></div>
     </main>
+    <script src="workspace.js"></script>
     <script src="./node_modules/jszip/dist/jszip.min.js"></script>
     <script src="./node_modules/epubjs/dist/epub.min.js"></script>
     <script type="module" src="reader.js"></script>

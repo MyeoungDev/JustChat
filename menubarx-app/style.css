@@ -95,16 +95,6 @@ h1 { margin: 0 0 23px; text-align: center; font-size: var(--font-title); line-he
 @media (prefers-reduced-motion: reduce) { *, *::before, *::after { scroll-behavior: auto !important; transition-duration: .01ms !important; animation-duration: .01ms !important; } }
 .clean-mode .toolbar,
 .clean-mode .tab-strip { display: none !important; }
-.workspace-tabs { grid-column: 3; grid-row: 1; width: auto; min-width: 0; display: grid; grid-template-columns: repeat(4, 30px); align-items: center; gap: 1px; padding: 0 7px 0 5px; border-left: 1px solid var(--color-border-subtle); }
-.workspace-tabs::-webkit-scrollbar { display: none; }
-.workspace-tab { position: relative; width: 28px; height: 28px; min-width: 28px; display: inline-flex; align-items: center; justify-content: center; gap: 0; overflow: visible; padding: 0; border: 1px solid transparent; border-radius: var(--radius-control); background: transparent; color: var(--color-fg-secondary); cursor: pointer; transition: background-color 120ms ease, color 120ms ease, border-color 120ms ease; }
-.workspace-tab:hover { background: var(--color-bg-hover); color: var(--color-fg-primary); }
-.workspace-tab.active { border-color: var(--color-border-subtle); background: var(--color-bg-layer-1); color: var(--color-fg-primary); box-shadow: var(--shadow-card); }
-.workspace-tab[aria-selected="true"] .workspace-tab-icon { color: var(--color-accent); }
-.workspace-tab-icon { width: 16px; height: 16px; flex: 0 0 16px; color: var(--color-fg-tertiary); }
-.workspace-tab-icon svg { display: block; width: 16px; height: 16px; fill: none; stroke: currentColor; stroke-width: 1.7; stroke-linecap: round; stroke-linejoin: round; }
-.workspace-tab-label { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; clip-path: inset(50%); }
-.floa-app-tab-strip { width: 132px; min-height: 38px; flex: 0 0 38px; display: grid; grid-template-columns: repeat(4, 30px); align-items: center; gap: 1px; align-self: flex-end; padding: 4px 0; border-bottom: 1px solid var(--color-border-subtle); background: var(--color-bg-tab-strip); }
 @media (max-width: 720px) {
   .toolbar { padding-inline: 6px; }
   .toolbar-primary { grid-template-columns: auto minmax(48px, 1fr) auto; gap: 3px; }
@@ -112,5 +102,4 @@ h1 { margin: 0 0 23px; text-align: center; font-size: var(--font-title); line-he
   .toolbar button { width: 27px; min-width: 27px; height: 28px; }
   .toolbar button svg { width: 15px; height: 15px; }
   .tab { min-width: 76px; }
-  .workspace-tabs { grid-template-columns: repeat(4, 27px); gap: 0; padding-inline: 4px; }
 }
