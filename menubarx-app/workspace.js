@@ -23,9 +23,16 @@
     document.body.classList.add(`floa-${page}-page`)
     browserTabs = document.createElement('div')
     browserTabs.className = 'workspace-browser-tabs'
+    const newTabButton = document.createElement('button')
+    newTabButton.type = 'button'
+    newTabButton.className = 'workspace-new-tab'
+    newTabButton.textContent = '+'
+    newTabButton.title = 'New browser tab'
+    newTabButton.setAttribute('aria-label', 'New browser tab')
+    newTabButton.addEventListener('click', () => { void api.newTab() })
     workspaceTabs = document.createElement('div')
     workspaceTabs.className = 'workspace-switcher'
-    host.append(browserTabs, workspaceTabs)
+    host.append(browserTabs, newTabButton, workspaceTabs)
     document.body.prepend(host)
   }
   const button = (label, selected, action, title = label, icon = '') => {

@@ -1889,7 +1889,7 @@ ipcMain.handle('workspace:activate-browser-tab', (event, id) => {
 ipcMain.handle('app:state', (event) => requirePanel(event) ? ({ revision: stateRevision, tabs: tabs.map((tab) => ({ ...tab })), bookmarks: bookmarkItems, searchEngine, settings: publicSettings(), activeTabId, workspace: workspaceMode, pinned, cleanMode, clickThrough, opacity: settings.opacity, expanded: settings.presentation === 'panel' ? Boolean(expandedPanelRestoreBounds) : Boolean(window.isMaximized()), screenFilled: isScreenFilled(), muted: Boolean(activeView?.webContents.isAudioMuted()), canGoBack: Boolean(activeView?.webContents.navigationHistory.canGoBack()), canGoForward: Boolean(activeView?.webContents.navigationHistory.canGoForward()) }) : null)
 ipcMain.handle('tab:navigate', (event, value) => requirePanel(event) ? navigate(value) : null)
 ipcMain.handle('tab:new', (event, value = '') => {
-  if (!requirePanel(event)) return null
+  if (!requireWorkspacePage(event)) return null
   return createNewTab(value || settings.homepage)
 })
 ipcMain.handle('tab:activate', (event, id) => { if (requirePanel(event)) activateTab(id) })
