@@ -55,7 +55,7 @@ const SHORTCUT_DEFINITIONS = [
   { id: 'previousTabGlobal', label: 'Select previous Floa tab from any app', default: 'Alt+Shift+Command+Tab', global: true },
   { id: 'quitApp', label: 'Quit Floa', default: 'Alt+Command+X', global: true },
   { id: 'focusAddressGlobal', label: 'Focus address bar from any app', description: 'Global shortcut; works while another app is focused.', default: 'CommandOrControl+/', global: true },
-  { id: 'shortcutsSettings', label: 'Open Settings shortcuts', default: 'CommandOrControl+Shift+/' },
+  { id: 'shortcutsSettings', label: 'Open Settings shortcuts', default: 'CommandOrControl+Shift+/', workspaceShared: true },
   { id: 'noteNew', label: 'New note', default: 'CommandOrControl+N', noteOnly: true },
   { id: 'noteNewAlternate', label: 'New note', default: 'CommandOrControl+T', noteOnly: true },
   { id: 'noteDuplicate', label: 'Duplicate note', default: 'CommandOrControl+D', noteOnly: true },
@@ -76,9 +76,9 @@ const SHORTCUT_DEFINITIONS = [
   { id: 'findInPage', label: 'Find in page', default: 'CommandOrControl+F' },
   { id: 'newTab', label: 'New tab', default: 'CommandOrControl+T' },
   { id: 'closeTab', label: 'Close tab', default: 'CommandOrControl+W' },
-  { id: 'hideWindow', label: 'Hide browser window', default: 'CommandOrControl+Shift+W' },
-  { id: 'toggleSize', label: 'Expand or restore window', default: 'CommandOrControl+Shift+E' },
-  { id: 'toggleFullscreen', label: 'Fill or restore current screen', default: 'CommandOrControl+Shift+F' },
+  { id: 'hideWindow', label: 'Hide browser window', default: 'CommandOrControl+Shift+W', workspaceShared: true },
+  { id: 'toggleSize', label: 'Expand or restore window', default: 'CommandOrControl+Shift+E', workspaceShared: true },
+  { id: 'toggleFullscreen', label: 'Fill or restore current screen', default: 'CommandOrControl+Shift+F', workspaceShared: true },
   { id: 'focusAddress', label: 'Focus address bar', default: 'CommandOrControl+L' },
   { id: 'startPage', label: 'Open start page', default: 'CommandOrControl+Shift+H' },
   { id: 'reload', label: 'Reload page', default: 'CommandOrControl+R' },
@@ -91,11 +91,11 @@ const SHORTCUT_DEFINITIONS = [
   { id: 'zoomIn', label: 'Zoom in', default: 'CommandOrControl+Plus' },
   { id: 'zoomOut', label: 'Zoom out', default: 'CommandOrControl+-' },
   { id: 'zoomReset', label: 'Reset zoom', default: 'CommandOrControl+0' },
-  { id: 'togglePin', label: 'Pin or unpin window', default: 'CommandOrControl+Shift+P' },
+  { id: 'togglePin', label: 'Pin or unpin window', default: 'CommandOrControl+Shift+P', workspaceShared: true },
   { id: 'openExternal', label: 'Open page in default browser', default: 'CommandOrControl+Shift+O' },
-  { id: 'settings', label: 'Open settings', default: 'CommandOrControl+Comma' },
-  { id: 'downloads', label: 'Open downloads', default: 'CommandOrControl+Shift+J' },
-  { id: 'history', label: 'Open browsing history', default: 'CommandOrControl+Y' }
+  { id: 'settings', label: 'Open settings', default: 'CommandOrControl+Comma', workspaceShared: true },
+  { id: 'downloads', label: 'Open downloads', default: 'CommandOrControl+Shift+J', workspaceShared: true },
+  { id: 'history', label: 'Open browsing history', default: 'CommandOrControl+Y', workspaceShared: true }
 ]
 const DEFAULT_SHORTCUTS = Object.fromEntries(SHORTCUT_DEFINITIONS.map(({ id, default: accelerator }) => [id, accelerator]))
 const SITE_PERMISSIONS = new Set(['notifications', 'geolocation', 'camera', 'microphone'])
@@ -377,7 +377,7 @@ function installKeyboardShortcuts(contents) {
     const utilityWorkspace = isNotesWindow || isReaderWindow
     const definition = SHORTCUT_DEFINITIONS.find((item) => {
       const matchesWorkspace = (Boolean(item.noteOnly) === isNotesWindow && Boolean(item.readerOnly) === isReaderWindow)
-        || (Boolean(item.workspaceShared) && utilityWorkspace)
+        || (Boolean(item.workspaceShared || item.global) && utilityWorkspace)
       return matchesWorkspace && shortcutMatches(input, settings.shortcuts[item.id])
     })
     if (!definition) return
