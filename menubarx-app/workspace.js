@@ -21,8 +21,11 @@
   if (standalone) {
     host.classList.add('floa-app-tab-strip')
     document.body.classList.add(`floa-${page}-page`)
+    host.setAttribute('role', 'group')
     browserTabs = document.createElement('div')
     browserTabs.className = 'workspace-browser-tabs'
+    browserTabs.setAttribute('role', 'tablist')
+    browserTabs.setAttribute('aria-label', 'Browser tabs')
     const newTabButton = document.createElement('button')
     newTabButton.type = 'button'
     newTabButton.className = 'workspace-new-tab'
@@ -32,6 +35,8 @@
     newTabButton.addEventListener('click', () => { void api.newTab() })
     workspaceTabs = document.createElement('div')
     workspaceTabs.className = 'workspace-switcher'
+    workspaceTabs.setAttribute('role', 'tablist')
+    workspaceTabs.setAttribute('aria-label', 'Floa workspaces')
     host.append(browserTabs, newTabButton, workspaceTabs)
     document.body.prepend(host)
   }
@@ -77,15 +82,15 @@
       for (const [index, item] of (state.tabs || []).entries()) {
         const label = item.title || (item.url ? (() => { try { return new URL(item.url).hostname } catch { return 'New Tab' } })() : 'New Tab')
         const browserTab = document.createElement('div')
-        browserTab.className = `workspace-browser-tab${state.workspace === 'browser' && item.id === state.activeTabId ? ' active' : ''}`
+        browserTab.className = `workspace-browser-tab${item.id === state.activeTabId ? ' active' : ''}`
         const selectTab = document.createElement('button')
         selectTab.type = 'button'
         selectTab.className = 'workspace-browser-select'
         selectTab.setAttribute('role', 'tab')
-        selectTab.setAttribute('aria-selected', String(state.workspace === 'browser' && item.id === state.activeTabId))
+        selectTab.setAttribute('aria-selected', String(item.id === state.activeTabId))
         selectTab.setAttribute('aria-label', `Switch to ${label}`)
         selectTab.setAttribute('aria-keyshortcuts', 'ArrowLeft ArrowRight Home End')
-        selectTab.tabIndex = state.workspace === 'browser' && item.id === state.activeTabId ? 0 : -1
+        selectTab.tabIndex = item.id === state.activeTabId ? 0 : -1
         selectTab.dataset.browserTabId = item.id
         selectTab.title = item.url || label
         const title = document.createElement('span')
@@ -123,7 +128,9 @@
   }
   host.addEventListener('keydown', (event) => {
     if (!['ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(event.key)) return
-    const tabs = [...host.querySelectorAll('[role="tab"]')]
+    const tablist = event.target.closest('[role="tablist"]')
+    if (!tablist || !host.contains(tablist)) return
+    const tabs = [...tablist.querySelectorAll('[role="tab"]')]
     const current = tabs.indexOf(document.activeElement)
     if (current < 0 || tabs.length < 2) return
     const next = event.key === 'Home' ? 0 : event.key === 'End' ? tabs.length - 1
