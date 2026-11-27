@@ -83,8 +83,8 @@ const SHORTCUT_DEFINITIONS = [
   { id: 'startPage', label: 'Open start page', default: 'CommandOrControl+Shift+H' },
   { id: 'reload', label: 'Reload page', default: 'CommandOrControl+R' },
   { id: 'forceReload', label: 'Force reload without cache', default: 'CommandOrControl+Shift+R' },
-  { id: 'nextTab', label: 'Select next browser or utility tab', default: 'Control+Tab' },
-  { id: 'previousTab', label: 'Select previous browser or utility tab', default: 'Control+Shift+Tab' },
+  { id: 'nextTab', label: 'Select next browser or utility tab', default: 'Control+Tab', workspaceShared: true },
+  { id: 'previousTab', label: 'Select previous browser or utility tab', default: 'Control+Shift+Tab', workspaceShared: true },
   ...Array.from({ length: 9 }, (_, index) => ({ id: `selectTab${index + 1}`, label: `Select tab ${index + 1}`, default: `CommandOrControl+${index + 1}` })),
   { id: 'back', label: 'Go back', default: 'CommandOrControl+[' },
   { id: 'forward', label: 'Go forward', default: 'CommandOrControl+]' },
@@ -374,7 +374,12 @@ function installKeyboardShortcuts(contents) {
         event.preventDefault(); window?.hide(); return
       }
     }
-    const definition = SHORTCUT_DEFINITIONS.find((item) => Boolean(item.noteOnly) === isNotesWindow && Boolean(item.readerOnly) === isReaderWindow && shortcutMatches(input, settings.shortcuts[item.id]))
+    const utilityWorkspace = isNotesWindow || isReaderWindow
+    const definition = SHORTCUT_DEFINITIONS.find((item) => {
+      const matchesWorkspace = (Boolean(item.noteOnly) === isNotesWindow && Boolean(item.readerOnly) === isReaderWindow)
+        || (Boolean(item.workspaceShared) && utilityWorkspace)
+      return matchesWorkspace && shortcutMatches(input, settings.shortcuts[item.id])
+    })
     if (!definition) return
     if (mainPage === 'settings' && !isNotesWindow && !isReaderWindow && !['togglePanel', 'hideWindow', 'settings', 'shortcutsSettings'].includes(definition.id)) return
     event.preventDefault()
