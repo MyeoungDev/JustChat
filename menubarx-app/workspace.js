@@ -74,7 +74,7 @@
     if (standalone) {
       const browserScrollLeft = browserTabs.scrollLeft
       browserTabs.replaceChildren()
-      for (const item of state.tabs || []) {
+      for (const [index, item] of (state.tabs || []).entries()) {
         const label = item.title || (item.url ? (() => { try { return new URL(item.url).hostname } catch { return 'New Tab' } })() : 'New Tab')
         const browserTab = document.createElement('div')
         browserTab.className = `workspace-browser-tab${state.workspace === 'browser' && item.id === state.activeTabId ? ' active' : ''}`
@@ -101,6 +101,10 @@
           closeTab.textContent = '×'
           closeTab.title = `Close ${label}`
           closeTab.setAttribute('aria-label', `Close ${label}`)
+          const focusId = item.id === state.activeTabId
+            ? state.tabs[index === 0 ? 1 : index - 1]?.id
+            : state.activeTabId
+          if (focusId && focusId !== item.id) closeTab.dataset.browserTabId = focusId
           closeTab.addEventListener('click', () => { void api.closeTab(item.id) })
           browserTab.append(closeTab)
         }
