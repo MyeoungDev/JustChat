@@ -1581,7 +1581,8 @@ function closeTab(id) {
   disposeView(closingView); views.delete(id); tabs.splice(index, 1)
   clearInterval(refreshTimers.get(id)); refreshTimers.delete(id)
   clearTimeout(idleDiscardTimers.get(id)); idleDiscardTimers.delete(id)
-  if (closingActive) activateTab(tabs[Math.max(0, index - 1)].id)
+  if (closingActive && workspaceMode === 'browser') activateTab(tabs[Math.max(0, index - 1)].id)
+  else if (closingActive) { activeTabId = tabs[Math.max(0, index - 1)].id; saveSoon(); sendState() }
   else { saveSoon(); sendState() }
 }
 
@@ -1893,7 +1894,7 @@ ipcMain.handle('tab:new', (event, value = '') => {
   return createNewTab(value || settings.homepage)
 })
 ipcMain.handle('tab:activate', (event, id) => { if (requirePanel(event)) activateTab(id) })
-ipcMain.handle('tab:close', (event, id) => { if (requirePanel(event)) closeTab(id) })
+ipcMain.handle('tab:close', (event, id) => { if (requireWorkspacePage(event)) closeTab(id) })
 ipcMain.handle('tab:home', (event) => { if (requirePanel(event)) goHome() })
 ipcMain.handle('tab:toggle-mute', (event) => { if (requirePanel(event)) toggleMute() })
 ipcMain.handle('tab:find', (event, query, direction = 'new') => {

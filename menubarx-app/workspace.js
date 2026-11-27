@@ -76,9 +76,34 @@
       browserTabs.replaceChildren()
       for (const item of state.tabs || []) {
         const label = item.title || (item.url ? (() => { try { return new URL(item.url).hostname } catch { return 'New Tab' } })() : 'New Tab')
-        const browserTab = button(label, state.workspace === 'browser' && item.id === state.activeTabId, () => api.activateWorkspaceBrowserTab(item.id), item.url || label)
-        browserTab.classList.add('workspace-browser-tab')
-        browserTab.dataset.browserTabId = item.id
+        const browserTab = document.createElement('div')
+        browserTab.className = `workspace-browser-tab${state.workspace === 'browser' && item.id === state.activeTabId ? ' active' : ''}`
+        const selectTab = document.createElement('button')
+        selectTab.type = 'button'
+        selectTab.className = 'workspace-browser-select'
+        selectTab.setAttribute('role', 'tab')
+        selectTab.setAttribute('aria-selected', String(state.workspace === 'browser' && item.id === state.activeTabId))
+        selectTab.setAttribute('aria-label', `Switch to ${label}`)
+        selectTab.setAttribute('aria-keyshortcuts', 'ArrowLeft ArrowRight Home End')
+        selectTab.tabIndex = state.workspace === 'browser' && item.id === state.activeTabId ? 0 : -1
+        selectTab.dataset.browserTabId = item.id
+        selectTab.title = item.url || label
+        const title = document.createElement('span')
+        title.className = 'workspace-browser-title'
+        title.textContent = label
+        selectTab.append(title)
+        selectTab.addEventListener('click', () => api.activateWorkspaceBrowserTab(item.id))
+        browserTab.append(selectTab)
+        if ((state.tabs || []).length > 1) {
+          const closeTab = document.createElement('button')
+          closeTab.type = 'button'
+          closeTab.className = 'workspace-browser-close'
+          closeTab.textContent = '×'
+          closeTab.title = `Close ${label}`
+          closeTab.setAttribute('aria-label', `Close ${label}`)
+          closeTab.addEventListener('click', () => { void api.closeTab(item.id) })
+          browserTab.append(closeTab)
+        }
         browserTabs.append(browserTab)
       }
       browserTabs.scrollLeft = browserScrollLeft

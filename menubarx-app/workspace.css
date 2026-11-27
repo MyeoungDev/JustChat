@@ -9,8 +9,13 @@
 .workspace-browser-tabs { min-width: 0; min-height: 0; flex: 1 1 auto; display: flex; align-items: center; gap: 2px; overflow-x: auto; overflow-y: hidden; scrollbar-width: none; }
 .workspace-browser-tabs::-webkit-scrollbar { display: none; }
 .workspace-switcher { flex: 0 0 auto; display: flex; align-items: center; gap: 1px; padding-left: 5px; border-left: 1px solid var(--color-border-subtle); }
-.workspace-browser-tab { width: auto; min-width: 76px; max-width: 170px; flex: 0 1 130px; justify-content: flex-start; overflow: hidden; padding: 0 8px; }
-.workspace-browser-tab .workspace-tab-label { position: static; width: auto; height: auto; overflow: hidden; clip: auto; clip-path: none; white-space: nowrap; text-overflow: ellipsis; }
+.workspace-browser-tab { min-width: 76px; max-width: 170px; flex: 0 1 130px; display: flex; align-items: center; overflow: hidden; border: 1px solid transparent; border-radius: var(--radius-control); }
+.workspace-browser-tab.active { border-color: var(--color-border-subtle); background: var(--color-bg-layer-1); box-shadow: var(--shadow-card); }
+.workspace-browser-select { min-width: 0; height: 28px; flex: 1 1 auto; overflow: hidden; padding: 0 7px; border: 0; background: transparent; color: var(--color-fg-secondary); text-align: left; white-space: nowrap; text-overflow: ellipsis; }
+.workspace-browser-tab.active .workspace-browser-select, .workspace-browser-select:hover { color: var(--color-fg-primary); }
+.workspace-browser-title { display: block; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+.workspace-browser-close { width: 19px; height: 22px; flex: 0 0 19px; padding: 0; border: 0; border-radius: var(--radius-small); background: transparent; color: var(--color-fg-tertiary); line-height: 1; }
+.workspace-browser-close:hover { background: var(--color-bg-hover); color: var(--color-fg-primary); }
 .workspace-new-tab { width: 28px; height: 28px; flex: 0 0 28px; margin: 0 4px; border: 1px solid transparent; border-radius: var(--radius-control); background: transparent; color: var(--color-fg-secondary); font-size: 18px; line-height: 1; }
 .workspace-new-tab:hover { border-color: var(--color-border-subtle); background: var(--color-bg-hover); color: var(--color-fg-primary); }
 .floa-app-tab-strip { grid-column: 1 / -1; grid-row: 1; width: 100%; min-width: 0; height: 38px; min-height: 38px; display: flex; align-items: center; overflow: hidden; padding: 0 7px; border-left: 0; border-bottom: 1px solid var(--color-border-subtle); background: var(--color-bg-tab-strip); }
@@ -19,7 +24,8 @@ body.floa-notes-page > .sidebar, body.floa-notes-page > .workspace,
 body.floa-reader-page > .sidebar, body.floa-reader-page > .reader { grid-row: 2; }
 @media (max-width: 720px) {
   .floa-app-tab-strip { padding-inline: 4px; }
-  .workspace-browser-tab { min-width: 56px; flex-basis: 92px; padding-inline: 6px; }
+  .workspace-browser-tab { min-width: 56px; flex-basis: 92px; }
+  .workspace-browser-select { padding-inline: 5px; }
   .workspace-switcher { padding-left: 3px; }
   .workspace-tabs { grid-template-columns: repeat(4, 27px); gap: 0; padding-inline: 4px; }
 }
