@@ -65,6 +65,7 @@
     return tab
   }
   let lastRevision = -1
+  let lastActiveTabId = ''
   const render = (state) => {
     if (!state) return
     const revision = Number.isFinite(state.revision) ? state.revision : 0
@@ -116,7 +117,11 @@
         browserTabs.append(browserTab)
       }
       browserTabs.scrollLeft = browserScrollLeft
+      if (state.activeTabId !== lastActiveTabId) {
+        browserTabs.querySelector('[aria-selected="true"]')?.scrollIntoView({ block: 'nearest', inline: 'nearest' })
+      }
     } else host.replaceChildren()
+    lastActiveTabId = state.activeTabId || ''
     workspaceTabs.replaceChildren()
     for (const [id, label, description, icon] of workspaceName) {
       workspaceTabs.append(button(label, state.workspace === id, () => api.switchWorkspace(id), description, icon))
