@@ -1511,7 +1511,9 @@ function saveSettings(input = {}) {
     const accelerator = shortcuts[definition.id]
     if (!accelerator) continue
     const scope = definition.noteOnly ? 'notes' : definition.readerOnly ? 'reader' : 'browser'
-    const previous = [...assigned.values()].find((entry) => entry.accelerator === accelerator && (entry.scope === scope || entry.global || definition.global))
+    const previous = [...assigned.values()].find((entry) => entry.accelerator === accelerator && (
+      entry.scope === scope || entry.global || definition.global || entry.workspaceShared || definition.workspaceShared
+    ))
     if (previous) return { error: `“${definition.label}” conflicts with “${previous.label}”.` }
     assigned.set(`${scope}:${accelerator}`, { ...definition, scope, accelerator })
   }
